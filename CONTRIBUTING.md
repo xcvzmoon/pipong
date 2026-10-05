@@ -43,6 +43,10 @@ pnpm run lint         # lint code
 
 The `prepare` script installs an uncheck pre-commit hook. It checks staged files and applies supported fixes before a commit.
 
+The vendored anti-slop plugin lives in `tools/oxlint/anti-slop/`; its source revision and local changes are recorded in [UPSTREAM.md](./tools/oxlint/anti-slop/UPSTREAM.md). All generic rules are enabled as errors in `oxlint.config.ts`. Keep the `oxlint` and `@oxlint/plugins` catalog versions pinned together when upgrading.
+
+Agent tooling and the vendored plugin are excluded from linting and formatting. Maintain those ignores in both `oxlint.config.ts` and `oxfmt.config.ts`; application source remains checked.
+
 ## Verification
 
 ```bash

@@ -1,10 +1,10 @@
 catalog:
-  '@oxlint/plugins': ^1.86.0
+  '@oxlint/plugins': 1.86.0
   '@types/node': ^26.6.4
   genbumppush: ^0.0.8
   nitro: ^3.0.260903-beta
   oxfmt: ^0.71.0
-  oxlint: ^1.86.0
+  oxlint: 1.86.0
   oxlint-tsgolint: ^7.0.2003
   typescript: ^7.0.2
   uncheck: ^0.1.1

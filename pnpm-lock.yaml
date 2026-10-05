@@ -165,7 +165,7 @@ settings:
 catalogs:
   default:
     '@oxlint/plugins':
-      specifier: ^1.86.0
+      specifier: 1.86.0
       version: 1.86.0
     '@types/node':
       specifier: ^26.6.4
@@ -180,7 +180,7 @@ catalogs:
       specifier: ^0.71.0
       version: 0.71.0
     oxlint:
-      specifier: ^1.86.0
+      specifier: 1.86.0
       version: 1.86.0
     oxlint-tsgolint:
       specifier: ^7.0.2003
