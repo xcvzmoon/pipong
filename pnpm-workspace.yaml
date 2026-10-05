@@ -1,0 +1,4 @@
+catalog:
+  "@types/node": "^26.6.4"
+  "nitro": "^3.0.260903-beta"
+  "typescript": "^6.0.3"
