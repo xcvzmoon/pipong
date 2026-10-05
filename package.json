@@ -8,12 +8,16 @@
     "build": "nitro build",
     "dev": "nitro dev",
     "preview": "nitro preview",
+    "fmt": "oxfmt",
+    "lint": "oxlint",
     "check": "uncheck",
-    "prepare": "uncheck prepare --pre-commit"
+    "prepare": "uncheck prepare --pre-commit",
+    "release": "genbumppush --yes"
   },
   "devDependencies": {
     "@oxlint/plugins": "catalog:",
     "@types/node": "catalog:",
+    "genbumppush": "catalog:",
     "nitro": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
