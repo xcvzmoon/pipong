@@ -163,19 +163,13 @@ settings:
   excludeLinksFromLockfile: false
 
 catalogs:
-  default:
+  root:
     '@oxlint/plugins':
       specifier: 1.86.0
       version: 1.86.0
-    '@types/node':
-      specifier: ^26.6.4
-      version: 26.6.4
     genbumppush:
       specifier: ^0.0.8
       version: 0.0.8
-    nitro:
-      specifier: ^3.0.260903-beta
-      version: 3.0.260903-beta
     oxfmt:
       specifier: ^0.71.0
       version: 0.71.0
@@ -185,12 +179,20 @@ catalogs:
     oxlint-tsgolint:
       specifier: ^7.0.2003
       version: 7.0.2003
-    typescript:
-      specifier: ^7.0.2
-      version: 7.0.2
     uncheck:
       specifier: ^0.1.1
       version: 0.1.1
+  server:
+    nitro:
+      specifier: ^3.0.260903-beta
+      version: 3.0.260903-beta
+  shared:
+    '@types/node':
+      specifier: ^26.6.4
+      version: 26.6.4
+    typescript:
+      specifier: ^7.0.2
+      version: 7.0.2
     vitest:
       specifier: ^5.0.3
       version: 5.0.3
@@ -200,37 +202,46 @@ importers:
   .:
     devDependencies:
       '@oxlint/plugins':
-        specifier: 'catalog:'
+        specifier: catalog:root
         version: 1.86.0
       '@types/node':
-        specifier: 'catalog:'
+        specifier: catalog:shared
         version: 26.6.4
       genbumppush:
-        specifier: 'catalog:'
+        specifier: catalog:root
         version: 0.0.8(chokidar@5.0.0)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)
-      nitro:
-        specifier: 'catalog:'
-        version: 3.0.260903-beta
       node:
         specifier: runtime:^24.0.0
         version: runtime:24.21.0
       oxfmt:
-        specifier: 'catalog:'
+        specifier: catalog:root
         version: 0.71.0
       oxlint:
-        specifier: 'catalog:'
+        specifier: catalog:root
         version: 1.86.0(oxlint-tsgolint@7.0.2003)
       oxlint-tsgolint:
-        specifier: 'catalog:'
+        specifier: catalog:root
         version: 7.0.2003
       typescript:
-        specifier: 'catalog:'
+        specifier: catalog:shared
         version: 7.0.2
       uncheck:
-        specifier: 'catalog:'
+        specifier: catalog:root
         version: 0.1.1(oxfmt@0.71.0)(oxlint@1.86.0(oxlint-tsgolint@7.0.2003))(typescript@7.0.2)
+
+  apps/server:
+    devDependencies:
+      '@types/node':
+        specifier: catalog:shared
+        version: 26.6.4
+      nitro:
+        specifier: catalog:server
+        version: 3.0.260903-beta
+      typescript:
+        specifier: catalog:shared
+        version: 7.0.2
       vitest:
-        specifier: 'catalog:'
+        specifier: catalog:shared
         version: 5.0.3(@types/node@26.6.4)(vite@8.3.2(@types/node@26.6.4)(jiti@2.7.0))
 
 packages:

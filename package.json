@@ -5,29 +5,28 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "nitro build",
-    "dev": "nitro dev",
-    "preview": "nitro preview",
+    "build": "pnpm --recursive --if-present run build",
+    "typecheck": "pnpm --recursive --if-present run typecheck",
+    "dev": "pnpm --recursive --parallel --if-present run dev",
     "fmt": "oxfmt",
     "lint": "oxlint",
     "check": "uncheck",
     "prepare": "uncheck prepare --pre-commit",
-    "test": "vitest --run",
-    "test:watch": "vitest --watch",
-    "test:verbose": "vitest --run --reporter=verbose",
-    "release": "genbumppush --yes"
+    "test": "pnpm --recursive --if-present run test",
+    "test:watch": "pnpm --recursive --parallel --if-present run test:watch",
+    "test:verbose": "pnpm --recursive --if-present run test:verbose",
+    "release": "genbumppush --yes",
+    "server": "pnpm --filter pipong-server --fail-if-no-match run"
   },
   "devDependencies": {
-    "@oxlint/plugins": "catalog:",
-    "@types/node": "catalog:",
-    "genbumppush": "catalog:",
-    "nitro": "catalog:",
-    "oxfmt": "catalog:",
-    "oxlint": "catalog:",
-    "oxlint-tsgolint": "catalog:",
-    "typescript": "catalog:",
-    "uncheck": "catalog:",
-    "vitest": "catalog:"
+    "@oxlint/plugins": "catalog:root",
+    "@types/node": "catalog:shared",
+    "genbumppush": "catalog:root",
+    "oxfmt": "catalog:root",
+    "oxlint": "catalog:root",
+    "oxlint-tsgolint": "catalog:root",
+    "typescript": "catalog:shared",
+    "uncheck": "catalog:root"
   },
   "engines": {
     "node": ">=24"
