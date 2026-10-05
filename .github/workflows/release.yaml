@@ -39,7 +39,7 @@ jobs:
       - name: Check and build
         run: |
           pnpm run check
-          pnpm run build
+          pnpm build
 
       - name: Create or sync release
         env:

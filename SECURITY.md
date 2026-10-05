@@ -12,7 +12,7 @@ Security fixes target the latest code on `main`. There is no long-term support b
 
 A useful report includes:
 
-- The affected component, such as an API handler in `server/api/`, server configuration, dependencies, or build/CI tooling
+- The affected component, such as an API handler in `apps/server/src/`, server configuration, dependencies, or build/CI tooling
 - The affected version or commit
 - Steps to reproduce, or a proof of concept
 - The impact and any conditions required to trigger it

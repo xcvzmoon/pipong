@@ -24,9 +24,9 @@ body:
       label: Affected Area
       description: Which part of the project is affected?
       options:
-        - API (server/api)
+        - API (apps/server/src)
         - Server configuration / routing
-        - Static assets (public)
+        - Static assets (apps/server/public)
         - Build / CI / Tooling
         - Documentation
         - Other / not sure
@@ -93,7 +93,7 @@ body:
       label: Steps to Reproduce
       description: Minimal steps to reliably reproduce the behavior.
       placeholder: |
-        1. Start the service with 'pnpm run dev'
+        1. Start the service with 'pnpm server dev'
         2. Send a request to '...'
         3. See error
     validations:

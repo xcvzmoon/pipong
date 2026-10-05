@@ -34,6 +34,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: pnpm test
 
-      - name: Build API service
+      - name: Build workspace packages
         if: ${{ !cancelled() }}
         run: pnpm build

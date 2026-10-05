@@ -22,9 +22,9 @@ body:
       label: Affected Area
       description: Which part of the project would this feature touch?
       options:
-        - API (server/api)
+        - API (apps/server/src)
         - Server configuration / routing
-        - Static assets (public)
+        - Static assets (apps/server/public)
         - Build / CI / Tooling
         - Documentation
         - Other / not sure

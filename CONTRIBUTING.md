@@ -20,16 +20,18 @@ pnpm install
 pnpm dev
 ```
 
-See the [README](./README.md) for build and preview commands. API handlers live in `server/api/`; static assets live in `public/`. Dependencies are managed through the catalog in `pnpm-workspace.yaml`, with resolved versions in `pnpm-lock.yaml`. Commit lockfile changes when changing dependencies.
+See the [README](./README.md) for build and preview commands. Nitro routes live in `apps/server/src/routes/`, API-prefixed handlers belong in `apps/server/src/api/`, and static assets live in `apps/server/public/`. Run server package scripts from root with `pnpm server <script> [args...]`. Dependencies are managed through the named catalogs in `pnpm-workspace.yaml`, with resolved versions in `pnpm-lock.yaml`. Commit lockfile changes when changing dependencies.
+
+Use `pnpm build`, `pnpm typecheck`, and `pnpm dev` for all workspace packages with that script. Development scripts run in parallel; packages without the script are skipped. Use `pnpm server <script>` when only the server should run.
 
 ## Coding Standards
 
 Project conventions live in [AGENTS.md](./AGENTS.md):
 
 - Use TypeScript and explicit `.ts` extensions in imports.
-- Use the `~/*` path alias for imports from the project root when appropriate.
+- The server's `~/*` path alias currently resolves from `apps/server/`, not the repository root.
 - Follow Nitro's server directory conventions for routes, middleware, plugins, and utilities.
-- Refer to `node_modules/nitro/dist/docs/README.md` when working on server code; this project uses Nitro v3.
+- Refer to `apps/server/node_modules/nitro/dist/docs/README.md` when working on server code; this project uses Nitro v3.
 - Make the smallest correct change. Avoid unrelated refactors and speculative abstractions.
 
 Formatting, linting, and type checking are automated:
@@ -40,6 +42,8 @@ pnpm check --fix  # apply supported formatting and lint fixes
 pnpm fmt          # format files
 pnpm lint         # lint code
 ```
+
+Root TypeScript checks cover repository tooling configs. uncheck discovers each workspace's `tsconfig.json` separately, so server code is checked with Nitro's compiler settings.
 
 The `prepare` script installs an uncheck pre-commit hook. It checks staged files and applies supported fixes before a commit.
 
@@ -53,10 +57,10 @@ Agent tooling and the vendored plugin are excluded from linting and formatting. 
 pnpm check
 pnpm test
 pnpm build
-pnpm preview
+pnpm server preview
 ```
 
-Exercise the affected endpoint or behavior against the running service and describe the request, expected result, and observed result in your pull request. For example, `curl http://localhost:3000/api` checks the starter API response.
+Exercise the affected endpoint or behavior against the running service and describe the request, expected result, and observed result in your pull request. The current starter handler is `GET /`; for example, `curl http://localhost:3000/` checks its response.
 
 `pnpm test` runs Vitest. It currently permits an empty test suite, so an exit code of zero with "No test files found" is not evidence of test coverage. Include concrete verification evidence and add regression coverage where appropriate for behavior changes.
 
