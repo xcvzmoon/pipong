@@ -17,7 +17,7 @@ Pipong is a notification API service built with Nitro v3, h3, and Rolldown. Deve
 
 ```bash
 pnpm install
-pnpm run dev
+pnpm dev
 ```
 
 See the [README](./README.md) for build and preview commands. API handlers live in `server/api/`; static assets live in `public/`. Dependencies are managed through the catalog in `pnpm-workspace.yaml`, with resolved versions in `pnpm-lock.yaml`. Commit lockfile changes when changing dependencies.
@@ -35,10 +35,10 @@ Project conventions live in [AGENTS.md](./AGENTS.md):
 Formatting, linting, and type checking are automated:
 
 ```bash
-pnpm run check        # uncheck: formatting, linting, and type checking
-pnpm run check --fix  # apply supported formatting and lint fixes
-pnpm run fmt          # format files
-pnpm run lint         # lint code
+pnpm check        # uncheck: formatting, linting, and type checking
+pnpm check --fix  # apply supported formatting and lint fixes
+pnpm fmt          # format files
+pnpm lint         # lint code
 ```
 
 The `prepare` script installs an uncheck pre-commit hook. It checks staged files and applies supported fixes before a commit.
@@ -50,14 +50,17 @@ Agent tooling and the vendored plugin are excluded from linting and formatting. 
 ## Verification
 
 ```bash
-pnpm run check
-pnpm run build
-pnpm run preview
+pnpm check
+pnpm test
+pnpm build
+pnpm preview
 ```
 
 Exercise the affected endpoint or behavior against the running service and describe the request, expected result, and observed result in your pull request. For example, `curl http://localhost:3000/api` checks the starter API response.
 
-There is currently no automated test script. Do not claim a test suite passed; include concrete verification evidence, and add regression coverage where appropriate for behavior changes.
+`pnpm test` runs Vitest. It currently permits an empty test suite, so an exit code of zero with "No test files found" is not evidence of test coverage. Include concrete verification evidence and add regression coverage where appropriate for behavior changes.
+
+CI runs checks, tests, and the build as sequential steps in one job named `CI`, sharing checkout and dependency setup to avoid repeated setup and per-job billing rounding. Unless the workflow is cancelled, later validation steps still run after an earlier failure; any failed step fails the job.
 
 ## Commit Messages
 
@@ -73,14 +76,14 @@ docs: update deployment guide
 ## Pull Request Process
 
 1. Fork the repository or create a branch if you have write access.
-2. Run `pnpm run check` and `pnpm run build`, then exercise the changed behavior locally.
+2. Run `pnpm check`, `pnpm test`, and `pnpm build`, then exercise the changed behavior locally.
 3. Open a pull request against `main`, using the template to describe the change, related issues, and verification.
-4. CI must pass its check and build jobs.
+4. The `CI` job must pass all validation steps.
 5. A maintainer reviews and merges the approved change.
 
 ## Releases
 
-Maintainers run `pnpm run release` to generate a changelog, bump the version, create a tag, push the changes, and create a GitHub release through genbumppush. This command changes repository state and requires push access and GitHub authentication; it is not a verification command.
+Maintainers run `pnpm release` to generate a changelog, bump the version, create a tag, push the changes, and create a GitHub release through genbumppush. This command changes repository state and requires push access and GitHub authentication; it is not a verification command.
 
 The release workflow runs on `v*` tags. It verifies that the tag matches `package.json`, runs checks and a build, then creates or synchronizes the GitHub release using `GITHUB_TOKEN`. Pipong is a private package and is not published to npm.
 
