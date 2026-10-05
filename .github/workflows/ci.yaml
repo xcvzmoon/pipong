@@ -27,7 +27,21 @@ jobs:
         uses: ./.github/actions/setup-project
 
       - name: Run format, lint, and type checks
-        run: pnpm run check
+        run: pnpm check
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup project
+        uses: ./.github/actions/setup-project
+
+      - name: Run tests
+        run: pnpm test
 
   build:
     name: Build
@@ -41,7 +55,7 @@ jobs:
         uses: ./.github/actions/setup-project
 
       - name: Build API service
-        run: pnpm run build
+        run: pnpm build
 
   ci:
     name: CI
