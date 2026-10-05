@@ -7,11 +7,18 @@
   "scripts": {
     "build": "nitro build",
     "dev": "nitro dev",
-    "preview": "nitro preview"
+    "preview": "nitro preview",
+    "check": "uncheck",
+    "prepare": "uncheck prepare --pre-commit"
   },
   "devDependencies": {
+    "@oxlint/plugins": "catalog:",
     "@types/node": "catalog:",
     "nitro": "catalog:",
-    "typescript": "catalog:"
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "oxlint-tsgolint": "catalog:",
+    "typescript": "catalog:",
+    "uncheck": "catalog:"
   }
 }
