@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup project
+        uses: ./.github/actions/setup-project
+
+      - name: Run format, lint, and type checks
+        run: pnpm run check
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup project
+        uses: ./.github/actions/setup-project
+
+      - name: Build API service
+        run: pnpm run build
+
+  ci:
+    name: CI
+    if: always()
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check job results
+        env:
+          CHECK_RESULT: ${{ needs.check.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+        run: |
+          if [[ "$CHECK_RESULT" != "success" || "$BUILD_RESULT" != "success" ]]; then
+            echo "One or more required jobs did not succeed."
+            exit 1
+          fi
