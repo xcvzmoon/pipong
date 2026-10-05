@@ -4,7 +4,7 @@ Back to [[plans/01-notification-service/overview]]
 
 ## Decision
 
-- User-selected layout: apps/server for Nitro, apps/worker for delivery processing, packages/service for shared code. Root contains workspace/tooling configuration, lockfile, integration tests, documentation, and deployment orchestration.
+- User-selected layout: apps/server/src for Nitro sources, apps/worker/src for delivery processing, packages/service/src for shared code. App manifests/configuration remain at each app root. Repository root contains workspace/tooling configuration, lockfile, integration tests, documentation, and deployment orchestration.
 - This is planned migration work, not a statement that these app directories already exist. Complete all packets during phase 01 before the independent worker build.
 - Follow [[principles/smallest-complete-design]] and [[principles/prove-boundaries]]: move the existing working starter, preserve its HTTP/static behavior, and remove obsolete root application paths instead of keeping forwarding configs.
 
@@ -12,13 +12,13 @@ Back to [[plans/01-notification-service/overview]]
 
 - Primary files: apps/server/package.json, apps/server/nitro.config.ts, apps/server/tsconfig.json.
 - Give the server a private workspace identity and its own Nitro development/build/preview commands and dependencies. Keep root runtime/package-manager policy authoritative and use workspace dependencies for shared service imports.
-- Move the existing Nitro and application TypeScript configuration into apps/server. Keep serverDir ./server relative to that app; scope ~/* to its app root, not to unrelated workspace sources.
+- Move the existing Nitro and application TypeScript configuration into apps/server. Set serverDir ./src relative to that app; align Nitro runtime and TypeScript ~/* aliases with apps/server/src, not with unrelated workspace sources. Do not use the deprecated srcDir option.
 - Verification: install and resolve the server workspace and inspect effective configuration/type paths. Run the complete HTTP smoke after packet B; no placeholder endpoint is needed between relocation packets.
 
 ## Packet B: current source and static assets
 
-- Primary files: apps/server/server/api/index.ts, apps/server/index.html, apps/server/public/styles.css.
-- Move the current route and landing/static assets into apps/server without changing behavior. If additional application files exist at execution time, migrate each in another bounded packet; do not leave competing root app sources.
+- Primary files: apps/server/src/api/index.ts, apps/server/index.html, apps/server/public/styles.css.
+- Move the current server/ sources into apps/server/src and landing/static assets into the app root without changing behavior. If additional application files exist at execution time, migrate each in another bounded packet; do not leave competing root app sources or a nested apps/server/server directory.
 - Verification: build and launch Nitro from apps/server; request /api, the landing page, and /styles.css. Observe the existing response and asset rendering. Confirm root development/preview commands select this app.
 
 ## Packet C: workspace validation and output paths

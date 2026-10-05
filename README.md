@@ -12,15 +12,40 @@ Use Node.js 24.x and pnpm 12.6.0, declared in `package.json`. `pnpm install` dow
 
 ```bash
 pnpm install
-pnpm run dev
+pnpm dev
 ```
+
+The Nitro application lives in `apps/server`, with routes and middleware under `apps/server/src`. Root scripts own shared tooling.
+
+Root workspace commands run each package that defines the corresponding script:
+
+```bash
+pnpm build
+pnpm typecheck
+pnpm dev
+pnpm test
+pnpm test:verbose
+pnpm test:watch
+```
+
+Builds, typechecks, and test runs execute in dependency order. Development and test-watch scripts run in parallel so long-running processes can start together. Packages without a matching script are skipped, and failures are reported. The root package is excluded from recursive execution to avoid calling these dispatchers again. `pnpm typecheck` checks workspace packages; `pnpm check` also checks root tooling and runs lint/format validation.
+
+Run any server package script from the repository root with `pnpm server <script> [args...]`:
+
+```bash
+pnpm server build
+pnpm server dev --port 3100
+pnpm server preview --port 3100
+```
+
+Arguments after the script name are forwarded to that script. An unknown script fails rather than falling back to an executable.
 
 ## Deploying
 
 ```bash
 pnpm run check
-pnpm run build
-pnpm run preview
+pnpm build
+pnpm server preview
 ```
 
 See the [Nitro deployment documentation](https://nitro.build/deploy) for deployment presets.

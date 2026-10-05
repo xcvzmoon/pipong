@@ -1,0 +1,20 @@
+{
+  "name": "pipong-server",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nitro build",
+    "dev": "nitro dev",
+    "preview": "nitro preview",
+    "test": "vitest --run",
+    "test:watch": "vitest --watch",
+    "test:verbose": "vitest --run --reporter=verbose",
+    "typecheck": "tsc --checkers 8"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:shared",
+    "nitro": "catalog:server",
+    "typescript": "catalog:shared",
+    "vitest": "catalog:shared"
+  }
+}

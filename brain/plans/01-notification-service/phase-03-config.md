@@ -4,7 +4,7 @@ Back to [[plans/01-notification-service/overview]]
 
 ## Goal
 
-Introduce explicit Node preset and Valibot-validated API/worker configuration, including independent pool budgets, encryption keyring references, canonical auth URL, and supported provider settings.
+Introduce explicit Node preset, Nitro serverDir ./src and source-aligned aliases, and Valibot-validated API/worker configuration, including independent pool budgets, encryption keyring references, canonical auth URL, and supported provider settings.
 
 ## Changes
 

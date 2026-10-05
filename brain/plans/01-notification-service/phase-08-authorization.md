@@ -9,7 +9,7 @@ Resolve human membership or organization key authority to explicit resource scop
 ## Changes
 
 - packages/service/src/authorize.ts
-- apps/server/server/middleware/authentication.ts
+- apps/server/src/middleware/authentication.ts
 - tests/authorization.integration.test.ts
 
 - Commit generated SQL/lockfile changes required by this capability; review its documented contract. Do not edit vendored skills or anti-slop tooling.
