@@ -35,8 +35,9 @@ Please make sure your PR title follows Conventional Commits, e.g.:
 ## Checklist
 
 - [ ] My PR title follows the [Conventional Commits](https://www.conventionalcommits.org/) specification.
-- [ ] `pnpm run check` completes successfully (formatting, linting, and type checking).
-- [ ] `pnpm run build` completes successfully.
+- [ ] `pnpm check` completes successfully (formatting, linting, and type checking).
+- [ ] `pnpm test` completes successfully.
+- [ ] `pnpm build` completes successfully.
 - [ ] I have exercised the affected API endpoint or other changed behavior and described the result above.
 - [ ] I have added or updated tests that cover my changes, where applicable.
 - [ ] I have updated documentation, where applicable.
