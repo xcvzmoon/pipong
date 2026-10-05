@@ -1,18 +1,30 @@
-# Nitro starter
+# Pipong
 
-Create your API and deploy it anywhere with this Nitro starter.
+API service for notifications, built with [Nitro v3](https://nitro.build), [h3](https://h3.dev), and [Rolldown](https://rolldown.rs).
 
 ## Getting started
 
+Use Node.js 24.x and pnpm 12.6.0, declared in `package.json`. `pnpm install` downloads the configured Node.js runtime when needed; CI reads the same `devEngines` declarations.
+
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ## Deploying
 
 ```bash
-npm run build
+pnpm run check
+pnpm run build
+pnpm run preview
 ```
 
-Then checkout the [Nitro documentation](https://nitro.build/deploy) to learn more about the different deployment presets.
+See the [Nitro deployment documentation](https://nitro.build/deploy) for deployment presets.
+
+## Contributing
+
+Read the [contribution guidelines](./CONTRIBUTING.md) and [Code of Conduct](./CODE_OF_CONDUCT.md). Report vulnerabilities privately as described in the [security policy](./SECURITY.md).
+
+## License
+
+[MIT](./LICENSE.md)
