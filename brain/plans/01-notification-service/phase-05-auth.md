@@ -9,7 +9,7 @@ Configure Better Auth organization, API-key, TOTP, database session/rate-limit s
 ## Changes
 
 - packages/service/src/auth.ts
-- apps/server/server/api/auth/[...all].ts
+- apps/server/src/api/auth/[...all].ts
 - tests/auth.integration.test.ts
 
 - Commit generated SQL/lockfile changes required by this capability; review its documented contract. Do not edit vendored skills or anti-slop tooling.

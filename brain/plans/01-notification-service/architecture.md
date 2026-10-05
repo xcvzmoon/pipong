@@ -11,9 +11,9 @@ Back to [[plans/01-notification-service/overview]]
 | packages/service | Explicit subpath exports for schemas, auth/authorization, PostgreSQL repositories, queue integration, delivery policy, and providers |
 | PostgreSQL       | Auth records through the Better Auth Drizzle adapter, tenant data, delivery ledger, replay events, quotas, and pg-boss schema        |
 
-- Move the existing Nitro application into apps/server, including nitro.config.ts, its tsconfig.json, server/, index.html, and public/. Keep serverDir as ./server relative to apps/server, so handlers live in apps/server/server/api and middleware in apps/server/server/middleware.
+- Move the existing Nitro application into apps/server, with its current server/ sources relocated to apps/server/src. Keep nitro.config.ts, tsconfig.json, index.html, and public/ at the app root. Set serverDir to ./src, so handlers live in apps/server/src/api and middleware in apps/server/src/middleware.
 - Each app owns its package manifest, development/build/start commands, configuration, and output. apps/server/.output is the Nitro artifact; the worker artifact stays separate. Root owns workspace scripts, catalogs/lockfile, lint/format configuration, integration tests, CI, and documentation.
-- Use workspace package exports for shared service imports; the server's ~/* alias resolves inside apps/server, not the repository root. No cross-app source imports or root Nitro config/route compatibility shims.
+- Use workspace package exports for shared service imports; align Nitro runtime and TypeScript ~/* aliases with apps/server/src, not the repository root. No cross-app source imports or root Nitro config/route compatibility shims.
 - No application-wide singleton containing every concern. API imports only request-side subpaths; worker imports delivery-side subpaths. Provider credentials and clients never enter a browser bundle.
 - Same source/version can produce API and worker targets in one non-root container image. Run separate commands/containers; scale their replicas independently.
 - Production requires PostgreSQL, a TLS ingress, protected secret injection, and public outbound provider access. No required Redis, Kafka, Kubernetes, or commercial service beyond the external push providers.
