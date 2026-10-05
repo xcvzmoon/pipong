@@ -24,5 +24,21 @@
     "oxlint-tsgolint": "catalog:",
     "typescript": "catalog:",
     "uncheck": "catalog:"
-  }
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": "^24.0.0",
+      "onFail": "download"
+    },
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.6.0",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@12.6.0"
 }
