@@ -1,0 +1,16 @@
+{
+  "name": "pipong-worker",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "start": "node dist/index.mjs",
+    "typecheck": "tsc --checkers 8",
+    "build": "tsdown"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:shared",
+    "tsdown": "catalog:shared",
+    "typescript": "catalog:shared"
+  }
+}
