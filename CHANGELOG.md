@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.0.2
+
+[compare changes](https://github.com/xcvzmoon/pipong/compare/v0.0.1...v0.0.2)
+
+### 🚀 Enhancements
+
+- **config:** Validate API and worker settings at startup ([a35d41a](https://github.com/xcvzmoon/pipong/commit/a35d41a))
+- **database:** Control PostgreSQL pools and migrations ([5dd2275](https://github.com/xcvzmoon/pipong/commit/5dd2275))
+- **database:** Add UUIDv7 and timestamp schema helpers ([7a66b98](https://github.com/xcvzmoon/pipong/commit/7a66b98))
+- **auth:** Add isolated Better Auth and queued email delivery ([9b59063](https://github.com/xcvzmoon/pipong/commit/9b59063))
+
+### 🩹 Fixes
+
+- **auth:** Enforce MFA without trusted devices ([5444498](https://github.com/xcvzmoon/pipong/commit/5444498))
+
+### 💅 Refactors
+
+- **database:** Own connections and migration tooling ([501ef6c](https://github.com/xcvzmoon/pipong/commit/501ef6c))
+
+### 📖 Documentation
+
+- **plan:** Use gpt-6-luna for execution ([d5148d3](https://github.com/xcvzmoon/pipong/commit/d5148d3))
+- **config:** Document settings and phase 03 completion ([9793687](https://github.com/xcvzmoon/pipong/commit/9793687))
+- **database:** Document provisioning and phase 04 completion ([79904e8](https://github.com/xcvzmoon/pipong/commit/79904e8))
+- **database:** Explain setup ownership and operations ([78d061c](https://github.com/xcvzmoon/pipong/commit/78d061c))
+- **auth:** Document configuration ownership and security audit ([d48ef83](https://github.com/xcvzmoon/pipong/commit/d48ef83))
+
+### 🏡 Chore
+
+- **skills:** Add Better Auth integration guidance ([e6ca2f8](https://github.com/xcvzmoon/pipong/commit/e6ca2f8))
+
+### ✅ Tests
+
+- Move tests into package root directories ([999e757](https://github.com/xcvzmoon/pipong/commit/999e757))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.1
 
 ### 🚀 Enhancements
