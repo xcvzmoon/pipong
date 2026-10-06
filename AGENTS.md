@@ -16,6 +16,8 @@ Run `pnpm install` before the first typecheck.
 
 **Validation:** Run `pnpm check` before calling work done.
 
+Store tests in `tests/` at each app or package root, separate from `src/`.
+
 Do not treat `tools/oxlint/anti-slop/**`, `.agents/**`, or `.codex/**` as something to refactor for product features. oxfmt/oxlint intentionally ignore both.
 
 Genbumppush writes `CHANGELOG.md`. Keep that file out of formatter runs; oxfmt and the pre-commit format job exclude it.

@@ -16,7 +16,7 @@ Introduce explicit Node preset, Nitro serverDir ./src and source-aligned aliases
 
 - apps/server/nitro.config.ts
 - packages/shared/src/config.ts
-- apps/server/src/config.test.ts
+- apps/server/tests/config.test.ts
 
 - Integration packet: apps/server/src/plugins/config.ts, apps/worker/src/index.ts, apps/server/tsconfig.json.
 - Packaging packet: app/shared manifests, apps/worker/tsdown.config.ts, packages/shared/src/index.ts and lockfile.
