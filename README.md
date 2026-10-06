@@ -40,14 +40,14 @@ pnpm server preview --port 3100
 
 Arguments after the script name are forwarded to that script. An unknown script fails rather than falling back to an executable.
 
-The independent Node.js worker lives in `apps/worker`. It currently waits for shutdown; delivery consumers are not enabled yet.
+The independent Node.js worker lives in `apps/worker`. It opens its database pool and waits for shutdown; delivery consumers are not enabled yet.
 
 ```bash
 pnpm --filter pipong-worker build
 pnpm --filter pipong-worker start
 ```
 
-The built entrypoint is `apps/worker/dist/index.mjs`. It runs without the source checkout or runtime dependencies and exits cleanly on SIGINT or SIGTERM.
+The built entrypoint is `apps/worker/dist/index.mjs`. Deploy the whole `dist` directory, which includes shared chunks and migration SQL. It runs without the source checkout or runtime dependencies and closes its database pool on SIGINT or SIGTERM. Provision PostgreSQL and run migrations as described in [runtime configuration](./CONFIGURATION.md) before starting either app.
 
 ## Deploying
 

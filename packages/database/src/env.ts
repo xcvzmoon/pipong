@@ -1,86 +1,52 @@
-import { booleanSchema } from '@pipong/shared';
+import type { EnvironmentSource } from '@pipong/shared';
 import { defineEnv } from '@xcvzlabs/env';
 import * as v from 'valibot';
 
-const PG_PROTOCOLS = new Set(['postgres:', 'postgresql:']);
-const SECURE_SSL_MODES = new Set(['require', 'verify-ca', 'verify-full']);
-const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
-
-const nodeEnv = defineEnv({
-  schema: {
-    node: {
-      env: v.optional(v.picklist(['development', 'test', 'production']), 'development'),
-    },
-  },
-});
-
 const databaseUrlSchema = v.pipe(
-  v.string('DATABASE_URL must be a string'),
+  v.string(),
   v.trim(),
-  v.nonEmpty('DATABASE_URL is required'),
-  v.maxLength(2048, 'DATABASE_URL is too long'),
+  v.nonEmpty(),
+  v.maxLength(2048),
+  v.url(),
   v.rawCheck(({ dataset, addIssue }) => {
     if (!dataset.typed) return;
-
-    let url: URL | null = null;
-
-    try {
-      url = new URL(dataset.value);
-    } catch {
-      url = null;
-    }
-
-    if (!url) {
-      addIssue({
-        message:
-          'DATABASE_URL is not a parseable URL (percent-encode special characters in the password)',
-      });
-      return;
-    }
-
-    if (!PG_PROTOCOLS.has(url.protocol)) {
-      addIssue({ message: 'DATABASE_URL must use postgres:// or postgresql://' });
-    }
-
-    if (!url.hostname) {
-      addIssue({ message: 'DATABASE_URL is missing a host' });
-    }
-
-    if (!url.username) {
-      addIssue({ message: 'DATABASE_URL is missing a username' });
-    }
-
-    const dbName = url.pathname.replace(/^\//, '');
-
-    if (!dbName || dbName.includes('/')) {
-      addIssue({ message: 'DATABASE_URL must end with a single database name' });
-    }
-
-    if (nodeEnv.node.env === 'production') {
-      if (LOCAL_HOSTS.has(url.hostname)) {
-        addIssue({ message: 'DATABASE_URL must not point to localhost in production' });
-      }
-
-      const mode = url.searchParams.get('sslmode');
-
-      if (!mode || !SECURE_SSL_MODES.has(mode)) {
-        addIssue({
-          message: 'DATABASE_URL must set sslmode=require, verify-ca or verify-full in production',
-        });
-      }
-    }
+    const url = new URL(dataset.value);
+    if (
+      !['postgres:', 'postgresql:'].includes(url.protocol) ||
+      !url.hostname ||
+      !url.username ||
+      !url.pathname.slice(1) ||
+      url.pathname.slice(1).includes('/')
+    )
+      addIssue({ message: 'must be a PostgreSQL connection URL' });
   }),
 );
 
-const rest = defineEnv({
-  schema: {
-    database: {
-      url: databaseUrlSchema,
-    },
-    flags: {
-      useQueryLogger: v.optional(booleanSchema, 'false'),
-    },
-  },
-});
-
-export const env = { ...nodeEnv, ...rest };
+export function parseDatabaseUrl(
+  source: EnvironmentSource,
+  variable: 'DATABASE_URL' | 'MIGRATION_DATABASE_URL',
+): string {
+  try {
+    const values = defineEnv({
+      source,
+      schema: {
+        NODE_ENV: v.optional(v.picklist(['development', 'test', 'production']), 'development'),
+        [variable]: databaseUrlSchema,
+      },
+    });
+    const value = values[variable];
+    if (value === undefined) throw new Error('missing URL');
+    if (values.NODE_ENV === 'production') {
+      const url = new URL(value);
+      if (
+        ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+        !['require', 'verify-ca', 'verify-full'].includes(url.searchParams.get('sslmode') ?? '')
+      ) {
+        throw new Error('production database requires remote TLS');
+      }
+    }
+    return value;
+  } catch {
+    throw new Error(`DATABASE_CONFIG_INVALID: invalid ${variable}`);
+  }
+}

@@ -1,10 +1,9 @@
 import { defineConfig } from 'drizzle-kit';
-import { env } from './src/env.ts';
+import { parseDatabaseUrl } from './src/env.ts';
 
 export default defineConfig({
   dialect: 'postgresql',
-  dbCredentials: {
-    url: env.database.url,
-  },
+  dbCredentials: { url: parseDatabaseUrl(process.env, 'MIGRATION_DATABASE_URL') },
   out: './migrations',
+  migrations: { schema: 'pipong_migrations' },
 });
