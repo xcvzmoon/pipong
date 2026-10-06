@@ -5,8 +5,10 @@ Back to [[plans/01-notification-service/overview]]
 ## Status
 
 - Implemented 2026-10-06 with GPT-6-Luna execution and parent review.
-- API and worker validate configuration at startup with stable, redacted errors. Pool budgets are validated here; phase 04 applies them to database connections.
+- API and worker validate configuration at startup with stable, redacted errors. Pool-budget validation now lives in database; shared configuration retains application settings.
 - Configuration lives in packages/shared, matching the existing workspace. No packages/service package was added.
+
+- Ownership correction implemented: pool-budget parsing and tests now live in database under [[plans/01-notification-service/database-ownership]]. Shared config retains non-database application settings.
 
 ## Goal
 

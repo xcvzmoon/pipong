@@ -24,9 +24,14 @@
 - SSE is a delivery-observation interface, not a fourth background push provider. Durable event rows support replay; PostgreSQL notifications are only optional wakeups. No WebSockets without bidirectional requirements.
 - Follow [[principles/prove-boundaries]]: tenant-isolation, queue-rollback, crash, and real-device checks are release gates, not a last-phase cleanup exercise.
 
+## Database ownership correction
+
+- The target boundary is [[plans/01-notification-service/database-ownership]]. Database configuration, schemas, SQL repositories, connections, and migrations belong in `packages/database`. Apps select a connection purpose without passing URLs or pool settings. Earlier phase file lists assigning persistence to `packages/service` must be corrected before those phases are implemented.
+
 ## Plan map
 
 - [[plans/01-notification-service/architecture]]
+- [[plans/01-notification-service/database-ownership]]
 - [[plans/01-notification-service/workspace-relocation]]
 - [[plans/01-notification-service/data-and-isolation]]
 - [[plans/01-notification-service/api-contract]]

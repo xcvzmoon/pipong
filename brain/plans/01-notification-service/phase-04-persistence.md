@@ -4,10 +4,12 @@ Back to [[plans/01-notification-service/overview]]
 
 ## Status
 
-- Implemented 2026-10-06 in `packages/database`, using the existing workspace package.
-- API and worker apply independent pool budgets, verify runtime privileges at startup, and drain connections on shutdown.
-- Administrator provisioning creates separate login roles. The one-shot worker migration artifact owns schema DDL; app startup never runs migrations.
-- Verified against a temporary PostgreSQL 18 instance: clean/repeated migration, SQL rollback, schema grants, denied runtime DDL, pool bounds, shutdown, and rejected privileged identities. Packaged API/worker/migration artifacts also passed startup and SIGTERM checks outside the source checkout, with no remaining database connections.
+- Implemented in `packages/database`. The API and worker call `useApiDb()` or `useWorkerDb()`; only database reads their environment settings.
+- `env.ts` validates values using the existing environment library and shared boolean schema. `clients.ts` maps validated values into PostgreSQL pool options, checks runtime privileges, and drains connections.
+- Settings match `packages/database/.env.example`: role-specific URLs, maximum pools, timeouts, application names, and per-role query-logger flags.
+- Drizzle Kit now owns migrations through `drizzle.migrate.config.ts`. API/worker configs share schemas and history but select different credentials. The custom runner and standalone migration artifact are removed; deployment must serialize migration jobs.
+- Administrator provisioning creates restricted runtime logins and a separate migrator. The existing foundation migration has a Drizzle snapshot matching its schemas.
+- See [[plans/01-notification-service/database-ownership]] for the package boundary and future persistence ownership.
 
 ## Goal
 
@@ -15,8 +17,8 @@ Add bounded node-postgres/Drizzle pools and a one-shot migration command. Establ
 
 ## Changes
 
-- packages/database/src/index.ts, src/migrate.ts, src/env.ts
-- apps/worker/src/migrate.ts
+- packages/database/src/index.ts, src/clients.ts, src/env.ts, src/schema.ts
+- packages/database/drizzle.*.config.ts
 - packages/database/tests/database.integration.test.ts
 
 - Integration: API plugin, worker startup/build, app manifests, database manifests/configuration, provision SQL and foundation migration.
@@ -27,7 +29,7 @@ Add bounded node-postgres/Drizzle pools and a one-shot migration command. Establ
 
 ## Data structures
 
-- DatabaseRuntime, MigrationResult
+- DatabaseRuntime
 
 ## Routing
 

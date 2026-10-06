@@ -47,7 +47,7 @@ pnpm --filter pipong-worker build
 pnpm --filter pipong-worker start
 ```
 
-The built entrypoint is `apps/worker/dist/index.mjs`. Deploy the whole `dist` directory, which includes shared chunks and migration SQL. It runs without the source checkout or runtime dependencies and closes its database pool on SIGINT or SIGTERM. Provision PostgreSQL and run migrations as described in [runtime configuration](./CONFIGURATION.md) before starting either app.
+The built entrypoint is `apps/worker/dist/index.mjs`. Deploy the whole `dist` directory, which includes shared chunks. It runs without the source checkout or runtime dependencies and closes its database pool on SIGINT or SIGTERM. Provision PostgreSQL and run the database package’s Drizzle migration command as described in [runtime configuration](./CONFIGURATION.md) before starting either app.
 
 ## Deploying
 
