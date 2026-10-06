@@ -269,6 +269,18 @@ importers:
         specifier: catalog:shared
         version: 5.0.3(@types/node@26.6.4)(vite@8.3.2(@types/node@26.6.4)(jiti@2.7.0))
 
+  apps/worker:
+    devDependencies:
+      '@types/node':
+        specifier: catalog:shared
+        version: 26.6.4
+      tsdown:
+        specifier: catalog:shared
+        version: 0.23.0(typescript@7.0.2)
+      typescript:
+        specifier: catalog:shared
+        version: 7.0.2
+
   packages/database:
     dependencies:
       '@pipong/shared':

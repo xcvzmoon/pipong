@@ -40,6 +40,15 @@ pnpm server preview --port 3100
 
 Arguments after the script name are forwarded to that script. An unknown script fails rather than falling back to an executable.
 
+The independent Node.js worker lives in `apps/worker`. It currently waits for shutdown; delivery consumers are not enabled yet.
+
+```bash
+pnpm --filter pipong-worker build
+pnpm --filter pipong-worker start
+```
+
+The built entrypoint is `apps/worker/dist/index.mjs`. It runs without the source checkout or runtime dependencies and exits cleanly on SIGINT or SIGTERM.
+
 ## Deploying
 
 ```bash
