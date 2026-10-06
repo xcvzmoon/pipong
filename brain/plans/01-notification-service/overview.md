@@ -3,7 +3,7 @@
 ## Status and scope
 
 - Proposed architecture, dated 2026-10-05. This is a plan, not an implemented or production-certified service.
-- Implemented through phase 05, 2026-10-06: workspace/build, runtime configuration, PostgreSQL foundation and ownership, human authentication, and queued authentication email. Next is operator-assisted enrollment.
+- Implemented through phase 06, 2026-10-07: workspace/build, runtime configuration, PostgreSQL foundation and ownership, human authentication, queued authentication email, local operator enrollment, verified invitations, and audited MFA recovery/assurance. Next is the tenant transaction boundary.
 - Confirmed: PostgreSQL; native APNs, FCM, Web Push; organizations own projects, environments, and application recipients; API, workers, and operator tooling; SSE delivery updates for integrators.
 - Recipients are not Better Auth users. No dashboard, inbox/read state, WebSockets, GraphQL, RPC, email/SMS delivery, campaign builder, arbitrary segmentation, or workflow engine in this release.
 - Administrative email for account verification/recovery/invitations is authentication infrastructure, not a notification channel.
