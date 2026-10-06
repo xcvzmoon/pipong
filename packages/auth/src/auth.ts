@@ -1,12 +1,14 @@
 import type { DatabaseRuntime } from '@pipong/database';
 import type { ApiConfig } from '@pipong/shared';
 import type { PgBoss } from 'pg-boss';
+import type { AuthClient, AuthTransaction } from './database.ts';
+import type { AuthMail } from './mail/payload.ts';
 import { apiKey } from '@better-auth/api-key';
 import { betterAuth } from 'better-auth/minimal';
 import { organization } from 'better-auth/plugins/organization';
 import { twoFactor } from 'better-auth/plugins/two-factor';
 import { v7 } from 'uuid';
-import { createAuthDatabase } from './database.ts';
+import { createAuthAdapter, createAuthClient } from './database.ts';
 import { enqueueAuthMail } from './mail/queue.ts';
 import { enforceMfaPolicy } from './policy.ts';
 
@@ -17,8 +19,48 @@ export type HumanAuth = {
 
 /** Creates Better Auth using the API database and an already-started auth mail queue. */
 export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: PgBoss): HumanAuth {
-  const auth = betterAuth({
+  const auth = createAuthEngine(
+    createAuthClient(database),
+    config,
+    (mail) => enqueueAuthMail(queue, mail),
+    'http',
+  );
+
+  return {
+    handler: auth.handler,
+    origin: new URL(config.authBaseUrl).origin,
+  };
+}
+
+type AuthEngine = {
+  handler: HumanAuth['handler'];
+  api: {
+    signUpEmail: (input: {
+      body: {
+        name: string;
+        email: string;
+        password: string;
+      };
+    }) => Promise<{ user: { id: string } }>;
+    createOrganization: (input: {
+      body: {
+        name: string;
+        slug: string;
+        userId: string;
+      };
+    }) => Promise<{ id: string } | null>;
+  };
+};
+
+export function createAuthEngine(
+  client: AuthClient | AuthTransaction,
+  config: ApiConfig,
+  sendMail: (mail: AuthMail) => Promise<void>,
+  mode: 'http' | 'operator',
+): AuthEngine {
+  return betterAuth({
     appName: 'Pipong',
+    logger: { disabled: mode === 'operator' },
     hooks: {
       before: enforceMfaPolicy,
     },
@@ -26,15 +68,15 @@ export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: 
     basePath: '/api/auth',
     secret: config.authSecret,
     trustedOrigins: [new URL(config.authBaseUrl).origin],
-    database: createAuthDatabase(database),
+    database: createAuthAdapter(client),
     emailAndPassword: {
       enabled: true,
-      disableSignUp: true,
+      disableSignUp: mode === 'http',
       requireEmailVerification: true,
       minPasswordLength: 12,
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: ({ user, url }) =>
-        enqueueAuthMail(queue, {
+        sendMail({
           kind: 'reset',
           to: user.email,
           name: user.name,
@@ -46,7 +88,7 @@ export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: 
       sendOnSignIn: true,
       autoSignInAfterVerification: false,
       sendVerificationEmail: ({ user, url }) =>
-        enqueueAuthMail(queue, {
+        sendMail({
           kind: 'verification',
           to: user.email,
           name: user.name,
@@ -89,7 +131,7 @@ export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: 
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
         sendInvitationEmail: ({ email, id, organization: invitedOrganization }) =>
-          enqueueAuthMail(queue, {
+          sendMail({
             kind: 'invitation',
             to: email,
             name: invitedOrganization.name,
@@ -106,11 +148,6 @@ export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: 
       }),
     ],
   });
-
-  return {
-    handler: auth.handler,
-    origin: new URL(config.authBaseUrl).origin,
-  };
 }
 
 function invitationUrl(config: ApiConfig, invitationId: string): string {

@@ -5,8 +5,13 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { authRelations } from './relations.ts';
 import * as schema from './schema.ts';
 
-export function createAuthDatabase(database: DatabaseRuntime): ReturnType<typeof drizzleAdapter> {
-  return drizzleAdapter(createAuthClient(database), {
+export type AuthClient = ReturnType<typeof createAuthClient>;
+export type AuthTransaction = Parameters<Parameters<AuthClient['transaction']>[0]>[0];
+
+export function createAuthAdapter(
+  client: AuthClient | AuthTransaction,
+): ReturnType<typeof drizzleAdapter> {
+  return drizzleAdapter(client, {
     provider: 'pg',
     transaction: true,
     schemaName: 'auth',
