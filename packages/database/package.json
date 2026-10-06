@@ -16,18 +16,21 @@
     "build": "tsdown",
     "typecheck": "tsc --checkers 8",
     "generate": "drizzle-kit generate",
-    "migrate": "pnpm --filter pipong-worker --fail-if-no-match run migrate",
-    "pull": "drizzle-kit pull",
-    "studio": "drizzle-kit studio",
+    "migrate": "drizzle-kit migrate --config drizzle.migrate.config.ts",
     "check": "drizzle-kit check",
-    "test": "vitest --run"
+    "studio:api": "drizzle-kit studio --config drizzle.api.config.ts",
+    "studio:worker": "drizzle-kit studio --config drizzle.worker.config.ts",
+    "test": "vitest --run",
+    "test:watch": "vitest --watch",
+    "test:verbose": "vitest --run --reporter=verbose"
   },
   "dependencies": {
-    "@pipong/shared": "workspace:*",
     "@xcvzlabs/env": "catalog:shared",
     "drizzle-orm": "catalog:database",
     "pg": "catalog:database",
-    "valibot": "catalog:shared"
+    "valibot": "catalog:shared",
+    "drizzle-query-logger": "catalog:shared",
+    "@pipong/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",

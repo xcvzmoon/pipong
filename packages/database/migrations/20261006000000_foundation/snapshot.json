@@ -1,0 +1,21 @@
+{
+  "version": "8",
+  "dialect": "postgres",
+  "id": "3acc9513-edad-4f6b-ba5f-ad1bf00d7fb3",
+  "prevIds": ["00000000-0000-0000-0000-000000000000"],
+  "ddl": [
+    {
+      "name": "app",
+      "entityType": "schemas"
+    },
+    {
+      "name": "auth",
+      "entityType": "schemas"
+    },
+    {
+      "name": "pgboss",
+      "entityType": "schemas"
+    }
+  ],
+  "renames": []
+}

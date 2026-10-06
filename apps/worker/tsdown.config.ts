@@ -1,8 +1,7 @@
 import { defineConfig } from 'tsdown';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/migrate.ts'],
-  copy: [{ from: '../../packages/database/migrations', to: 'dist' }],
+  entry: ['src/index.ts'],
   deps: {
     alwaysBundle: [
       '@pipong/database',
@@ -11,6 +10,7 @@ export default defineConfig({
       'valibot',
       'pg',
       'drizzle-orm',
+      'drizzle-query-logger',
     ],
   },
 });

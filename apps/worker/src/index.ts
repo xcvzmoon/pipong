@@ -1,13 +1,9 @@
-import { openDatabase, parseDatabaseUrl } from '@pipong/database';
+import { useWorkerDb } from '@pipong/database';
 import { loadWorkerConfig } from '@pipong/shared';
 import { setInterval } from 'node:timers/promises';
 
-const config = loadWorkerConfig();
-const database = await openDatabase(
-  parseDatabaseUrl(process.env, 'DATABASE_URL'),
-  config.databasePoolMax,
-  'pipong_worker',
-);
+loadWorkerConfig();
+const database = await useWorkerDb();
 
 const abortController = new AbortController();
 
