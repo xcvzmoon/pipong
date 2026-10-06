@@ -73,6 +73,7 @@ function parseConfig<T>(code: ConfigErrorCode, parse: () => T): T {
   }
 }
 
+/** Validates API environment values without opening database or provider connections. */
 export function parseApiConfig(source: EnvironmentSource): ApiConfig {
   const values = parseConfig('API_CONFIG_INVALID', () =>
     defineEnv({
@@ -91,6 +92,7 @@ export function parseApiConfig(source: EnvironmentSource): ApiConfig {
   };
 }
 
+/** Validates worker environment values, including provider and credential settings. */
 export function parseWorkerConfig(source: EnvironmentSource): WorkerConfig {
   const values = parseConfig('WORKER_CONFIG_INVALID', () =>
     defineEnv({
@@ -135,10 +137,12 @@ const httpsContactUrlSchema = v.pipe(
 );
 const webPushSubjectSchema = v.union([mailtoSubjectSchema, httpsContactUrlSchema]);
 
+/** Loads validated API settings from the current process environment. */
 export function loadApiConfig(): ApiConfig {
   return parseApiConfig(process.env);
 }
 
+/** Loads validated worker settings from the current process environment. */
 export function loadWorkerConfig(): WorkerConfig {
   return parseWorkerConfig(process.env);
 }

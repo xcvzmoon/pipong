@@ -73,7 +73,7 @@ Run commands from the repository root unless stated otherwise.
    set -a
    . ./packages/database/.env
    set +a
-   pnpm database migrate
+   pnpm migrate
    ```
 
 The package reads the process environment. It does not load `.env` files itself.
@@ -115,16 +115,14 @@ For `NODE_ENV=production`, all URLs used by the imported environment must includ
 `127.0.0.1`, and `::1` are rejected. This is URL validation, not a connectivity or
 certificate test. Configure the TLS mode and certificate trust for your deployment.
 
-Query logging defaults to disabled, but the development template enables it for
-both roles. It logs SQL and parameter values through `console.info`. Keep it
+Query logging defaults to disabled in the configuration and example templates. It logs SQL and parameter values through `console.info`. Keep it
 disabled where parameters contain credentials, recipient details, or message data.
 Raw queries made directly through `pool` do not use Drizzle's query logger.
 
 ## Application API
 
-The package root exports only `useApiDb`, `useWorkerDb`, and the `DatabaseRuntime`
-type. Environment schemas, table namespaces, provisioning, and migration tooling
-are internal and have no application subpath exports.
+The package root exports `useApiDb`, `useWorkerDb`, and `DatabaseRuntime`. Schema helpers use `@pipong/database/helpers`.
+Provisioning and migration tooling stay internal.
 
 ```ts
 import { useApiDb } from '@pipong/database';
@@ -143,13 +141,13 @@ its role permissions before returning.
 
 | Result member | Purpose                                                                           |
 | ------------- | --------------------------------------------------------------------------------- |
-| `db`          | Drizzle client backed by the runtime pool, for queries and transactions           |
+| `db`          | Drizzle client backed by the runtime pool for queries and transactions            |
 | `pool`        | Native node-postgres pool for integrations requiring a pool or checked-out client |
 | `close()`     | Ends the pool; returns a promise to await during shutdown                         |
 
 Create one runtime per application process at startup. Every factory call creates
 a new pool; there is no singleton or connection cache. Importing the module
-validates settings but opens no connection.
+validates settings but opens no connection. Auth creates its own typed Drizzle client on the same pool.
 
 Stop accepting requests or jobs before closing the pool. Release checked-out
 clients in `finally` blocks so shutdown can finish. Await `close()` once for each
@@ -161,6 +159,24 @@ worker replicas, migrations, operator sessions, and future queue integrations.
 Separate pools alone do not reserve server capacity or impose a global limit.
 
 ## Schema and migration workflow
+
+Schema helpers are available from `@pipong/database/helpers`, adapted from
+[open-fms](https://github.com/xcvzmoon/open-fms/tree/main/packages/database/src/helpers).
+Use `generateUuid()` for UUIDv7 primary keys and `generateTimestamps()` for
+`createdAt`, `updatedAt`, and nullable `deletedAt` columns. All timestamps use
+millisecond precision and PostgreSQL `timestamptz`.
+
+`generateTimestampsWithAudit(() => user.id)` adds UUID actor IDs matching Better
+Auth's user table. Creation requires an actor and restricts actor
+deletion; update and deletion actors are nullable and use `ON DELETE SET NULL`.
+The optional second, third, and fourth arguments override those deletion actions.
+Omitting the user callback creates actor columns without foreign keys.
+
+UUIDv7 is the convention for new record IDs, including Better Auth's runtime
+generator. The UUID default and `updatedAt` update hook execute through Drizzle;
+raw SQL must supply IDs and manage update timestamps. Setting `deletedAt` does
+not automatically exclude rows from queries. Auth tables use these helpers too. Soft-deletion columns do not change Better
+Auth's hard-delete behavior.
 
 Schema authoring and migration files stay in this package. Use the following
 workflow when a feature needs database changes:
@@ -247,12 +263,13 @@ Query errors after startup are returned by Drizzle or node-postgres to the calle
 
 ## Verification
 
-Environment tests run without PostgreSQL. Integration tests require a disposable
+Database environment tests run with `pnpm database test` without PostgreSQL.
+Persistence integration tests live in `packages/auth/tests/` and require a disposable
 PostgreSQL 18 cluster with local trust authentication and an administrator named
 `postgres`:
 
 ```sh
-TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres pnpm database test
+TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres pnpm auth test
 ```
 
 Use the port of your disposable cluster. The suite creates a temporary database
@@ -281,3 +298,12 @@ against PostgreSQL.
 | `provision.sql`      | Administrator role provisioning                               |
 | `migrations/`        | Reviewed migration SQL and snapshots                          |
 | `tests/`             | Environment and PostgreSQL integration tests                  |
+
+## Auth persistence boundary
+
+`@pipong/auth` owns auth tables, relations, migrations, schema generation, and
+mail queue runtime. This package provides pools and shared schema helpers.
+Run `pnpm migrate` at the repository root to apply database foundation migrations
+before auth migrations. Use `pnpm auth generate` for auth schema changes.
+
+See [human authentication](../../AUTHENTICATION.md) for auth persistence and mail.

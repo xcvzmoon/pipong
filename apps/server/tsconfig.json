@@ -4,5 +4,6 @@
     "paths": {
       "~/*": ["./src/*"]
     }
-  }
+  },
+  "include": ["**/*.ts", "../../packages/auth/src/templates.d.ts"]
 }

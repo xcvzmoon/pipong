@@ -9,8 +9,9 @@
     "build": "tsdown"
   },
   "dependencies": {
-    "@pipong/shared": "workspace:*",
-    "@pipong/database": "workspace:*"
+    "@pipong/auth": "workspace:*",
+    "@pipong/database": "workspace:*",
+    "@pipong/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",

@@ -3,10 +3,14 @@
 ## Status and scope
 
 - Proposed architecture, dated 2026-10-05. This is a plan, not an implemented or production-certified service.
+- Implemented through phase 05, 2026-10-06: workspace/build, runtime configuration, PostgreSQL foundation and ownership, human authentication, and queued authentication email. Next is operator-assisted enrollment.
 - Confirmed: PostgreSQL; native APNs, FCM, Web Push; organizations own projects, environments, and application recipients; API, workers, and operator tooling; SSE delivery updates for integrators.
 - Recipients are not Better Auth users. No dashboard, inbox/read state, WebSockets, GraphQL, RPC, email/SMS delivery, campaign builder, arbitrary segmentation, or workflow engine in this release.
 - Administrative email for account verification/recovery/invitations is authentication infrastructure, not a notification channel.
+- Authentication email uses Unemail with Handlebars templates and durable pg-boss jobs in PostgreSQL. Auth callbacks enqueue mail; the worker sends it with bounded retries for temporary failures. BullMQ and Redis are not required. Confirmed 2026-10-06.
 - Scope is a bounded immediate-send service with expiration, cancellation of pending work, status inspection, and audited recovery. Scheduled campaigns and unbounded broadcast require a separate product decision.
+
+- Auth integration review: [[plans/01-notification-service/auth-audit]].
 
 ## Repository baseline
 
