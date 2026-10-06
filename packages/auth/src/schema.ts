@@ -186,3 +186,18 @@ export const rateLimit = authSchema.table('rate_limit', {
   lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
   ...generateTimestamps(),
 });
+
+export const enrollmentAudit = authSchema.table('enrollment_audit', {
+  id: generateUuid(),
+  action: text('action').notNull(),
+  userId: uuid('user_id').notNull(),
+  sessionId: uuid('session_id'),
+  createdAt: timestamp('created_at', TIMESTAMP_CONFIG).defaultNow().notNull(),
+});
+
+export const mfaAssurance = authSchema.table('mfa_assurance', {
+  sessionId: uuid('session_id')
+    .primaryKey()
+    .references(() => session.id, { onDelete: 'cascade' }),
+  verifiedAt: timestamp('verified_at', TIMESTAMP_CONFIG).notNull(),
+});
