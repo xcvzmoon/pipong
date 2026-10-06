@@ -48,7 +48,10 @@ export type AuthFixture = {
   close: () => Promise<void>;
 };
 
-export async function startAuthFixture(adminUrl: string): Promise<AuthFixture> {
+export async function startAuthFixture(
+  adminUrl: string,
+  seedAccounts = true,
+): Promise<AuthFixture> {
   const admin = new Client({ connectionString: adminUrl });
   await admin.connect();
   function roleUrl(role: string): string {
@@ -83,16 +86,18 @@ export async function startAuthFixture(adminUrl: string): Promise<AuthFixture> {
       cwd: root,
       env: { ...process.env, MIGRATION_DATABASE_URL: roleUrl('pipong_migrator'), NODE_ENV: 'test' },
     });
-    const password = await hashPassword('test-password-long-enough');
-    await database.query(`INSERT INTO auth."user" (id,name,email,email_verified) VALUES
+    if (seedAccounts) {
+      const password = await hashPassword('test-password-long-enough');
+      await database.query(`INSERT INTO auth."user" (id,name,email,email_verified) VALUES
       ('019a0000-0000-7000-8000-000000000011','Verified <person>','verified@example.com',true),
       ('019a0000-0000-7000-8000-000000000012','Unverified','unverified@example.com',false)`);
-    await database.query(
-      `INSERT INTO auth.account (id,account_id,provider_id,user_id,password,updated_at)
+      await database.query(
+        `INSERT INTO auth.account (id,account_id,provider_id,user_id,password,updated_at)
       VALUES ('019a0000-0000-7000-8000-000000000011','019a0000-0000-7000-8000-000000000011','credential','019a0000-0000-7000-8000-000000000011',$1,now()),
              ('019a0000-0000-7000-8000-000000000012','019a0000-0000-7000-8000-000000000012','credential','019a0000-0000-7000-8000-000000000012',$1,now())`,
-      [password],
-    );
+        [password],
+      );
+    }
     const port = await freePort();
     const baseUrl = `http://localhost:${port}`;
     const environment = {
