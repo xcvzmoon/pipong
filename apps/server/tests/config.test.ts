@@ -69,45 +69,30 @@ describe('runtime configuration', () => {
     ).toBe('https://example.com/contact');
   });
 
-  it('rejects invalid independent pool budgets', () => {
-    expect(() => parseApiConfig({ ...validApiEnvironment, API_DATABASE_POOL_MAX: '0' })).toThrow(
-      expect.objectContaining({ code: 'API_CONFIG_INVALID' }),
-    );
-    expect(() =>
-      parseWorkerConfig({
-        CREDENTIAL_KEYRING_REF: 'vault://pipong/credentials',
-        WORKER_DATABASE_POOL_MAX: '101',
-      }),
-    ).toThrow(expect.objectContaining({ code: 'WORKER_CONFIG_INVALID' }));
-  });
-
   it('applies environment overrides and keeps errors redacted', () => {
     const apiConfig = parseApiConfig({
       ...validApiEnvironment,
-      API_DATABASE_POOL_MAX: '20',
     });
     const workerConfig = parseWorkerConfig({
       CREDENTIAL_KEYRING_REF: 'vault://pipong/credentials',
-      WORKER_DATABASE_POOL_MAX: '24',
       APNS_ENVIRONMENT: 'sandbox',
     });
 
-    expect(apiConfig.databasePoolMax).toBe(20);
-    expect(workerConfig.databasePoolMax).toBe(24);
+    expect(apiConfig.authBaseUrl).toBe(validApiEnvironment.AUTH_BASE_URL);
     expect(workerConfig.apnsEnvironment).toBe('sandbox');
 
     expect(() => {
       parseApiConfig({
         ...validApiEnvironment,
         AUTH_SECRET: 'sensitive-value-that-is-long-enough-to-pass-validation',
-        API_DATABASE_POOL_MAX: 'invalid',
+        AUTH_BASE_URL: 'invalid',
       });
     }).toThrow(expect.objectContaining({ code: 'API_CONFIG_INVALID' }));
     try {
       parseApiConfig({
         ...validApiEnvironment,
         AUTH_SECRET: 'sensitive-value-that-is-long-enough-to-pass-validation',
-        API_DATABASE_POOL_MAX: 'invalid',
+        AUTH_BASE_URL: 'invalid',
       });
       throw new Error('expected invalid configuration to throw');
     } catch (error) {

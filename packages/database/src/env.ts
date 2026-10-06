@@ -1,52 +1,58 @@
-import type { EnvironmentSource } from '@pipong/shared';
 import { defineEnv } from '@xcvzlabs/env';
 import * as v from 'valibot';
+import {
+  applicationNameSchema,
+  databaseSettingsSchema,
+  databaseUrlSchema,
+  maxPoolSchema,
+  nodeEnvSchema,
+  validateProductionUrl,
+} from './env-schema.ts';
 
-const databaseUrlSchema = v.pipe(
-  v.string(),
-  v.trim(),
-  v.nonEmpty(),
-  v.maxLength(2048),
-  v.url(),
-  v.rawCheck(({ dataset, addIssue }) => {
-    if (!dataset.typed) return;
-    const url = new URL(dataset.value);
-    if (
-      !['postgres:', 'postgresql:'].includes(url.protocol) ||
-      !url.hostname ||
-      !url.username ||
-      !url.pathname.slice(1) ||
-      url.pathname.slice(1).includes('/')
-    )
-      addIssue({ message: 'must be a PostgreSQL connection URL' });
-  }),
-);
-
-export function parseDatabaseUrl(
-  source: EnvironmentSource,
-  variable: 'DATABASE_URL' | 'MIGRATION_DATABASE_URL',
-): string {
-  try {
-    const values = defineEnv({
-      source,
-      schema: {
-        NODE_ENV: v.optional(v.picklist(['development', 'test', 'production']), 'development'),
-        [variable]: databaseUrlSchema,
+/**
+ * Internal API, worker, and migration settings, validated once at import.
+ * URLs are optional here and required by the connection or tool that uses them.
+ * Numeric and boolean values are parsed by the schemas;
+ * this module creates no pools. Production URL policy is checked before import
+ * completes. Applications consume the connection factories instead of this value.
+ */
+export const env = defineEnv({
+  schema: {
+    node: {
+      env: nodeEnvSchema,
+    },
+    migration: {
+      database: {
+        url: v.optional(databaseUrlSchema),
       },
-    });
-    const value = values[variable];
-    if (value === undefined) throw new Error('missing URL');
-    if (values.NODE_ENV === 'production') {
-      const url = new URL(value);
-      if (
-        ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
-        !['require', 'verify-ca', 'verify-full'].includes(url.searchParams.get('sslmode') ?? '')
-      ) {
-        throw new Error('production database requires remote TLS');
-      }
-    }
-    return value;
-  } catch {
-    throw new Error(`DATABASE_CONFIG_INVALID: invalid ${variable}`);
-  }
+    },
+    api: {
+      database: {
+        ...databaseSettingsSchema,
+        url: v.optional(databaseUrlSchema),
+        maxPool: v.optional(maxPoolSchema, '8'),
+        applicationName: v.optional(applicationNameSchema, 'pipong_api'),
+      },
+    },
+    worker: {
+      database: {
+        ...databaseSettingsSchema,
+        url: v.optional(databaseUrlSchema),
+        maxPool: v.optional(maxPoolSchema, '12'),
+        applicationName: v.optional(applicationNameSchema, 'pipong_worker'),
+      },
+    },
+  },
+});
+
+if (env.api.database.url !== undefined) {
+  validateProductionUrl('API_DATABASE_URL', env.api.database.url, env.node.env);
+}
+
+if (env.worker.database.url !== undefined) {
+  validateProductionUrl('WORKER_DATABASE_URL', env.worker.database.url, env.node.env);
+}
+
+if (env.migration.database.url !== undefined) {
+  validateProductionUrl('MIGRATION_DATABASE_URL', env.migration.database.url, env.node.env);
 }

@@ -6,12 +6,10 @@ export type EnvironmentSource = Record<string, string | undefined>;
 export type ApiConfig = {
   authBaseUrl: string;
   authSecret: string;
-  databasePoolMax: number;
   credentialKeyringRef: string;
 };
 
 export type WorkerConfig = {
-  databasePoolMax: number;
   credentialKeyringRef: string;
   apnsEnvironment: 'production' | 'sandbox';
   fcmProjectId: string | undefined;
@@ -32,15 +30,6 @@ export class ConfigError extends Error {
 
 const requiredStringSchema = v.pipe(v.string(), v.trim(), v.nonEmpty());
 const authSecretSchema = v.pipe(requiredStringSchema, v.minLength(32));
-const poolBudgetSchema = v.pipe(
-  v.string(),
-  v.trim(),
-  v.toNumber(),
-  v.integer(),
-  v.minValue(1),
-  v.maxValue(100),
-);
-
 function canonicalAuthUrlSchema(): v.GenericSchema<string> {
   return v.pipe(
     requiredStringSchema,
@@ -91,7 +80,6 @@ export function parseApiConfig(source: EnvironmentSource): ApiConfig {
       schema: {
         AUTH_BASE_URL: canonicalAuthUrlSchema(),
         AUTH_SECRET: authSecretSchema,
-        API_DATABASE_POOL_MAX: v.optional(poolBudgetSchema, '8'),
         CREDENTIAL_KEYRING_REF: requiredStringSchema,
       },
     }),
@@ -99,7 +87,6 @@ export function parseApiConfig(source: EnvironmentSource): ApiConfig {
   return {
     authBaseUrl: values.AUTH_BASE_URL,
     authSecret: values.AUTH_SECRET,
-    databasePoolMax: values.API_DATABASE_POOL_MAX,
     credentialKeyringRef: values.CREDENTIAL_KEYRING_REF,
   };
 }
@@ -109,7 +96,6 @@ export function parseWorkerConfig(source: EnvironmentSource): WorkerConfig {
     defineEnv({
       source,
       schema: {
-        WORKER_DATABASE_POOL_MAX: v.optional(poolBudgetSchema, '12'),
         CREDENTIAL_KEYRING_REF: requiredStringSchema,
         APNS_ENVIRONMENT: v.optional(v.picklist(['production', 'sandbox']), 'production'),
         FCM_PROJECT_ID: v.optional(v.pipe(v.string(), v.trim(), v.nonEmpty())),
@@ -118,7 +104,6 @@ export function parseWorkerConfig(source: EnvironmentSource): WorkerConfig {
     }),
   );
   return {
-    databasePoolMax: values.WORKER_DATABASE_POOL_MAX,
     credentialKeyringRef: values.CREDENTIAL_KEYRING_REF,
     apnsEnvironment: values.APNS_ENVIRONMENT,
     fcmProjectId: values.FCM_PROJECT_ID,

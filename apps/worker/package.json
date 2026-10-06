@@ -6,8 +6,7 @@
     "dev": "node --watch src/index.ts",
     "start": "node dist/index.mjs",
     "typecheck": "tsc --checkers 8",
-    "build": "tsdown",
-    "migrate": "node dist/migrate.mjs"
+    "build": "tsdown"
   },
   "dependencies": {
     "@pipong/shared": "workspace:*",
