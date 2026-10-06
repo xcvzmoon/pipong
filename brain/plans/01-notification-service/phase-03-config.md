@@ -2,6 +2,12 @@
 
 Back to [[plans/01-notification-service/overview]]
 
+## Status
+
+- Implemented 2026-10-06 with GPT-6-Luna execution and parent review.
+- API and worker validate configuration at startup with stable, redacted errors. Pool budgets are validated here; phase 04 applies them to database connections.
+- Configuration lives in packages/shared, matching the existing workspace. No packages/service package was added.
+
 ## Goal
 
 Introduce explicit Node preset, Nitro serverDir ./src and source-aligned aliases, and Valibot-validated API/worker configuration, including independent pool budgets, encryption keyring references, canonical auth URL, and supported provider settings.
@@ -9,8 +15,12 @@ Introduce explicit Node preset, Nitro serverDir ./src and source-aligned aliases
 ## Changes
 
 - apps/server/nitro.config.ts
-- packages/service/src/config.ts
-- tests/config.test.ts
+- packages/shared/src/config.ts
+- apps/server/src/config.test.ts
+
+- Integration packet: apps/server/src/plugins/config.ts, apps/worker/src/index.ts, apps/server/tsconfig.json.
+- Packaging packet: app/shared manifests, apps/worker/tsdown.config.ts, packages/shared/src/index.ts and lockfile.
+- Operator documentation: CONFIGURATION.md and README.md.
 
 - Commit generated SQL/lockfile changes required by this capability; review its documented contract. Do not edit vendored skills or anti-slop tooling.
 - Service capabilities require the HTTP adapter packets in [[plans/01-notification-service/http-packet]]; neither service-only smoke nor this file list excuses missing public operations.

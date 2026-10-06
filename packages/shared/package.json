@@ -17,6 +17,7 @@
     "typecheck": "tsc --checkers 8"
   },
   "dependencies": {
+    "@xcvzlabs/env": "catalog:shared",
     "valibot": "catalog:shared"
   },
   "devDependencies": {

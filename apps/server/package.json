@@ -11,6 +11,9 @@
     "test:verbose": "vitest --run --reporter=verbose",
     "typecheck": "tsc --checkers 8"
   },
+  "dependencies": {
+    "@pipong/shared": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "catalog:shared",
     "nitro": "catalog:server",

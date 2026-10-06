@@ -255,6 +255,10 @@ importers:
         version: 0.1.1(oxfmt@0.71.0)(oxlint@1.86.0(oxlint-tsgolint@7.0.2003))(typescript@7.0.2)
 
   apps/server:
+    dependencies:
+      '@pipong/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
     devDependencies:
       '@types/node':
         specifier: catalog:shared
@@ -270,6 +274,10 @@ importers:
         version: 5.0.3(@types/node@26.6.4)(vite@8.3.2(@types/node@26.6.4)(jiti@2.7.0))
 
   apps/worker:
+    dependencies:
+      '@pipong/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
     devDependencies:
       '@types/node':
         specifier: catalog:shared
@@ -320,6 +328,9 @@ importers:
 
   packages/shared:
     dependencies:
+      '@xcvzlabs/env':
+        specifier: catalog:shared
+        version: 0.1.2(typescript@7.0.2)
       valibot:
         specifier: catalog:shared
         version: 1.5.0(typescript@7.0.2)
