@@ -4,7 +4,7 @@ Back to [[plans/01-notification-service/overview]]
 
 ## Goal
 
-Provide local-only bootstrap, account provisioning, verification/invitation/reset flows, TOTP enrollment/recovery, and recent-MFA assurance for privileged actions. Use supported auth APIs and actual mail delivery through configured SMTP.
+Provide local-only bootstrap, account provisioning, verification/invitation/reset flows, TOTP enrollment/recovery, and recent-MFA assurance for privileged actions. Use supported auth APIs and queue authentication email through pg-boss. The worker sends it through Unemail with Handlebars templates and configured SMTP.
 
 ## Changes
 
@@ -28,4 +28,5 @@ Provide local-only bootstrap, account provisioning, verification/invitation/rese
 - Static: install before first typecheck; pnpm check, applicable Vitest tests, and affected deployable build. Tests use isolated real PostgreSQL/protocol fixtures, not module mocks.
 - Runtime: Bootstrap through protected input and complete invite/verification/MFA using a local SMTP capture service and operator client; no usable remote bootstrap exists.
 - Behavioral scenarios: Concurrent bootstrap; verified invite acceptance; canceled invite; MFA step-up; recovery audit.
+- Prove mail survives a worker restart and temporary SMTP failures retry within a bounded policy. Keep this verification in a separate mail packet if the enrollment packet exceeds its scenario limit.
 - Update user/operator docs for delivered behavior; this internal increment is not the full production release.

@@ -39,19 +39,19 @@ Use PostgreSQL 18 and a dedicated database. As its administrator, run `packages/
 | `pipong_api`      | Read/write tables and sequences in `auth`, `app`, and `pgboss` | Denied          |
 | `pipong_worker`   | Read/write tables and sequences in `app` and `pgboss`          | Denied          |
 
-Default grants apply to future tables created by `pipong_migrator`. Tenant tables and RLS are introduced in later phases. Queue access prepares both API enqueueing and worker processing; no queue consumers are enabled yet.
+Default grants apply to future tables created by `pipong_migrator`. Tenant tables and RLS are introduced in later phases. API callbacks enqueue authentication email, and the worker processes the `auth-email` queue. Push delivery consumers remain disabled.
 
 Database environment settings are listed in `packages/database/.env.example`. For each role, `MAX_POOL` defaults to 8 (API) or 12 (worker), `CONNECTION_TIMEOUT` defaults to 5000 milliseconds, `IDLE_TIMEOUT` defaults to 30000 milliseconds, and `APPLICATION_NAME` defaults to its PostgreSQL role name. Connection timeouts must be positive; an idle timeout of zero disables idle eviction. `API_DATABASE_USE_QUERY_LOGGER / WORKER_DATABASE_USE_QUERY_LOGGER` defaults to false and enables the cataloged Drizzle query logger through `console.info`. Query logging includes SQL and parameter values.
 
 Drizzle Kit owns schema generation, migration application, and Studio:
 
-- `pnpm database generate` generates reviewed SQL from `src/schema.ts` without requiring database credentials.
+- `pnpm auth generate` generates reviewed SQL from `src/schema.ts` without requiring database credentials.
 - `pnpm database check` validates migration history.
-- `pnpm database migrate` applies committed migrations using `drizzle.migrate.config.ts` and `MIGRATION_DATABASE_URL`.
+- `pnpm migrate` applies database foundation and auth migrations in order using `MIGRATION_DATABASE_URL`.
 - `pnpm database studio:api` selects `drizzle.api.config.ts` and the API URL.
 - `pnpm database studio:worker` selects `drizzle.worker.config.ts` and the worker URL.
 
-All configs share the same schemas, migration folder, and migration history. API and worker configs select credentials for inspection; they do not create separate databases or migration histories. The initial snapshot records the existing `app`, `auth`, and `pgboss` schemas; application tables are introduced by later capabilities.
+Database and auth own separate schema sources and migration folders, with one PostgreSQL migration history. API and worker configs select credentials for inspection; they do not create separate databases or migration histories. The migrations include the schema foundation, generated auth tables, and pg-boss storage with the authentication mail queue. Tenant notification tables are introduced by later capabilities.
 
 Run one migration job at a time before starting either app. The job needs the database package, migration files, and its Drizzle Kit dependencies. No standalone migration executable is built. Drizzle Kit owns migration errors, history, and SQL transaction handling. Administrator role provisioning remains in `provision.sql`; runtime logins retain no schema-change permissions.
 
@@ -61,6 +61,45 @@ Budget connections across all replicas, including migration, operator, and futur
 
 ## Database integration tests
 
-Run `TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres pnpm test` against a disposable PostgreSQL 18 cluster with local trust authentication. The suite creates a temporary database and the fixed deployment roles, then removes them. It requires an administrator named `postgres`; do not point it at a shared or production cluster. Without `TEST_DATABASE_URL`, database integration tests are skipped, while configuration tests still run.
+Run `TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres pnpm auth test` against a disposable PostgreSQL 18 cluster with local trust authentication. Persistence tests in `@pipong/auth` create a temporary database and the fixed deployment roles, then removes them. It requires an administrator named `postgres`; do not point it at a shared or production cluster. Without `TEST_DATABASE_URL`, persistence integration tests are skipped, while configuration tests still run.
 
-The `@pipong/database` application API exposes `useApiDb` and `useWorkerDb` and its `DatabaseRuntime` type only. Apps receive the Drizzle connection, pool, and shutdown function. The internal env module validates URLs and budgets; the connection module constructs the pool and manages its lifecycle. Provisioning, migration execution, and schema tooling stay inside `packages/database`; application workspaces do not import them.
+`@pipong/database` exposes pool factories, `DatabaseRuntime`, and schema helpers.
+`@pipong/auth` owns auth schemas, relations, adapter, auth mail queue, and migrations.
+Applications receive a pool and shutdown function; auth builds its typed Drizzle
+client on that pool. Run `pnpm migrate` at the root to apply foundation migrations
+before auth migrations.
+
+## Authentication email worker
+
+| Variable         | Required | Default    | Purpose                                                                                           |
+| ---------------- | -------- | ---------- | ------------------------------------------------------------------------------------------------- |
+| `AUTH_MAIL_FROM` | Yes      |            | Sender email address                                                                              |
+| `SMTP_HOST`      | Yes      |            | SMTP server hostname                                                                              |
+| `SMTP_PORT`      | No       | `587`      | SMTP port, from 1 to 65535                                                                        |
+| `SMTP_SECURITY`  | No       | `starttls` | `starttls` requires STARTTLS; `tls` uses implicit TLS; `local` permits plaintext only on loopback |
+| `SMTP_USER`      | No       |            | SMTP login; supply together with `SMTP_PASSWORD`                                                  |
+| `SMTP_PASSWORD`  | No       |            | SMTP password; supply together with `SMTP_USER`                                                   |
+
+Only the worker requires SMTP settings. Invalid settings stop it with
+`AUTH_MAIL_CONFIG_INVALID`, without including credentials in the error. For
+implicit TLS, set `SMTP_SECURITY=tls` and the provider's port (usually `465`).
+
+The API queues mail through its own pool without an SMTP connection. The worker
+uses its pool for queue processing and drains the queue before closing its SMTP
+transport and database pool. Queue runtimes cannot migrate or create queues.
+
+See [human authentication](./AUTHENTICATION.md) for enabled routes, queue retry and
+retention policy, reverse-proxy rate-limit behavior, and built-runtime tests.
+
+## Environment examples
+
+- [API](apps/server/.env.example) includes auth configuration and the API database connection.
+- [Worker](apps/worker/.env.example) includes SMTP, provider settings, and the worker database connection.
+- [Auth package](packages/auth/.env.example) lists auth, SMTP, and auth migration settings by consumer.
+- [Database package](packages/database/.env.example) lists connection settings by role and the migration URL.
+
+App templates contain only their runtime settings. Package templates are references;
+do not inject every package setting into every process. API and worker processes
+must not receive the migration credential. Nothing automatically loads the package
+`.env` files. Copy the relevant app template to its `.env` for local development;
+export migration settings separately before running `pnpm migrate`.

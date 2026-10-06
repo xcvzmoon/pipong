@@ -23,12 +23,14 @@ Back to [[plans/01-notification-service/overview]]
 
 ## Schema and migration boundary
 
-- One code-first workflow: schemas in database, generated SQL reviewed and committed, then the Drizzle Kit applies committed SQL.
+- User direction, 2026-10-06: always use UUIDv7 for new record IDs, including Better Auth's runtime ID generator. Schema helpers live at `@pipong/database/helpers`; auth primary keys, references, and audit actor columns use PostgreSQL UUIDs. UUID and update defaults run through Drizzle, not database triggers.
+
+- Each package owns its schema and generated SQL. Root migration orchestration applies database foundation before auth-owned migrations.
 - Explicit SQL covers privileges and database operations outside the schema generator. Provisioning remains an administrator operation owned by the same package.
 - Drizzle generation loads local schema files without requiring live database credentials. Connection-requiring tooling reads credentials internally.
 - Migration configuration and SQL paths belong to Drizzle Kit configs. Deployment serializes migration runs. Runtime imports never expose or invoke migrations.
 - Remove database-first `pull` and competing public connection factories when implementing this decision. Keep inspection tooling separate from schema ownership.
-- Better Auth behavior stays in the service layer; generated auth tables and migrations belong to database. Provider and authorization policy remain outside database.
+- User direction, 2026-10-06: Better Auth runtime, adapter, endpoint policy, and auth email handling belong to `packages/auth` (`@pipong/auth`); auth tables with UUIDv7/timestamp helpers and migrations belong to auth. Provider and authorization policy remain outside database.
 - Persistence schemas and SQL repositories belong to database. Future service integration must define how repositories are consumed without exporting table internals; a typed connection alone does not provide that repository contract. Do not invent a generic repository framework now.
 
 ## Implementation sequence
@@ -43,3 +45,7 @@ Back to [[plans/01-notification-service/overview]]
 - Test purpose-specific budgets, missing/invalid settings, production TLS requirements, exact identities, denied privileges, and cleanup against disposable PostgreSQL.
 - Prove schema generation needs no live credentials; prove clean/repeated migration and rollback using the database package’s CLI command.
 - Run `pnpm check`, applicable tests, and all affected builds. Skipped integration tests do not establish database correctness.
+
+- Review correction, 2026-10-06: pass the central relations to `drizzle()` and retain their type on the runtime client. Auth mail configuration, queue payloads, templates/rendering, SMTP creation, and job processing have separate modules. Use actual `.hbs` templates with an isolated `Handlebars.create()` instance; tsdown and Nitro embed their text, and the worker bundles the auth package. Document only shared public contracts.
+
+- Ownership correction, 2026-10-06: auth owns its schema, relations, SQL migrations, generation tools, adapter, and mail queue. Database owns pools and shared helpers. Root `pnpm migrate` sequences database foundation then auth migrations. Auth configures its relations on a Drizzle client sharing the supplied pool. This supersedes earlier auth-in-database decisions in this note.
