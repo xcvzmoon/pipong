@@ -12,13 +12,21 @@
     "typecheck": "tsc --checkers 8"
   },
   "dependencies": {
-    "@pipong/shared": "workspace:*",
-    "@pipong/database": "workspace:*"
+    "@pipong/auth": "workspace:*",
+    "@pipong/database": "workspace:*",
+    "@pipong/shared": "workspace:*"
   },
   "devDependencies": {
+    "@better-auth/utils": "catalog:auth",
     "@types/node": "catalog:shared",
+    "@types/pg": "catalog:database",
+    "@types/smtp-server": "catalog:mail",
+    "better-auth": "catalog:auth",
     "nitro": "catalog:server",
+    "pg": "catalog:database",
+    "smtp-server": "catalog:mail",
     "typescript": "catalog:shared",
+    "valibot": "catalog:shared",
     "vitest": "catalog:shared"
   }
 }

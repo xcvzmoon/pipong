@@ -9,10 +9,6 @@
       "entityType": "schemas"
     },
     {
-      "name": "auth",
-      "entityType": "schemas"
-    },
-    {
       "name": "pgboss",
       "entityType": "schemas"
     }
