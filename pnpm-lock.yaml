@@ -346,6 +346,9 @@ importers:
       '@pipong/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      valibot:
+        specifier: catalog:shared
+        version: 1.5.0(typescript@7.0.2)
     devDependencies:
       '@types/node':
         specifier: catalog:shared
