@@ -125,6 +125,7 @@ export async function startAuthFixture(
     server.stderr?.on('data', (chunk: Buffer) => {
       logs = (logs + chunk.toString()).slice(-4000);
     });
+    // oxlint-disable eslint/no-await-in-loop -- Wait between startup probes and stop as soon as the server is ready.
     for (let index = 0; index < 100; index++) {
       if (server.exitCode !== null) throw new Error(`TEST_SERVER_STARTUP_FAILED: ${logs}`);
       try {
@@ -136,6 +137,7 @@ export async function startAuthFixture(
       }
       await setTimeout(100);
     }
+    // oxlint-enable eslint/no-await-in-loop
     throw new Error(`TEST_SERVER_TIMEOUT: ${logs}`);
   } catch (error) {
     await close();
