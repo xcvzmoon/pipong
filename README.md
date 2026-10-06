@@ -51,6 +51,8 @@ The built entrypoint is `apps/worker/dist/index.mjs`. It runs without the source
 
 ## Deploying
 
+See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.
+
 ```bash
 pnpm run check
 pnpm build
