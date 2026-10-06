@@ -12,7 +12,8 @@
     "typecheck": "tsc --checkers 8"
   },
   "dependencies": {
-    "@pipong/shared": "workspace:*"
+    "@pipong/shared": "workspace:*",
+    "@pipong/database": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",
