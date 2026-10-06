@@ -16,7 +16,9 @@
     "test:watch": "pnpm --recursive --parallel --if-present run test:watch",
     "test:verbose": "pnpm --recursive --if-present run test:verbose",
     "release": "genbumppush --yes",
-    "server": "pnpm --filter pipong-server --fail-if-no-match run"
+    "server": "pnpm --filter pipong-server --fail-if-no-match run",
+    "database": "pnpm --filter @pipong/database --fail-if-no-match run",
+    "shared": "pnpm --filter @pipong/shared --fail-if-no-match run"
   },
   "devDependencies": {
     "@oxlint/plugins": "catalog:root",

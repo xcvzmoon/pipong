@@ -1,0 +1,27 @@
+{
+  "name": "@pipong/shared",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.mjs",
+      "./package.json": "./package.json"
+    }
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --checkers 8"
+  },
+  "dependencies": {
+    "valibot": "catalog:shared"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:shared",
+    "tsdown": "catalog:shared",
+    "typescript": "catalog:shared"
+  }
+}

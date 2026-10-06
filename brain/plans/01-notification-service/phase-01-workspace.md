@@ -27,5 +27,6 @@ Declare apps/server, apps/worker, and packages/service as a thin workspace. Root
 
 - Static: install before first typecheck; pnpm check, applicable Vitest tests, and affected deployable build. Tests use isolated real PostgreSQL/protocol fixtures, not module mocks.
 - Runtime: Install the workspace, resolve shared imports from each app context, and launch the relocated Nitro starter from apps/server. Root commands delegate to the selected app or aggregate workspace checks/builds without recursion.
+- Run checks without existing package build outputs. Internal packages use tsdown source exports (`exports.devExports: true`) so lint and typecheck resolve workspace imports before the first build.
 - Behavioral scenarios: Workspace install; app-local dependency resolution; relocated API response; root command delegation; no provider dependencies in request-only imports.
 - Update user/operator docs for delivered behavior; this internal increment is not the full production release.
