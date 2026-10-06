@@ -8,9 +8,9 @@ import { betterAuth } from 'better-auth/minimal';
 import { organization } from 'better-auth/plugins/organization';
 import { twoFactor } from 'better-auth/plugins/two-factor';
 import { v7 } from 'uuid';
+import { enrollmentBefore, enrollmentAfter } from './assurance.ts';
 import { createAuthAdapter, createAuthClient } from './database.ts';
 import { enqueueAuthMail } from './mail/queue.ts';
-import { enforceMfaPolicy } from './policy.ts';
 
 export type HumanAuth = {
   handler: (request: Request) => Promise<Response>;
@@ -62,7 +62,8 @@ export function createAuthEngine(
     appName: 'Pipong',
     logger: { disabled: mode === 'operator' },
     hooks: {
-      before: enforceMfaPolicy,
+      before: enrollmentBefore(client),
+      after: enrollmentAfter(client),
     },
     baseURL: config.authBaseUrl,
     basePath: '/api/auth',

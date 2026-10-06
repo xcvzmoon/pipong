@@ -2,6 +2,14 @@ import type { HumanAuth } from './auth.ts';
 
 const publicAuthOperations = new Map([
   ['/sign-in/email', 'POST'],
+  ['/organization/invite-member', 'POST'],
+  ['/organization/cancel-invitation', 'POST'],
+  ['/organization/get-invitation', 'GET'],
+  ['/organization/accept-invitation', 'POST'],
+  ['/organization/reject-invitation', 'POST'],
+  ['/organization/list-user-invitations', 'GET'],
+  ['/two-factor/generate-backup-codes', 'POST'],
+  ['/two-factor/disable', 'POST'],
   ['/sign-out', 'POST'],
   ['/get-session', 'GET'],
   ['/list-sessions', 'GET'],

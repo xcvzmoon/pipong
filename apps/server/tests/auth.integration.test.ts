@@ -150,12 +150,10 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
       '/sign-up/email',
       '/organization/create',
       '/organization/delete',
-      '/organization/invite-member',
       '/api-key/create',
       '/api-key/update',
       '/api-key/delete',
       '/delete-user',
-      '/two-factor/disable',
       '/admin/create-user',
     ]) {
       const response = await post(path, {
