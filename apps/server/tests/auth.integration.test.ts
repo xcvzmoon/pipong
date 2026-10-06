@@ -2,6 +2,7 @@ import type { ChildProcess } from 'node:child_process';
 import type { AuthFixture } from './fixtures/auth-runtime.ts';
 import { base32 } from '@better-auth/utils/base32';
 import { createOTP } from '@better-auth/utils/otp';
+import { createHmac } from 'node:crypto';
 import { SMTPServer } from 'smtp-server';
 import * as v from 'valibot';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -12,7 +13,7 @@ const sessionSchema = v.object({
   user: v.object({ id: v.string() }),
   session: v.object({ token: v.string() }),
 });
-const enableSchema = v.object({ totpURI: v.string() });
+const enableSchema = v.object({ totpURI: v.string(), backupCodes: v.array(v.string()) });
 const challengeSchema = v.object({ twoFactorRedirect: v.literal(true) });
 const errorSchema = v.object({ code: v.string() });
 type PostBody = Record<string, string | boolean>;
@@ -191,10 +192,10 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
       cookies,
     );
     expect(enabling.status).toBe(200);
-    const secret = new URL(v.parse(enableSchema, await enabling.json()).totpURI).searchParams.get(
-      'secret',
-    );
+    const enrollment = v.parse(enableSchema, await enabling.json());
+    const secret = new URL(enrollment.totpURI).searchParams.get('secret');
     if (!secret) throw new Error('TEST_TOTP_SECRET_MISSING');
+    await fixture.database.query('DELETE FROM auth.rate_limit');
     expect(
       (
         await post(
@@ -205,6 +206,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
       ).status,
     ).toBe(200);
     await post('/sign-out', {}, cookies);
+    await fixture.database.query('DELETE FROM auth.rate_limit');
     const challenge = await post(
       '/sign-in/email',
       { email: 'verified@example.com', password: 'test-password-long-enough' },
@@ -217,6 +219,23 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     expect(setCookies.some((value) => value.startsWith('better-auth.two_factor='))).toBe(true);
     expect(await (await getSession(cookies)).json()).toBeNull();
     expect((await post('/two-factor/verify-totp', { code: 'invalid' }, cookies)).status).toBe(401);
+    await fixture.database.query('DELETE FROM auth.rate_limit');
+    const code = await createOTP(new TextDecoder().decode(base32.decode(secret))).totp();
+    const backupCode = enrollment.backupCodes[0];
+    if (!backupCode) throw new Error('TEST_BACKUP_CODE_MISSING');
+
+    for (const [path, submittedCode] of [
+      ['/two-factor/verify-totp', code],
+      ['/two-factor/verify-backup-code', backupCode],
+    ]) {
+      const rejected = await post(path, { code: submittedCode, trustDevice: true }, cookies);
+      expect(rejected.status).toBe(403);
+      expect(v.parse(errorSchema, await rejected.json()).code).toBe('AUTH_DEVICE_TRUST_DISABLED');
+      expect(await (await getSession(cookies)).json()).toBeNull();
+      expect(cookies.get('better-auth.trust_device')).toBeUndefined();
+    }
+
+    await fixture.database.query('DELETE FROM auth.rate_limit');
     expect(
       (
         await post(
@@ -229,6 +248,81 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     expect(v.parse(sessionSchema, await (await getSession(cookies)).json()).user.id).toBe(
       '019a0000-0000-7000-8000-000000000011',
     );
+    await post('/sign-out', {}, cookies);
+    await fixture.database.query('DELETE FROM auth.rate_limit');
+    v.parse(
+      challengeSchema,
+      await (
+        await post(
+          '/sign-in/email',
+          {
+            email: 'verified@example.com',
+            password: 'test-password-long-enough',
+          },
+          cookies,
+        )
+      ).json(),
+    );
+    expect(
+      (await post('/two-factor/verify-backup-code', { code: backupCode }, cookies)).status,
+    ).toBe(200);
+    expect(cookies.get('better-auth.trust_device')).toBeUndefined();
+    await post('/sign-out', {}, cookies);
+    await fixture.database.query('DELETE FROM auth.rate_limit');
+    v.parse(
+      challengeSchema,
+      await (
+        await post(
+          '/sign-in/email',
+          {
+            email: 'verified@example.com',
+            password: 'test-password-long-enough',
+          },
+          cookies,
+        )
+      ).json(),
+    );
+    expect(
+      (await post('/two-factor/verify-backup-code', { code: backupCode }, cookies)).status,
+    ).toBe(401);
+    expect(await (await getSession(cookies)).json()).toBeNull();
+
+    await fixture.database.query('DELETE FROM auth.rate_limit');
+    const authSecret = fixture.environment.AUTH_SECRET;
+    if (!authSecret) throw new Error('TEST_AUTH_SECRET_MISSING');
+    const userId = '019a0000-0000-7000-8000-000000000011';
+    const identifier = 'trust-device-before-policy-fix';
+    const token = createHmac('sha256', authSecret)
+      .update(`${userId}!${identifier}`)
+      .digest('base64url');
+    const value = `${token}!${identifier}`;
+    const signature = createHmac('sha256', authSecret).update(value).digest('base64');
+    await fixture.database.query(
+      "INSERT INTO auth.verification (id,identifier,value,expires_at) VALUES ($1,$2,$3,now()+interval '30 days')",
+      ['019a0000-0000-7000-8000-000000000031', identifier, userId],
+    );
+    cookies.set('better-auth.trust_device', encodeURIComponent(`${value}.${signature}`));
+    v.parse(
+      challengeSchema,
+      await (
+        await post(
+          '/sign-in/email',
+          {
+            email: 'verified@example.com',
+            password: 'test-password-long-enough',
+          },
+          cookies,
+        )
+      ).json(),
+    );
+    expect(await (await getSession(cookies)).json()).toBeNull();
+    expect(
+      (
+        await fixture.database.query('SELECT id FROM auth.verification WHERE identifier=$1', [
+          identifier,
+        ])
+      ).rows,
+    ).toHaveLength(0);
   });
 
   it('rejects untrusted origins and stores rate limits without trusting spoofed client headers', async () => {
@@ -258,6 +352,86 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     );
     expect(counters.rows.length).toBeGreaterThan(0);
     expect(counters.rows.some(({ key }) => key.includes('198.51.100.9'))).toBe(false);
+  });
+
+  it('enforces native callback origin and cross-site login checks', async () => {
+    const callback = await post('/request-password-reset', {
+      email: 'verified@example.com',
+      redirectTo: 'https://attacker.example/reset',
+    });
+    expect(callback.status).toBe(403);
+
+    const csrf = await fetch(`${fixture.baseUrl}/api/auth/sign-in/email`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'sec-fetch-site': 'cross-site',
+        'sec-fetch-mode': 'navigate',
+      },
+      body: JSON.stringify({
+        email: 'verified@example.com',
+        password: 'test-password-long-enough',
+      }),
+    });
+    expect(csrf.status).toBe(403);
+    expect(v.parse(errorSchema, await csrf.json()).code).toBe('MISSING_OR_NULL_ORIGIN');
+  });
+
+  it('locks failed MFA attempts across separate sign-in challenges', async () => {
+    const userId = '019a0000-0000-7000-8000-000000000011';
+    await fixture.database.query(
+      'UPDATE auth.two_factor SET failed_verification_count=0,locked_until=NULL WHERE user_id=$1',
+      [userId],
+    );
+
+    try {
+      for (let challenge = 0; challenge < 2; challenge++) {
+        const cookies: CookieJar = new Map();
+        await fixture.database.query('DELETE FROM auth.rate_limit');
+        v.parse(
+          challengeSchema,
+          await (
+            await post(
+              '/sign-in/email',
+              {
+                email: 'verified@example.com',
+                password: 'test-password-long-enough',
+              },
+              cookies,
+            )
+          ).json(),
+        );
+
+        for (let attempt = 0; attempt < 5; attempt++) {
+          await fixture.database.query('DELETE FROM auth.rate_limit');
+          expect((await post('/two-factor/verify-totp', { code: 'invalid' }, cookies)).status).toBe(
+            401,
+          );
+        }
+
+        expect(await (await getSession(cookies)).json()).toBeNull();
+        if (challenge === 1) {
+          await fixture.database.query('DELETE FROM auth.rate_limit');
+          const locked = await post('/two-factor/verify-backup-code', { code: 'invalid' }, cookies);
+          expect(locked.status).toBe(429);
+          expect(v.parse(errorSchema, await locked.json()).code).toBe('ACCOUNT_TEMPORARILY_LOCKED');
+        }
+      }
+
+      const rows = await fixture.database.query<{
+        failed_verification_count: number;
+        locked_until: Date;
+      }>('SELECT failed_verification_count,locked_until FROM auth.two_factor WHERE user_id=$1', [
+        userId,
+      ]);
+      expect(rows.rows[0]?.failed_verification_count).toBe(10);
+      expect(rows.rows[0]?.locked_until.getTime()).toBeGreaterThan(Date.now());
+    } finally {
+      await fixture.database.query(
+        'UPDATE auth.two_factor SET failed_verification_count=0,locked_until=NULL WHERE user_id=$1',
+        [userId],
+      );
+    }
   });
 
   it('queues verification mail, survives worker restart, and sends escaped Handlebars content', async () => {

@@ -4,7 +4,13 @@
 - Sources: installed package code/types and the v1.7 documentation selected through `https://better-auth.com/llms.txt`. Applied the Better Auth, security, email/password, organization, and two-factor skills.
 - Intentional requirements: UUIDv7/PostgreSQL UUID keys and references, timestamp helpers, centralized relations, separate auth package, disabled public enrollment, and durable pg-boss auth mail.
 
-## Findings
+## Resolution
+
+- Resolved on PR #9: native before hooks reject `trustDevice: true` for both permitted verification endpoints. Signed legacy trust cookies trigger server-side record revocation before login.
+- Real HTTP/PostgreSQL regression coverage now checks both verification paths, a previously valid signed trust cookie, backup-code single use, account-level lockout across challenges/factors, and native callback/missing-origin rejection. Origin and CSRF checks are explicitly enabled even in test mode.
+- Runtime and generator now use dedicated plugin import paths.
+
+## Original findings
 
 1. High: trusted-device MFA bypass remains enabled.
    - `packages/auth/src/auth.ts:73` uses the plugin defaults; `src/requests.ts` permits TOTP and backup-code verification without restricting `trustDevice`.
@@ -35,7 +41,7 @@
 
 ## Validation and limits
 
-- Temporary targeted HTTP/PostgreSQL test reproduced trusted-device bypass; removed afterward. Production code was not changed during this audit.
+- Temporary targeted HTTP/PostgreSQL test reproduced trusted-device bypass; removed afterward. Production code was not changed during the original audit; the resolution above was implemented afterward.
 - Static checks passed after report creation. Earlier full verification passed 44 tests, including actual relational queries and mail delivery; those tests did not cover the identified policy gap.
 - No complete audit of Better Auth internals, deployed proxy configuration, browser clients, or future privileged enrollment routes was performed.
 - Documentation: [Drizzle adapter](https://better-auth.com/docs/adapters/drizzle), [two-factor authentication](https://better-auth.com/docs/plugins/2fa).

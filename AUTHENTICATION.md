@@ -26,7 +26,9 @@ with `403 AUTH_ENDPOINT_DISABLED`:
 Passwords must have at least 12 characters. Login requires a verified email.
 TOTP enrollment requires the password and a valid code; subsequent login returns
 `twoFactorRedirect: true` until the challenge is completed. Backup codes are
-issued during enrollment. Disabling MFA and regenerating backup codes remain
+issued during enrollment. Requests to trust a device are rejected with
+`AUTH_DEVICE_TRUST_DISABLED`; MFA is required on every new sign-in. Previously
+issued signed trust cookies are revoked server-side when presented at login. Disabling MFA and regenerating backup codes remain
 blocked until the recovery and assurance policies are implemented.
 
 Public organization mutations, invitation operations, native API-key operations,

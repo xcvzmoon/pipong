@@ -3,10 +3,12 @@ import type { ApiConfig } from '@pipong/shared';
 import type { PgBoss } from 'pg-boss';
 import { apiKey } from '@better-auth/api-key';
 import { betterAuth } from 'better-auth/minimal';
-import { organization, twoFactor } from 'better-auth/plugins';
+import { organization } from 'better-auth/plugins/organization';
+import { twoFactor } from 'better-auth/plugins/two-factor';
 import { v7 } from 'uuid';
 import { createAuthDatabase } from './database.ts';
 import { enqueueAuthMail } from './mail/queue.ts';
+import { enforceMfaPolicy } from './policy.ts';
 
 export type HumanAuth = {
   handler: (request: Request) => Promise<Response>;
@@ -17,6 +19,9 @@ export type HumanAuth = {
 export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: PgBoss): HumanAuth {
   const auth = betterAuth({
     appName: 'Pipong',
+    hooks: {
+      before: enforceMfaPolicy,
+    },
     baseURL: config.authBaseUrl,
     basePath: '/api/auth',
     secret: config.authSecret,
@@ -61,6 +66,8 @@ export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: 
       max: 100,
     },
     advanced: {
+      disableOriginCheck: false,
+      disableCSRFCheck: false,
       database: {
         generateId: () => v7(),
       },
