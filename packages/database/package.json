@@ -4,11 +4,13 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./helpers": "./src/helpers/index.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
+      "./helpers": "./dist/helpers/index.mjs",
       "./package.json": "./package.json"
     }
   },
@@ -25,12 +27,13 @@
     "test:verbose": "vitest --run --reporter=verbose"
   },
   "dependencies": {
+    "@pipong/shared": "workspace:*",
     "@xcvzlabs/env": "catalog:shared",
     "drizzle-orm": "catalog:database",
-    "pg": "catalog:database",
-    "valibot": "catalog:shared",
     "drizzle-query-logger": "catalog:shared",
-    "@pipong/shared": "workspace:*"
+    "pg": "catalog:database",
+    "uuid": "catalog:shared",
+    "valibot": "catalog:shared"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",

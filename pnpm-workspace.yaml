@@ -8,6 +8,18 @@ allowBuilds:
 catalogMode: strict
 
 catalogs:
+  auth:
+    '@better-auth/api-key': 1.7.7
+    '@better-auth/drizzle-adapter': 1.7.7
+    '@better-auth/utils': 0.4.2
+    'auth': 1.7.7
+    better-auth: 1.7.7
+  mail:
+    '@types/smtp-server': 3.5.13
+    handlebars: 4.7.8
+    pg-boss: 12.37.0
+    smtp-server: 3.19.17
+    unemail: 0.7.0
   database:
     '@types/pg': ^8.23.1
     drizzle-kit: 1.0.0-rc.4
@@ -30,5 +42,9 @@ catalogs:
     drizzle-query-logger: ^1.1.2
     tsdown: ^0.23.0
     typescript: ^7.0.2
+    uuid: 14.0.2
     valibot: ^1.5.0
     vitest: ^5.0.3
+
+minimumReleaseAgeExclude:
+  - pg-boss@12.37.0
