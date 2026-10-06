@@ -8,6 +8,9 @@
     "typecheck": "tsc --checkers 8",
     "build": "tsdown"
   },
+  "dependencies": {
+    "@pipong/shared": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "catalog:shared",
     "tsdown": "catalog:shared",

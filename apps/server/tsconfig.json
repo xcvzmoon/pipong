@@ -2,7 +2,7 @@
   "extends": ["nitro/tsconfig"],
   "compilerOptions": {
     "paths": {
-      "~/*": ["./*"]
+      "~/*": ["./src/*"]
     }
   }
 }

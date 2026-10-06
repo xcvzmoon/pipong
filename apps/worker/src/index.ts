@@ -1,4 +1,7 @@
+import { loadWorkerConfig } from '@pipong/shared';
 import { setInterval } from 'node:timers/promises';
+
+loadWorkerConfig();
 
 const abortController = new AbortController();
 
