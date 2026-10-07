@@ -38,6 +38,17 @@ const verificationResultSchema = v.union([
   }),
 ]);
 
+/**
+ * Creates the hook that enforces enrollment, recent MFA, and invitation role policy.
+ *
+ * @param client - Authentication client or transaction used by the hook.
+ * @returns Before hook; invocation can reject with an authentication APIError or database error.
+ *
+ * @example
+ * ```ts
+ * const hook = enrollmentBefore(client);
+ * ```
+ */
 export function enrollmentBefore(client: AuthClient | AuthTransaction): AuthMiddleware {
   return createAuthMiddleware(async (context) => {
     await enforceMfaPolicy(context);
@@ -98,6 +109,17 @@ export function enrollmentBefore(client: AuthClient | AuthTransaction): AuthMidd
   });
 }
 
+/**
+ * Creates the hook that records successful MFA verification and privileged audit actions.
+ *
+ * @param client - Authentication client or transaction used by the hook.
+ * @returns After hook; failed or unrecognized results are ignored and database errors propagate.
+ *
+ * @example
+ * ```ts
+ * const hook = enrollmentAfter(client);
+ * ```
+ */
 export function enrollmentAfter(client: AuthClient | AuthTransaction): AuthMiddleware {
   return createAuthMiddleware(async (context) => {
     const isTotp = context.path === '/two-factor/verify-totp';
