@@ -8,6 +8,7 @@ import {
   index,
   uniqueIndex,
   uuid,
+  unique,
 } from 'drizzle-orm/pg-core';
 import { generateUuid, generateTimestamps, TIMESTAMP_CONFIG } from '../helpers/index.ts';
 
@@ -177,6 +178,7 @@ export const apikeys = authSchema.table(
     index('apikey_configId_idx').on(table.configId),
     index('apikey_referenceId_idx').on(table.referenceId),
     index('apikey_key_idx').on(table.key),
+    unique('api_keys_organization_id_id_unique').on(table.referenceId, table.id),
   ],
 );
 
