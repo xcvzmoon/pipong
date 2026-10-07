@@ -31,11 +31,10 @@ privilege on the public, authentication, application, or queue schemas. They are
 not superusers and cannot create databases, create roles, replicate, or bypass RLS.
 Startup checks enforce the expected account name and these restrictions.
 
-Both runtime accounts currently receive the same broad data permissions in `app`
-and `pgboss`. Account separation protects authentication records from worker
-access, but does not yet restrict individual notification tables. Tenant tables,
-RLS policies, and queue consumers are planned work. The current Drizzle schema
-contains namespace declarations, with no application tables yet.
+Both runtime accounts receive table permissions in `app` and `pgboss`. Project
+and environment tables additionally enforce tenant scope with `USING`, `WITH
+CHECK`, and `FORCE ROW LEVEL SECURITY`. Authentication and queue tables retain
+separate grants and do not use application tenant policies.
 
 ## Local setup
 
@@ -316,8 +315,49 @@ policy, and auth email delivery. Its schema-generator config reflects its plugin
 and writes an ignored reference schema; reviewed schema definitions stay here.
 
 Run `pnpm migrate` at the repository root to apply `migrations/foundation/` before
-`migrations/auth/`. Both directories retain their original SQL and snapshot IDs
+`migrations/auth/`, then `migrations/tenancy/`. The existing directories retain their SQL and snapshot IDs
 and use the existing shared PostgreSQL history. Use `pnpm database generate:auth`
 for auth schema changes.
 
 See [human authentication](../../AUTHENTICATION.md) for auth persistence and mail.
+
+## Tenant transaction boundary
+
+`@pipong/database/tenancy` exports `withTenantTransaction`, `TenantScope`, and
+`TenantTransaction`. Table definitions remain internal to database. Later
+capabilities add concrete repository operations here rather than exporting tables.
+
+Call the gateway with a scope established by application authorization. The
+`kind` selects organization, project, or environment scope; narrower scopes require
+all parent IDs. Valibot rejects malformed IDs, missing parents, and extra fields
+with `TENANT_SCOPE_INVALID` before acquiring a connection.
+
+The gateway begins a Drizzle transaction and sets all three scope values using
+parameterized, transaction-local `set_config`. Organization scope includes its
+projects and environments. Project scope includes only its project and its
+environments. Environment scope includes only its environment and parent project.
+Missing organization context returns no rows and rejects inserts. Policies check
+both existing rows and new values; composite references prevent an environment
+from claiming a project in another organization. Ownership references restrict
+deletion until dependent records are removed.
+
+Await all callback work before returning. The callback commits on success and
+rolls back on rejection. Context expires at either outcome, including when the
+same pooled connection is reused. Start each tenant unit of work through this
+gateway; savepoints within the callback retain that transaction's scope. Do not
+open another tenant gateway inside its callback or issue session-level scope SETs.
+
+The gateway validates scope shape, not membership, grants, revocation, or MFA.
+Those decisions belong to phase 08. Runtime SQL can choose its own context, so
+RLS protects against omitted predicates and does not replace authorization or
+parameterized queries. PostgreSQL constraint errors remain internal; future HTTP
+adapters must map them without exposing another tenant's identifiers.
+
+Generate tenant schema changes with `pnpm database generate:tenancy`. Review the
+SQL and preserve explicit `FORCE ROW LEVEL SECURITY` statements, which Drizzle's
+schema generator does not represent. `pnpm database migrate` applies all three
+migration directories in dependency order. Deployments must serialize migrations.
+
+The PostgreSQL suite verifies missing and invalid context, scope-limited reads
+and mutations, composite ownership, FORCE RLS flags, rollback, concurrent
+transactions, and context reset using a one-connection pool for each runtime role.
