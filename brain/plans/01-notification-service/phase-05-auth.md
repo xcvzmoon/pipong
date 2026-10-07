@@ -16,9 +16,9 @@ Configure Better Auth organization, API-key, TOTP, database session/rate-limit s
 
 ## Implementation packets
 
-- Auth persistence: `packages/auth/src/schema.ts`, `tooling/auth.config.ts`, and `packages/auth/src/database.ts`; generated SQL stays in the database package. The generator and adapter use Drizzle Relations v2.
+- Auth persistence: `packages/database/src/auth/` owns schemas, relations, typed clients, and SQL operations; generated SQL stays in `packages/database/migrations/auth/`. Auth owns `tooling/auth.config.ts` and the Better Auth adapter, using Drizzle Relations v2.
 - Auth HTTP: `packages/auth/src/auth.ts`, `apps/server/src/api/auth/[...all].ts`, and `apps/server/tests/auth.integration.test.ts`. Nitro startup owns resource initialization and cleanup.
-- Mail persistence: `packages/auth/src/mail/runtime.ts`, `tooling/generate-mail-queue.ts`, and the custom queue migration. Runtime roles cannot migrate or create queues.
+- Mail persistence: `packages/database/src/queue.ts`, `packages/database/tooling/generate-mail-queue.ts`, and the custom queue migration. Runtime roles cannot migrate or create queues.
 - Mail delivery: `packages/auth/src/mail/`, `apps/worker/src/index.ts`, and `packages/auth/tests/mail.test.ts`; built worker scenarios use the HTTP integration fixture and local SMTP capture.
 - Service workspace configuration, lockfile updates, and user/operator documentation accompany these packets. See `AUTHENTICATION.md` for delivered routes and operational limits.
 
