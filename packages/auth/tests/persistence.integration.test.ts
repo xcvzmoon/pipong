@@ -145,7 +145,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     const result = await fixture.query<{ count: string }>(
       'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
     );
-    expect(result.rows[0]?.count).toBe('4');
+    expect(result.rows[0]?.count).toBe('5');
   });
 
   it('rolls back failed migrations without recording completion', async () => {
@@ -164,7 +164,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       const history = await fixture.query<{ count: string }>(
         'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
       );
-      expect(history.rows[0]?.count).toBe('4');
+      expect(history.rows[0]?.count).toBe('5');
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
@@ -200,6 +200,14 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       `,
         );
       }),
+    );
+    await runClient(
+      'api',
+      `
+      await runtime.pool.query("INSERT INTO auth.enrollment_audit(id,action,user_id) VALUES ('019a0000-0000-7000-8000-000000000041','bootstrap','019a0000-0000-7000-8000-000000000042')");
+      await assert.rejects(runtime.pool.query("UPDATE auth.enrollment_audit SET action='tampered'"), { code: '42501' });
+      await assert.rejects(runtime.pool.query('DELETE FROM auth.enrollment_audit'), { code: '42501' });
+    `,
     );
   });
 

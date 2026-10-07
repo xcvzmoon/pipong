@@ -5,9 +5,10 @@ organization membership, organization-owned API keys, TOTP data, and rate-limit
 counters. The Drizzle adapter runs auth transactions; its tables and migrations
 belong to `packages/auth`.
 
-This phase provides the authentication foundation. Operator bootstrap, account
-provisioning, invitation acceptance, and privileged-action MFA assurance are the
-next phase. There is no public signup or account-provisioning endpoint yet.
+Operators bootstrap an installation and provision accounts through a local command.
+Verified users accept organization invitations through the native auth handler.
+Privileged enrollment operations require recent MFA. Public signup and remote
+account provisioning remain disabled.
 
 ## HTTP operations
 
@@ -19,6 +20,10 @@ with `403 AUTH_ENDPOINT_DISABLED`:
 - `POST /api/auth/revoke-session`, `/revoke-sessions`, and `/revoke-other-sessions`
 - `POST /api/auth/two-factor/enable`, `/two-factor/get-totp-uri`,
   `/two-factor/verify-totp`, and `/two-factor/verify-backup-code`
+- `POST /api/auth/two-factor/generate-backup-codes` and `/two-factor/disable`
+- `POST /api/auth/organization/invite-member`, `/cancel-invitation`,
+  `/accept-invitation`, and `/reject-invitation`
+- `GET /api/auth/organization/get-invitation` and `/list-user-invitations`
 - `POST /api/auth/request-password-reset`, `/reset-password`, and
   `/send-verification-email`; `GET /api/auth/verify-email` and
   `/api/auth/reset-password/:token`
@@ -28,13 +33,18 @@ TOTP enrollment requires the password and a valid code; subsequent login returns
 `twoFactorRedirect: true` until the challenge is completed. Backup codes are
 issued during enrollment. Requests to trust a device are rejected with
 `AUTH_DEVICE_TRUST_DISABLED`; MFA is required on every new sign-in. Previously
-issued signed trust cookies are revoked server-side when presented at login. Disabling MFA and regenerating backup codes remain
-blocked until the recovery and assurance policies are implemented.
+issued signed trust cookies are revoked server-side when presented at login.
+Disabling MFA requires the password and recent MFA. Regenerating backup codes
+requires the password and recent MFA; it invalidates all previous codes. Replacing an enrolled TOTP
+factor or retrieving its URI also requires recent MFA.
 
-Public organization mutations, invitation operations, native API-key operations,
-and user deletion are blocked. Configuring those plugins does not expose their
-mutation routes. Later phases must add the required policy before permitting an
-operation.
+Organization creation, deletion, and membership changes, native API-key operations,
+and user deletion remain blocked. Invitation creation and cancellation require a
+verified account, enrolled TOTP, and a successful TOTP or backup-code verification
+within five minutes in the current session. Better Auth checks the inviter's
+organization permissions. Invitations grant only the member role. The recipient
+must sign in with the verified invited email to read, accept, or reject an
+invitation. Canceled or expired invitations cannot be accepted.
 
 Auth requests and responses pass through the native handler without reading the
 body or rebuilding response headers. Responses have `Cache-Control: no-store`.
@@ -50,12 +60,88 @@ limit is 100 requests per minute, with Better Auth's stricter login and MFA limi
 A runtime that cannot supply a client address returns
 `503 AUTH_CLIENT_ADDRESS_UNAVAILABLE`.
 
+## Local operator enrollment
+
+Build the apps and apply migrations before enrollment:
+
+```sh
+pnpm install
+pnpm build
+pnpm migrate
+pnpm worker operator < /secure/bootstrap.json
+```
+
+The operator entrypoint is `apps/worker/dist/operator.mjs`. It opens no listener
+and accepts JSON only through stdin, with a 16 KiB limit. Command-line arguments
+and interactive terminal input are rejected. Supply the normal API configuration,
+including `API_DATABASE_URL`, `AUTH_BASE_URL`, and `AUTH_SECRET`; the worker's
+restricted database account cannot provision auth users. SMTP configuration is
+needed by the running mail worker, which delivers the queued verification email.
+
+Create a private input file with mode `0600` using a secure editor. Bootstrap input:
+
+```json
+{
+  "action": "bootstrap",
+  "name": "Installation owner",
+  "email": "owner@example.com",
+  "password": "replace-with-a-unique-password",
+  "organizationName": "Example",
+  "organizationSlug": "example"
+}
+```
+
+Bootstrap requires an empty account and organization store. It creates one
+unverified owner and organization. Concurrent commands serialize on a PostgreSQL
+transaction lock; only one succeeds. Account, organization, owner membership,
+verification email job, and audit record commit together. An enqueue failure
+rolls back enrollment. Bootstrap cannot run again once accounts or organizations
+exist.
+
+Provision another account with the same command and this input:
+
+```json
+{
+  "action": "provision",
+  "name": "Organization member",
+  "email": "member@example.com",
+  "password": "replace-with-a-unique-password"
+}
+```
+
+Provisioning requires a bootstrapped organization and rejects existing accounts.
+It creates an unverified account without organization membership. Output contains
+only `userId` and `organizationId` (`null` for provisioning). Errors print a stable
+code and exit nonzero. Input passwords and email links are not printed. Remove
+input files after provisioning and share credentials through a secure channel.
+
+The owner verifies their email, signs in, enables TOTP, and verifies its first code.
+They then invite a provisioned account with `organizationId`, `email`, and
+`role: "member"` at `/api/auth/organization/invite-member`. The invitation email
+links to `/api/auth/organization/get-invitation?id=...`. The recipient verifies
+their own email, signs in, reads the invitation, and submits its `invitationId`
+to `/api/auth/organization/accept-invitation`. These are JSON API flows; this
+release has no enrollment dashboard.
+
+MFA assurance belongs to the session and expires five minutes after successful
+verification. Verify another TOTP code or a single-use backup code to renew it.
+Failed verification never renews assurance; logout and session revocation delete
+it. Backup-code recovery, invitation creation/cancellation, MFA disable, and backup-code
+regeneration write user and session IDs to
+`auth.enrollment_audit`, without the codes themselves. The API role can append these records but cannot
+update or delete them. Local bootstrap and provisioning
+are recorded there too. Recovery with a backup code permits disabling TOTP with the password, then
+enrolling and verifying a new factor. Disabling rotates the session and clears
+assurance. Privileged enrollment operations stay blocked until the new factor
+is verified. Backup-code regeneration requires current assurance. Losing both factors and all
+backup codes does not expose a password-only MFA reset.
+
 ## Authentication email
 
 Auth callbacks await a durable `auth-email` pg-boss job before returning. The
 worker sends HTML rendered by Handlebars, plus a text body, through Unemail 0.7's
 SMTP driver. Verification and reset callbacks are wired; the invitation callback
-is configured for the enrollment phase. Email is authentication infrastructure,
+queues organization invitations. Email is authentication infrastructure,
 not a notification delivery channel.
 
 Unemail 0.7 has no built-in Handlebars or queue adapter. Pipong renders its template

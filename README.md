@@ -51,7 +51,7 @@ The built entrypoint is `apps/worker/dist/index.mjs`. Deploy the whole `dist` di
 
 ## Authentication
 
-[Human authentication](./AUTHENTICATION.md) describes the native auth routes, TOTP, session revocation, and queued SMTP email. Operator-assisted account enrollment is the next phase.
+[Human authentication](./AUTHENTICATION.md) describes the native auth routes, TOTP, session revocation, and queued SMTP email. Use the local operator command for bootstrap and account provisioning, then the native invitation and MFA flows for enrollment.
 
 ## Deploying
 

@@ -6,12 +6,14 @@
     "dev": "node --watch src/index.ts",
     "start": "node dist/index.mjs",
     "typecheck": "tsc --checkers 8",
-    "build": "tsdown"
+    "build": "tsdown",
+    "operator": "node dist/operator.mjs"
   },
   "dependencies": {
     "@pipong/auth": "workspace:*",
     "@pipong/database": "workspace:*",
-    "@pipong/shared": "workspace:*"
+    "@pipong/shared": "workspace:*",
+    "valibot": "catalog:shared"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",

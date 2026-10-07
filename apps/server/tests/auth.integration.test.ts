@@ -146,26 +146,26 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
   });
 
   it('denies public signup and all native operations that bypass enrollment, keys, or deletion', async () => {
-    for (const path of [
-      '/sign-up/email',
-      '/organization/create',
-      '/organization/delete',
-      '/organization/invite-member',
-      '/api-key/create',
-      '/api-key/update',
-      '/api-key/delete',
-      '/delete-user',
-      '/two-factor/disable',
-      '/admin/create-user',
-    ]) {
-      const response = await post(path, {
-        email: 'intruder@example.com',
-        password: 'test-password-long-enough',
-        name: 'Intruder',
-      });
-      expect(response.status, path).toBe(403);
-      expect(v.parse(errorSchema, await response.json()).code).toBe('AUTH_ENDPOINT_DISABLED');
-    }
+    await Promise.all(
+      [
+        '/sign-up/email',
+        '/organization/create',
+        '/organization/delete',
+        '/api-key/create',
+        '/api-key/update',
+        '/api-key/delete',
+        '/delete-user',
+        '/admin/create-user',
+      ].map(async (path) => {
+        const response = await post(path, {
+          email: 'intruder@example.com',
+          password: 'test-password-long-enough',
+          name: 'Intruder',
+        });
+        expect(response.status, path).toBe(403);
+        expect(v.parse(errorSchema, await response.json()).code).toBe('AUTH_ENDPOINT_DISABLED');
+      }),
+    );
     expect(
       (
         await fixture.database.query<{ count: string }>(
@@ -224,16 +224,25 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     const backupCode = enrollment.backupCodes[0];
     if (!backupCode) throw new Error('TEST_BACKUP_CODE_MISSING');
 
-    for (const [path, submittedCode] of [
-      ['/two-factor/verify-totp', code],
-      ['/two-factor/verify-backup-code', backupCode],
-    ]) {
-      const rejected = await post(path, { code: submittedCode, trustDevice: true }, cookies);
-      expect(rejected.status).toBe(403);
-      expect(v.parse(errorSchema, await rejected.json()).code).toBe('AUTH_DEVICE_TRUST_DISABLED');
-      expect(await (await getSession(cookies)).json()).toBeNull();
-      expect(cookies.get('better-auth.trust_device')).toBeUndefined();
-    }
+    await Promise.all(
+      (
+        [
+          ['/two-factor/verify-totp', code],
+          ['/two-factor/verify-backup-code', backupCode],
+        ] as const
+      ).map(async ([path, submittedCode]) => {
+        const rejectedCookies = new Map(cookies);
+        const rejected = await post(
+          path,
+          { code: submittedCode, trustDevice: true },
+          rejectedCookies,
+        );
+        expect(rejected.status).toBe(403);
+        expect(v.parse(errorSchema, await rejected.json()).code).toBe('AUTH_DEVICE_TRUST_DISABLED');
+        expect(await (await getSession(rejectedCookies)).json()).toBeNull();
+        expect(rejectedCookies.get('better-auth.trust_device')).toBeUndefined();
+      }),
+    );
 
     await fixture.database.query('DELETE FROM auth.rate_limit');
     expect(
@@ -336,6 +345,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     });
     expect(response.status).toBe(403);
     const statuses: number[] = [];
+    // oxlint-disable eslint/no-await-in-loop -- Each request must update the rate limit before the next request.
     for (let index = 0; index < 6; index++) {
       statuses.push(
         (
@@ -346,6 +356,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
         ).status,
       );
     }
+    // oxlint-enable eslint/no-await-in-loop
     expect(statuses).toContain(429);
     const counters = await fixture.database.query<{ key: string }>(
       'SELECT key FROM auth.rate_limit',
@@ -385,6 +396,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     );
 
     try {
+      // oxlint-disable eslint/no-await-in-loop -- Challenges and failed attempts share the account lockout budget.
       for (let challenge = 0; challenge < 2; challenge++) {
         const cookies: CookieJar = new Map();
         await fixture.database.query('DELETE FROM auth.rate_limit');
@@ -418,6 +430,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
         }
       }
 
+      // oxlint-enable eslint/no-await-in-loop
       const rows = await fixture.database.query<{
         failed_verification_count: number;
         locked_until: Date;

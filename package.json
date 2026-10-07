@@ -17,6 +17,7 @@
     "test:verbose": "pnpm --recursive --if-present run test:verbose",
     "release": "genbumppush --yes",
     "server": "pnpm --filter pipong-server --fail-if-no-match run",
+    "worker": "pnpm --filter pipong-worker --fail-if-no-match run",
     "auth": "pnpm --filter @pipong/auth --fail-if-no-match run",
     "database": "pnpm --filter @pipong/database --fail-if-no-match run",
     "shared": "pnpm --filter @pipong/shared --fail-if-no-match run",
