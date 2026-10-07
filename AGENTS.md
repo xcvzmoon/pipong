@@ -98,7 +98,7 @@ Project skills live in `.agents/skills/` and are tracked in `skills-lock.json`. 
 ## Agents
 
 - Disable co-author and never commit nor push.
-- When explicitly ask to commit: commit all the files relative to their changes, dont do it all at once, split them, and use one-liner commit message.
+- When explicitly ask to commit: commit all the files relative to their changes, dont do it all at once, split them to smaller relative changes, and use one-liner commit message.
 - When ask to create a Pull Request: use the proper template, run `unslop` skill, assign to me, and add proper labels.
 - Do not preserve backward compatibility. Remove obsolete paths instead of adding compatibility layers, fallbacks, or migrations.
 - Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.
