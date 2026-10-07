@@ -6,7 +6,23 @@ import { PgBoss, fromDrizzle } from 'pg-boss';
 
 /**
  * Starts pg-boss on the existing pool without creating or migrating queue storage.
- * Stop the returned queue before closing the database runtime.
+ *
+ * Queue migrations must be applied before startup. Stop the queue before closing
+ * the database runtime.
+ *
+ * @param database - Runtime whose pool will execute queue queries.
+ * @returns Started queue backed by the pgboss schema.
+ * @throws {Error} AUTH_MAIL_QUEUE_STARTUP_FAILED when startup fails; the queue is stopped before rejection.
+ *
+ * @example
+ * ```ts
+ * const queue = await startQueue(database);
+ * try {
+ *   await runWorker(queue);
+ * } finally {
+ *   await queue.stop({ graceful: true });
+ * }
+ * ```
  */
 export async function startQueue(database: DatabaseRuntime): Promise<PgBoss> {
   const queue = new PgBoss({
@@ -31,6 +47,19 @@ export async function startQueue(database: DatabaseRuntime): Promise<PgBoss> {
   }
 }
 
+/**
+ * Adapts an authentication transaction for atomic pg-boss job insertion.
+ *
+ * @param transaction - Enrollment transaction that must also contain the account changes.
+ * @returns Queue database adapter using the supplied transaction.
+ *
+ * @example
+ * ```ts
+ * await queue.send('auth-email', mail, {
+ *   db: authTransactionQueue(transaction),
+ * });
+ * ```
+ */
 export function authTransactionQueue(transaction: AuthTransaction): Db {
   return fromDrizzle(transaction, sql);
 }
