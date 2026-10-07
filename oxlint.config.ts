@@ -133,6 +133,28 @@ export default defineConfig({
         ],
       },
     },
+    {
+      files: ['packages/database/src/**/*.ts'],
+      rules: {
+        'eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: [
+                  '@pipong/auth',
+                  '@pipong/auth/*',
+                  'better-auth',
+                  'better-auth/*',
+                  '@better-auth/*',
+                ],
+                message: 'Authentication policy and Better Auth setup belong in @pipong/auth.',
+              },
+            ],
+          },
+        ],
+      },
+    },
   ],
   ignorePatterns: ['.agents/**', 'tools/oxlint/anti-slop/**'],
 });
