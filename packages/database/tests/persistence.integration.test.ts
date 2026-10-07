@@ -28,20 +28,20 @@ let workerUrl: string;
 
 const runCommand = promisify(execFile);
 const helperSchema = pgSchema('app');
-const helperRecords = helperSchema.table('helper_record', {
+const helperRecords = helperSchema.table('helper_records', {
   id: generateUuid('record_id'),
   value: text('value').notNull(),
   ...generateTimestamps(),
 });
-const helperAuditRecords = helperSchema.table('helper_audit_record', {
+const helperAuditRecords = helperSchema.table('helper_audit_records', {
   id: generateUuid(),
   ...generateTimestampsWithAudit(() => user.id),
 });
-const helperCascadeRecords = helperSchema.table('helper_cascade_record', {
+const helperCascadeRecords = helperSchema.table('helper_cascade_records', {
   id: generateUuid(),
   ...generateTimestampsWithAudit(() => user.id, 'cascade'),
 });
-const helperUnboundRecords = helperSchema.table('helper_unbound_record', {
+const helperUnboundRecords = helperSchema.table('helper_unbound_records', {
   id: generateUuid(),
   ...generateTimestampsWithAudit(),
 });
@@ -142,15 +142,32 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     const result = await fixture.query<{ count: string }>(
       'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
     );
-    expect(result.rows[0]?.count).toBe('5');
+    expect(result.rows[0]?.count).toBe('6');
+    const tables = await fixture.query<{ table_name: string }>(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema='auth' ORDER BY table_name",
+    );
+    expect(tables.rows.map(({ table_name }) => table_name)).toEqual([
+      'accounts',
+      'api_keys',
+      'enrollment_audits',
+      'invitations',
+      'members',
+      'mfa_assurances',
+      'organizations',
+      'rate_limits',
+      'sessions',
+      'two_factors',
+      'users',
+      'verifications',
+    ]);
   });
 
   it('rolls back failed migrations without recording completion', async () => {
     const folder = await mkdtemp(join(tmpdir(), 'pipong-migration-'));
     try {
-      await mkdir(join(folder, '20261007000000_failure'));
+      await mkdir(join(folder, '20261008000000_failure'));
       await writeFile(
-        join(folder, '20261007000000_failure/migration.sql'),
+        join(folder, '20261008000000_failure/migration.sql'),
         'CREATE TABLE app.rollback_probe (id integer);\n--> statement-breakpoint\nSELECT missing_column FROM app.rollback_probe;',
       );
       await expect(runMigrations(migrationUrl, folder)).rejects.toThrow();
@@ -161,7 +178,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       const history = await fixture.query<{ count: string }>(
         'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
       );
-      expect(history.rows[0]?.count).toBe('5');
+      expect(history.rows[0]?.count).toBe('6');
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
@@ -201,9 +218,9 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     await runClient(
       'api',
       `
-      await runtime.pool.query("INSERT INTO auth.enrollment_audit(id,action,user_id) VALUES ('019a0000-0000-7000-8000-000000000041','bootstrap','019a0000-0000-7000-8000-000000000042')");
-      await assert.rejects(runtime.pool.query("UPDATE auth.enrollment_audit SET action='tampered'"), { code: '42501' });
-      await assert.rejects(runtime.pool.query('DELETE FROM auth.enrollment_audit'), { code: '42501' });
+      await runtime.pool.query("INSERT INTO auth.enrollment_audits(id,action,user_id) VALUES ('019a0000-0000-7000-8000-000000000041','bootstrap','019a0000-0000-7000-8000-000000000042')");
+      await assert.rejects(runtime.pool.query("UPDATE auth.enrollment_audits SET action='tampered'"), { code: '42501' });
+      await assert.rejects(runtime.pool.query('DELETE FROM auth.enrollment_audits'), { code: '42501' });
     `,
     );
   });
@@ -238,7 +255,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
 
   it('loads related sessions through the runtime client while enforcing worker permissions', async () => {
     const userId = '019a0000-0000-7000-8000-000000000021';
-    await fixture.query('INSERT INTO auth."user" (id,name,email) VALUES ($1,$2,$3)', [
+    await fixture.query('INSERT INTO auth."users" (id,name,email) VALUES ($1,$2,$3)', [
       userId,
       'Relations',
       'relations@example.com',
@@ -246,7 +263,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
 
     try {
       await fixture.query(
-        'INSERT INTO auth.session (id,user_id,token,expires_at) VALUES ($1,$2,$3,now())',
+        'INSERT INTO auth.sessions (id,user_id,token,expires_at) VALUES ($1,$2,$3,now())',
         ['019a0000-0000-7000-8000-000000000022', userId, 'relation-session'],
       );
       await runClient(
@@ -268,7 +285,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       `,
       );
     } finally {
-      await fixture.query('DELETE FROM auth."user" WHERE id=$1', [userId]);
+      await fixture.query('DELETE FROM auth."users" WHERE id=$1', [userId]);
     }
   });
 
@@ -282,14 +299,14 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
   it('persists MFA assurance and audit together, with a strict freshness cutoff', async () => {
     const userId = '019a0000-0000-7000-8000-000000000031';
     const sessionId = '019a0000-0000-7000-8000-000000000032';
-    await fixture.query('INSERT INTO auth."user" (id,name,email) VALUES ($1,$2,$3)', [
+    await fixture.query('INSERT INTO auth."users" (id,name,email) VALUES ($1,$2,$3)', [
       userId,
       'Assurance',
       'assurance@example.com',
     ]);
     try {
       await fixture.query(
-        'INSERT INTO auth.session (id,user_id,token,expires_at) VALUES ($1,$2,$3,now())',
+        'INSERT INTO auth.sessions (id,user_id,token,expires_at) VALUES ($1,$2,$3,now())',
         [sessionId, userId, 'assurance-session'],
       );
       await runClient(
@@ -314,15 +331,15 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
         assert.equal(await hasMfaAssurance(authDb, '${sessionId}', verifiedAt), false);
         await recordAuthActivity(authDb, { sessionId: '${sessionId}', verifiedAt: cutoff }, undefined);
         assert.equal(await hasMfaAssurance(authDb, '${sessionId}', cutoff), false);
-        const audit = await runtime.pool.query('SELECT action FROM auth.enrollment_audit WHERE user_id=$1', ['${userId}']);
+        const audit = await runtime.pool.query('SELECT action FROM auth.enrollment_audits WHERE user_id=$1', ['${userId}']);
         assert.deepEqual(audit.rows, [{ action: 'backup-code-recovery' }]);
       `,
       );
     } finally {
-      await fixture.query('DELETE FROM auth."user" WHERE id=$1', [userId]);
+      await fixture.query('DELETE FROM auth."users" WHERE id=$1', [userId]);
     }
     const assurance = await fixture.query(
-      'SELECT session_id FROM auth.mfa_assurance WHERE session_id=$1',
+      'SELECT session_id FROM auth.mfa_assurances WHERE session_id=$1',
       [sessionId],
     );
     expect(assurance.rows).toEqual([]);
@@ -347,7 +364,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     await migration.connect();
     await api.connect();
     try {
-      await migration.query(`CREATE TABLE app.helper_record (
+      await migration.query(`CREATE TABLE app.helper_records (
         record_id uuid PRIMARY KEY, value text NOT NULL,
         created_at timestamptz(3) NOT NULL DEFAULT now(),
         updated_at timestamptz(3) NOT NULL DEFAULT now(), deleted_at timestamptz(3)
@@ -361,7 +378,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       expect(inserted.updatedAt).toBeInstanceOf(Date);
       expect(inserted.deletedAt).toBeNull();
       await api.query(
-        "UPDATE app.helper_record SET updated_at='2000-01-01T00:00:00Z' WHERE record_id=$1",
+        "UPDATE app.helper_records SET updated_at='2000-01-01T00:00:00Z' WHERE record_id=$1",
         [inserted.id],
       );
       const deletedAt = new Date('2026-10-06T10:11:12.123Z');
@@ -377,7 +394,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       expect(updated?.deletedAt).toEqual(deletedAt);
       expect(updated?.value).toBe('changed');
       await expect(
-        api.query("INSERT INTO app.helper_record(value) VALUES ('raw SQL without UUID')"),
+        api.query("INSERT INTO app.helper_records(value) VALUES ('raw SQL without UUID')"),
       ).rejects.toMatchObject({ code: '23502' });
     } finally {
       await api.end();
@@ -392,22 +409,22 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     await api.connect();
     try {
       await migration.query(`
-        CREATE TABLE app.helper_audit_record (
+        CREATE TABLE app.helper_audit_records (
           id uuid PRIMARY KEY,
-          created_by uuid NOT NULL REFERENCES auth."user"(id) ON DELETE RESTRICT,
-          updated_by uuid REFERENCES auth."user"(id) ON DELETE SET NULL,
-          deleted_by uuid REFERENCES auth."user"(id) ON DELETE SET NULL,
+          created_by uuid NOT NULL REFERENCES auth."users"(id) ON DELETE RESTRICT,
+          updated_by uuid REFERENCES auth."users"(id) ON DELETE SET NULL,
+          deleted_by uuid REFERENCES auth."users"(id) ON DELETE SET NULL,
           created_at timestamptz(3) NOT NULL DEFAULT now(),
           updated_at timestamptz(3) NOT NULL DEFAULT now(), deleted_at timestamptz(3)
         );
-        CREATE TABLE app.helper_cascade_record (
-          id uuid PRIMARY KEY, created_by uuid NOT NULL REFERENCES auth."user"(id) ON DELETE CASCADE,
-          updated_by uuid REFERENCES auth."user"(id) ON DELETE SET NULL,
-          deleted_by uuid REFERENCES auth."user"(id) ON DELETE SET NULL,
+        CREATE TABLE app.helper_cascade_records (
+          id uuid PRIMARY KEY, created_by uuid NOT NULL REFERENCES auth."users"(id) ON DELETE CASCADE,
+          updated_by uuid REFERENCES auth."users"(id) ON DELETE SET NULL,
+          deleted_by uuid REFERENCES auth."users"(id) ON DELETE SET NULL,
           created_at timestamptz(3) NOT NULL DEFAULT now(),
           updated_at timestamptz(3) NOT NULL DEFAULT now(), deleted_at timestamptz(3)
         );
-        CREATE TABLE app.helper_unbound_record (
+        CREATE TABLE app.helper_unbound_records (
           id uuid PRIMARY KEY, created_by uuid NOT NULL, updated_by uuid, deleted_by uuid,
           created_at timestamptz(3) NOT NULL DEFAULT now(),
           updated_at timestamptz(3) NOT NULL DEFAULT now(), deleted_at timestamptz(3)

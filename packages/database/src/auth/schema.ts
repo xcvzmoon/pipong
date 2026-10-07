@@ -13,7 +13,7 @@ import { generateUuid, generateTimestamps, TIMESTAMP_CONFIG } from '../helpers/i
 
 export const authSchema = pgSchema('auth');
 
-export const user = authSchema.table('user', {
+export const user = authSchema.table('users', {
   id: generateUuid(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
@@ -24,7 +24,7 @@ export const user = authSchema.table('user', {
 });
 
 export const session = authSchema.table(
-  'session',
+  'sessions',
   {
     id: generateUuid(),
     expiresAt: timestamp('expires_at', TIMESTAMP_CONFIG).notNull(),
@@ -41,7 +41,7 @@ export const session = authSchema.table(
 );
 
 export const account = authSchema.table(
-  'account',
+  'accounts',
   {
     id: generateUuid(),
     accountId: text('account_id').notNull(),
@@ -62,7 +62,7 @@ export const account = authSchema.table(
 );
 
 export const verification = authSchema.table(
-  'verification',
+  'verifications',
   {
     id: generateUuid(),
     identifier: text('identifier').notNull(),
@@ -74,7 +74,7 @@ export const verification = authSchema.table(
 );
 
 export const organization = authSchema.table(
-  'organization',
+  'organizations',
   {
     id: generateUuid(),
     name: text('name').notNull(),
@@ -87,7 +87,7 @@ export const organization = authSchema.table(
 );
 
 export const member = authSchema.table(
-  'member',
+  'members',
   {
     id: generateUuid(),
     organizationId: uuid('organization_id')
@@ -106,7 +106,7 @@ export const member = authSchema.table(
 );
 
 export const invitation = authSchema.table(
-  'invitation',
+  'invitations',
   {
     id: generateUuid(),
     organizationId: uuid('organization_id')
@@ -128,7 +128,7 @@ export const invitation = authSchema.table(
 );
 
 export const twoFactor = authSchema.table(
-  'two_factor',
+  'two_factors',
   {
     id: generateUuid(),
     secret: text('secret').notNull(),
@@ -148,7 +148,7 @@ export const twoFactor = authSchema.table(
 );
 
 export const apikey = authSchema.table(
-  'apikey',
+  'api_keys',
   {
     id: generateUuid(),
     configId: text('config_id').default('default').notNull(),
@@ -179,7 +179,7 @@ export const apikey = authSchema.table(
   ],
 );
 
-export const rateLimit = authSchema.table('rate_limit', {
+export const rateLimit = authSchema.table('rate_limits', {
   id: generateUuid(),
   key: text('key').notNull().unique(),
   count: integer('count').notNull(),
@@ -187,7 +187,7 @@ export const rateLimit = authSchema.table('rate_limit', {
   ...generateTimestamps(),
 });
 
-export const enrollmentAudit = authSchema.table('enrollment_audit', {
+export const enrollmentAudit = authSchema.table('enrollment_audits', {
   id: generateUuid(),
   action: text('action').notNull(),
   userId: uuid('user_id').notNull(),
@@ -195,7 +195,7 @@ export const enrollmentAudit = authSchema.table('enrollment_audit', {
   createdAt: timestamp('created_at', TIMESTAMP_CONFIG).defaultNow().notNull(),
 });
 
-export const mfaAssurance = authSchema.table('mfa_assurance', {
+export const mfaAssurance = authSchema.table('mfa_assurances', {
   sessionId: uuid('session_id')
     .primaryKey()
     .references(() => session.id, { onDelete: 'cascade' }),

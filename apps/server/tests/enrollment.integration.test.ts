@@ -121,7 +121,7 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
     });
   }, 30_000);
   beforeEach(async () => {
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
   });
   afterAll(async () => {
     try {
@@ -160,12 +160,12 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
     if (!identity.organizationId) throw new Error('TEST_ORGANIZATION_MISSING');
     organizationId = identity.organizationId;
     const members = await fixture.database.query<{ role: string }>(
-      'SELECT role FROM auth.member WHERE user_id=$1',
+      'SELECT role FROM auth.members WHERE user_id=$1',
       [ownerId],
     );
     expect(members.rows).toEqual([{ role: 'owner' }]);
     expect(
-      (await fixture.database.query('SELECT id FROM auth.enrollment_audit')).rows,
+      (await fixture.database.query('SELECT id FROM auth.enrollment_audits')).rows,
     ).toHaveLength(1);
     expect((await fixture.database.query('SELECT id FROM pgboss.job')).rows).toHaveLength(1);
     expect(success.stdout).not.toContain(password);
@@ -202,7 +202,7 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
       expect(failed.code).toBe(1);
       expect(
         (
-          await fixture.database.query('SELECT id FROM auth."user" WHERE email=$1', [
+          await fixture.database.query('SELECT id FROM auth."users" WHERE email=$1', [
             'failed@example.com',
           ])
         ).rows,
@@ -279,7 +279,7 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
         .status,
     ).toBe(403);
     await verifyEmail('member@example.com');
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     expect(
       (await post('/sign-in/email', { email: 'member@example.com', password }, memberCookies))
         .status,
@@ -298,7 +298,7 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
     expect(
       (
         await fixture.database.query(
-          'SELECT role FROM auth.member WHERE organization_id=$1 AND user_id<>$2',
+          'SELECT role FROM auth.members WHERE organization_id=$1 AND user_id<>$2',
           [organizationId, ownerId],
         )
       ).rows,
@@ -346,7 +346,7 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
 
   it('expires MFA assurance, renews it after step-up, and records backup-code recovery', async () => {
     await fixture.database.query(
-      "UPDATE auth.mfa_assurance SET verified_at=now()-interval '6 minutes'",
+      "UPDATE auth.mfa_assurances SET verified_at=now()-interval '6 minutes'",
     );
     const body = { email: 'later@example.com', role: 'member', organizationId };
     const stale = await post('/organization/invite-member', body);
@@ -358,24 +358,24 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
     expect((await post('/two-factor/disable', { password })).status).toBe(403);
     expect((await post('/two-factor/verify-totp', { code: 'invalid' })).status).toBe(401);
     expect((await post('/organization/invite-member', body)).status).toBe(403);
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     expect((await post('/two-factor/verify-totp', { code: await totp() })).status).toBe(200);
     expect((await post('/organization/invite-member', body)).status).toBe(200);
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     expect((await post('/two-factor/verify-backup-code', { code: backupCode })).status).toBe(200);
     const audit = await fixture.database.query(
-      'SELECT user_id FROM auth.enrollment_audit WHERE action=$1',
+      'SELECT user_id FROM auth.enrollment_audits WHERE action=$1',
       ['backup-code-recovery'],
     );
     expect(audit.rows).toEqual([{ user_id: ownerId }]);
     expect((await post('/two-factor/verify-backup-code', { code: backupCode })).status).toBe(401);
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     expect((await post('/two-factor/disable', { password })).status).toBe(200);
     expect((await post('/organization/invite-member', body)).status).toBe(403);
     expect(
       (
         await fixture.database.query(
-          "SELECT user_id FROM auth.enrollment_audit WHERE action='two-factor-disabled'",
+          "SELECT user_id FROM auth.enrollment_audits WHERE action='two-factor-disabled'",
         )
       ).rows,
     ).toEqual([{ user_id: ownerId }]);
@@ -385,7 +385,7 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
     const replacementSecret = new URL(replaced.totpURI).searchParams.get('secret');
     if (!replacementSecret) throw new Error('TEST_TOTP_SECRET_MISSING');
     secret = replacementSecret;
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     expect((await post('/two-factor/verify-totp', { code: await totp() })).status).toBe(200);
     const regenerated = await post('/two-factor/generate-backup-codes', { password });
     expect(regenerated.status).toBe(200);
@@ -397,9 +397,9 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
     if (!newBackupCode) throw new Error('TEST_BACKUP_CODE_MISSING');
     await post('/sign-out', {});
     expect(
-      (await fixture.database.query('SELECT session_id FROM auth.mfa_assurance')).rows,
+      (await fixture.database.query('SELECT session_id FROM auth.mfa_assurances')).rows,
     ).toHaveLength(0);
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     expect((await post('/sign-in/email', { email: 'owner@example.com', password })).status).toBe(
       200,
     );
@@ -414,12 +414,12 @@ describe.skipIf(!testUrl)('operator enrollment and native invitation policy', ()
     expect(
       (
         await fixture.database.query(
-          "SELECT session_id FROM auth.enrollment_audit WHERE action='backup-code-recovery' AND session_id IS NULL",
+          "SELECT session_id FROM auth.enrollment_audits WHERE action='backup-code-recovery' AND session_id IS NULL",
         )
       ).rows,
     ).toEqual([{ session_id: null }]);
     expect(
-      (await fixture.database.query('SELECT session_id FROM auth.mfa_assurance')).rows,
+      (await fixture.database.query('SELECT session_id FROM auth.mfa_assurances')).rows,
     ).toHaveLength(0);
   }, 30_000);
 });
