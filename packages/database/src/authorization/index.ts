@@ -4,6 +4,22 @@ import { apikeys, members, mfaAssurances, organizations, sessions, users } from 
 import { environments, projects } from '../tenancy/schema.ts';
 import { serviceKeyGrants } from './schema.ts';
 
+/**
+ * Reads and share-locks the live session, verified user, membership, and MFA authority.
+ *
+ * @param transaction - Transaction containing the subsequent authorized operation.
+ * @param userId - Authenticated user ID.
+ * @param sessionId - Session that must belong to the user and remain unexpired.
+ * @param organizationId - Organization whose membership is required.
+ * @param now - Time used for session expiry and the five-minute MFA window.
+ * @returns Membership role and MFA state, or undefined if the session, user, or unique membership is invalid.
+ * @throws {Error} Database query failures propagate.
+ *
+ * @example
+ * ```ts
+ * const authority = await readHumanAuthority(transaction, userId, sessionId, organizationId, new Date());
+ * ```
+ */
 export async function readHumanAuthority(
   transaction: TenantTransaction,
   userId: string,
@@ -74,6 +90,20 @@ export async function readHumanAuthority(
   };
 }
 
+/**
+ * Reads and share-locks a live default API key and its environment grant.
+ *
+ * @param transaction - Transaction containing the subsequent authorized operation.
+ * @param keyId - Previously authenticated service key ID.
+ * @param now - Time used to reject expired keys.
+ * @returns Matching organization, project, environment, and actions, or undefined for an invalid key or absent grant.
+ * @throws {Error} Database query failures propagate.
+ *
+ * @example
+ * ```ts
+ * const grant = await readKeyAuthority(transaction, keyId, new Date());
+ * ```
+ */
 export async function readKeyAuthority(
   transaction: TenantTransaction,
   keyId: string,
@@ -119,6 +149,20 @@ export async function readKeyAuthority(
   return grant;
 }
 
+/**
+ * Locks an organization row and checks that it is neither disabled nor deleted.
+ *
+ * @param transaction - Transaction containing the authorized operation.
+ * @param organizationId - Organization to inspect.
+ * @param lock - Share lock for reads or update lock for organization management.
+ * @returns True for an existing enabled organization.
+ * @throws {Error} Database query failures propagate.
+ *
+ * @example
+ * ```ts
+ * const enabled = await organizationEnabled(transaction, organizationId, 'share');
+ * ```
+ */
 export async function organizationEnabled(
   transaction: TenantTransaction,
   organizationId: string,
@@ -133,6 +177,23 @@ export async function organizationEnabled(
   return organization?.disabledAt === null && organization.deletedAt === null;
 }
 
+/**
+ * Checks and locks undeleted project and environment rows belonging to a scope.
+ *
+ * Organization scopes return true; check organizationEnabled separately first.
+ *
+ * @param transaction - Transaction with tenant context set.
+ * @param scope - Validated scope whose hierarchy must exist.
+ * @param projectLock - Lock mode for the project row.
+ * @param environmentLock - Lock mode for the environment row, when applicable.
+ * @returns Whether all project and environment rows required by the scope exist.
+ * @throws {Error} Database query failures propagate.
+ *
+ * @example
+ * ```ts
+ * const exists = await scopeExists(transaction, scope, 'share', 'share');
+ * ```
+ */
 export async function scopeExists(
   transaction: TenantTransaction,
   scope: TenantScope,
@@ -179,6 +240,21 @@ export async function scopeExists(
   return environment !== undefined;
 }
 
+/**
+ * Checks whether a scope's project or environment is suspended.
+ *
+ * Call after scopeExists; a missing row is not treated as suspended.
+ *
+ * @param transaction - Transaction with tenant context set and scope rows already checked.
+ * @param scope - Existing organization, project, or environment scope.
+ * @returns True when the project or environment is suspended; false for organization scopes.
+ * @throws {Error} Database query failures propagate.
+ *
+ * @example
+ * ```ts
+ * const suspended = await scopeSuspended(transaction, scope);
+ * ```
+ */
 export async function scopeSuspended(
   transaction: TenantTransaction,
   scope: TenantScope,
