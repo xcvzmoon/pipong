@@ -1,4 +1,5 @@
 import { defineConfig } from 'nitro';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   compatibilityDate: '2026-10-05',
@@ -10,6 +11,6 @@ export default defineConfig({
     },
   },
   alias: {
-    '~': './src',
+    '~': fileURLToPath(new URL('./src', import.meta.url)),
   },
 });
