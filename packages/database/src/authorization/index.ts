@@ -178,3 +178,40 @@ export async function scopeExists(
 
   return environment !== undefined;
 }
+
+export async function scopeSuspended(
+  transaction: TenantTransaction,
+  scope: TenantScope,
+): Promise<boolean> {
+  if (scope.kind === 'organization') {
+    return false;
+  }
+
+  const [project] = await transaction
+    .select({ suspendedAt: projects.suspendedAt })
+    .from(projects)
+    .where(
+      and(eq(projects.organizationId, scope.organizationId), eq(projects.id, scope.projectId)),
+    );
+
+  if (project?.suspendedAt) {
+    return true;
+  }
+
+  if (scope.kind === 'project') {
+    return false;
+  }
+
+  const [environment] = await transaction
+    .select({ suspendedAt: environments.suspendedAt })
+    .from(environments)
+    .where(
+      and(
+        eq(environments.organizationId, scope.organizationId),
+        eq(environments.projectId, scope.projectId),
+        eq(environments.id, scope.environmentId),
+      ),
+    );
+
+  return environment?.suspendedAt !== null && environment?.suspendedAt !== undefined;
+}

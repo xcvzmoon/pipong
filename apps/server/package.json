@@ -24,6 +24,8 @@
     "@types/node": "catalog:shared",
     "@types/pg": "catalog:database",
     "@types/smtp-server": "catalog:mail",
+    "ajv": "catalog:server",
+    "ajv-formats": "catalog:server",
     "better-auth": "catalog:auth",
     "nitro": "catalog:server",
     "pg": "catalog:database",

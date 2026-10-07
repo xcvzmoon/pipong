@@ -5,6 +5,9 @@ export default defineConfig({
   compatibilityDate: '2026-10-05',
   preset: 'node_server',
   serverDir: './src',
+  experimental: {
+    openAPI: true,
+  },
   rolldownConfig: {
     moduleTypes: {
       '.hbs': 'text',
