@@ -116,5 +116,23 @@ export default defineConfig({
     typeAware: true,
     typeCheck: true,
   },
+  overrides: [
+    {
+      files: ['packages/auth/src/**/*.ts', 'packages/auth/tooling/**/*.ts'],
+      rules: {
+        'eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: ['drizzle-orm', 'drizzle-orm/*', 'drizzle-kit', 'pg'],
+                message: 'Database clients, schemas, and SQL belong in @pipong/database.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
   ignorePatterns: ['.agents/**', 'tools/oxlint/anti-slop/**'],
 });
