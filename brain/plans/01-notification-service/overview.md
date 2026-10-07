@@ -3,7 +3,8 @@
 ## Status and scope
 
 - Proposed architecture, dated 2026-10-05. This is a plan, not an implemented or production-certified service.
-- Implemented through phase 07, 2026-10-07: workspace/build, runtime configuration, PostgreSQL foundation and ownership, human authentication, queued authentication email, local operator enrollment, verified invitations, audited MFA recovery/assurance, and the tenant transaction boundary with composite ownership and FORCE RLS. Next is domain authorization.
+- Foundation completed through phase 07, 2026-10-07: workspace/build, runtime configuration, PostgreSQL foundation and ownership, human authentication, queued authentication email, local operator enrollment, verified invitations, audited MFA recovery/assurance, and the tenant transaction boundary with composite ownership and FORCE RLS.
+- Phase 08 implemented, 2026-10-07: explicit role/action/scope decisions, live session/membership/key/grant checks, recent MFA, organization disablement, and a shared authorization transaction boundary. Verified through built Nitro HTTP fixtures and real PostgreSQL, including concurrent revocation. Next is project/environment ownership.
 - Confirmed: PostgreSQL; native APNs, FCM, Web Push; organizations own projects, environments, and application recipients; API, workers, and operator tooling; SSE delivery updates for integrators.
 - Recipients are not Better Auth users. No dashboard, inbox/read state, WebSockets, GraphQL, RPC, email/SMS delivery, campaign builder, arbitrary segmentation, or workflow engine in this release.
 - Administrative email for account verification/recovery/invitations is authentication infrastructure, not a notification channel.
