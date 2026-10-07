@@ -54,6 +54,13 @@ grant removal are checked on every operation. `auth.organizations.disabled_at`
 blocks domain access for both humans and keys. Soft-deleted organizations,
 projects, environments, users, sessions, keys, and grants cannot authorize work.
 
+Project and environment suspension preserves read and management access but
+blocks notification submission, delivery redrive, recipient writes, and endpoint
+writes with `409 AUTH_SCOPE_SUSPENDED`. Project suspension applies to every child
+environment. Cancellation and security management remain available. The same
+resource locks serialize suspension with authorized work. See
+[projects and environments](./PROJECTS.md) for the HTTP contract.
+
 Key issuance, rotation, and revocation endpoints are phase 10 work. Native key
 mutation endpoints remain disabled. This phase supplies the authorization
 boundary without exposing a temporary issuance or diagnostic API.
