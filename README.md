@@ -53,6 +53,8 @@ The built entrypoint is `apps/worker/dist/index.mjs`. Deploy the whole `dist` di
 
 [Human authentication](./AUTHENTICATION.md) describes the native auth routes, TOTP, session revocation, and queued SMTP email. Use the local operator command for bootstrap and account provisioning, then the native invitation and MFA flows for enrollment.
 
+[Domain authorization](./AUTHORIZATION.md) describes role permissions, environment-bound service keys, recent MFA, and the transaction boundary used by `/api/v1` capabilities.
+
 ## Deploying
 
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.
