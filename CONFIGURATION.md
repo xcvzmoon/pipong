@@ -45,13 +45,13 @@ Database environment settings are listed in `packages/database/.env.example`. Fo
 
 Drizzle Kit owns schema generation, migration application, and Studio:
 
-- `pnpm auth generate` generates reviewed SQL from `src/schema.ts` without requiring database credentials.
+- `pnpm database generate` generates foundation/application SQL from `src/schema.ts`; `pnpm database generate:auth` generates auth SQL from `src/auth/schema.ts`. Neither requires database credentials.
 - `pnpm database check` validates migration history.
 - `pnpm migrate` applies database foundation and auth migrations in order using `MIGRATION_DATABASE_URL`.
 - `pnpm database studio:api` selects `drizzle.api.config.ts` and the API URL.
 - `pnpm database studio:worker` selects `drizzle.worker.config.ts` and the worker URL.
 
-Database and auth own separate schema sources and migration folders, with one PostgreSQL migration history. API and worker configs select credentials for inspection; they do not create separate databases or migration histories. The migrations include the schema foundation, generated auth tables, and pg-boss storage with the authentication mail queue. Tenant notification tables are introduced by later capabilities.
+Database owns both schema sources and the `migrations/foundation/` and `migrations/auth/` folders, with one PostgreSQL migration history. API and worker configs select credentials for inspection; they do not create separate databases or migration histories. The migrations include the schema foundation, generated auth tables, and pg-boss storage with the authentication mail queue. Tenant notification tables are introduced by later capabilities.
 
 Run one migration job at a time before starting either app. The job needs the database package, migration files, and its Drizzle Kit dependencies. No standalone migration executable is built. Drizzle Kit owns migration errors, history, and SQL transaction handling. Administrator role provisioning remains in `provision.sql`; runtime logins retain no schema-change permissions.
 
@@ -61,13 +61,14 @@ Budget connections across all replicas, including migration, operator, and futur
 
 ## Database integration tests
 
-Run `TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres pnpm auth test` against a disposable PostgreSQL 18 cluster with local trust authentication. Persistence tests in `@pipong/auth` create a temporary database and the fixed deployment roles, then removes them. It requires an administrator named `postgres`; do not point it at a shared or production cluster. Without `TEST_DATABASE_URL`, persistence integration tests are skipped, while configuration tests still run.
+Run `TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres pnpm database test` against a disposable PostgreSQL 18 cluster with local trust authentication. Persistence tests in `@pipong/database` create a temporary database and the fixed deployment roles, then remove them. They require an administrator named `postgres`; do not point it at a shared or production cluster. Without `TEST_DATABASE_URL`, persistence integration tests are skipped, while configuration tests still run.
 
-`@pipong/database` exposes pool factories, `DatabaseRuntime`, and schema helpers.
-`@pipong/auth` owns auth schemas, relations, adapter, auth mail queue, and migrations.
-Applications receive a pool and shutdown function; auth builds its typed Drizzle
-client on that pool. Run `pnpm migrate` at the root to apply foundation migrations
-before auth migrations.
+`@pipong/database` owns pools, typed clients, schemas, relations, SQL operations,
+queue database setup, and migrations. Its `./auth` entrypoint provides concrete
+enrollment and MFA persistence operations and table metadata for adapter integration.
+`@pipong/auth` owns Better Auth setup, its adapter, authentication policy, and email
+delivery. Run `pnpm migrate` at the root to apply foundation migrations before auth
+migrations.
 
 ## Authentication email worker
 
@@ -95,7 +96,7 @@ retention policy, reverse-proxy rate-limit behavior, and built-runtime tests.
 
 - [API](apps/server/.env.example) includes auth configuration and the API database connection.
 - [Worker](apps/worker/.env.example) includes SMTP, provider settings, and the worker database connection.
-- [Auth package](packages/auth/.env.example) lists auth, SMTP, and auth migration settings by consumer.
+- [Auth package](packages/auth/.env.example) lists auth and SMTP settings by consumer.
 - [Database package](packages/database/.env.example) lists connection settings by role and the migration URL.
 
 App templates contain only their runtime settings. Package templates are references;
