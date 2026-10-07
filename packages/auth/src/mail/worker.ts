@@ -7,8 +7,26 @@ import { renderAuthMail } from './render.ts';
 import { createMailTransport } from './transport.ts';
 
 /**
- * Registers auth email delivery on a running queue and returns SMTP transport cleanup.
- * Stop the queue and let in-flight jobs finish before calling the returned function.
+ * Registers authentication email delivery on a running queue.
+ *
+ * Invalid, expired, and permanently rejected jobs are canceled. Temporary delivery
+ * failures are thrown from the job handler for queue retry handling.
+ *
+ * @param queue - Started auth mail queue.
+ * @param config - Validated sender and SMTP settings.
+ * @returns Async transport cleanup. Stop the queue and finish in-flight jobs before calling it.
+ * @throws {Error} Registration failures propagate after the transport is disposed.
+ *
+ * @example
+ * ```ts
+ * const dispose = await startAuthMailWorker(queue, config);
+ * try {
+ *   await waitForShutdown();
+ * } finally {
+ *   await queue.stop({ graceful: true });
+ *   await dispose();
+ * }
+ * ```
  */
 export async function startAuthMailWorker(
   queue: PgBoss,
