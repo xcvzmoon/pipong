@@ -133,9 +133,7 @@ export async function startAuthFixture(
         const response = await fetch(`${baseUrl}/api/auth/get-session`);
         if (response.status === 200) return { database, baseUrl, environment, close };
         if (response.status >= 500) throw new Error('TEST_SERVER_RESPONSE_FAILED');
-      } catch {
-        /* Server has not bound its port yet. */
-      }
+      } catch {}
       await setTimeout(100);
     }
     // oxlint-enable eslint/no-await-in-loop
