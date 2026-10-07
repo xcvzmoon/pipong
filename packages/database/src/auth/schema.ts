@@ -81,6 +81,7 @@ export const organizations = authSchema.table(
     slug: text('slug').notNull().unique(),
     logo: text('logo'),
     metadata: text('metadata'),
+    disabledAt: timestamp('disabled_at', TIMESTAMP_CONFIG),
     ...generateTimestamps(),
   },
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],

@@ -131,6 +131,13 @@ export function createAuthEngine(
     },
     plugins: [
       organization({
+        schema: {
+          organization: {
+            additionalFields: {
+              disabledAt: { type: 'date', required: false, input: false },
+            },
+          },
+        },
         allowUserToCreateOrganization: false,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,
