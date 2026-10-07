@@ -15,10 +15,10 @@ import { promisify } from 'node:util';
 import { Client } from 'pg';
 import { validate, version } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { user } from '../../database/src/auth/schema.ts';
+import { user } from '../src/auth/schema.ts';
 
 const testUrl = process.env.TEST_DATABASE_URL;
-const migrationsFolder = fileURLToPath(new URL('../../database/migrations/', import.meta.url));
+const migrationsFolder = fileURLToPath(new URL('../migrations/foundation/', import.meta.url));
 const databaseName = `pipong_test_${process.pid}`;
 const admin = new Client({ connectionString: testUrl });
 let fixture: Client;
@@ -78,7 +78,7 @@ async function runMigrations(connectionString: string, folder: string): Promise<
     if (folder === migrationsFolder) {
       await runMigrations(
         connectionString,
-        fileURLToPath(new URL('../migrations/', import.meta.url)),
+        fileURLToPath(new URL('../migrations/auth/', import.meta.url)),
       );
     }
   } finally {
@@ -87,13 +87,13 @@ async function runMigrations(connectionString: string, folder: string): Promise<
 }
 
 async function runClient(role: 'api' | 'worker', body: string): Promise<string> {
-  const clientPath = new URL('../../database/src/index.ts', import.meta.url).href;
+  const clientPath = new URL('../src/index.ts', import.meta.url).href;
   const script = `
     import assert from 'node:assert/strict';
     import { sql } from ${JSON.stringify(new URL('../node_modules/drizzle-orm/index.js', import.meta.url).href)};
     const { useApiDb, useWorkerDb } = await import(${JSON.stringify(clientPath)});
     const runtime = await ${role === 'api' ? 'useApiDb' : 'useWorkerDb'}();
-    const { createAuthClient } = await import(${JSON.stringify(new URL('../../database/src/auth/client.ts', import.meta.url).href)});
+    const { createAuthClient } = await import(${JSON.stringify(new URL('../src/auth/client.ts', import.meta.url).href)});
     const authDb = createAuthClient(runtime);
     try { ${body} } finally { if (!runtime.pool.ending) await runtime.close(); }
   `;
@@ -117,10 +117,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     await admin.query(`CREATE DATABASE ${databaseName}`);
     fixture = new Client({ connectionString: roleUrl('postgres') });
     await fixture.connect();
-    const provision = await readFile(
-      new URL('../../database/provision.sql', import.meta.url),
-      'utf8',
-    );
+    const provision = await readFile(new URL('../provision.sql', import.meta.url), 'utf8');
     await fixture.query(provision.replaceAll(':"DBNAME"', `"${databaseName}"`));
     migrationUrl = roleUrl('pipong_migrator');
     apiUrl = roleUrl('pipong_api');

@@ -441,6 +441,9 @@ importers:
       pg:
         specifier: catalog:database
         version: 8.23.1
+      pg-boss:
+        specifier: catalog:mail
+        version: 12.37.0(@opentelemetry/api@1.9.1)
       uuid:
         specifier: catalog:shared
         version: 14.0.2

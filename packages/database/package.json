@@ -20,13 +20,14 @@
     "build": "tsdown",
     "typecheck": "tsc --checkers 8",
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate --config drizzle.migrate.config.ts",
-    "check": "drizzle-kit check",
+    "migrate": "drizzle-kit migrate --config drizzle.migrate.config.ts && drizzle-kit migrate --config drizzle.auth.migrate.config.ts",
+    "check": "drizzle-kit check && drizzle-kit check --config drizzle.auth.config.ts",
     "studio:api": "drizzle-kit studio --config drizzle.api.config.ts",
     "studio:worker": "drizzle-kit studio --config drizzle.worker.config.ts",
     "test": "vitest --run",
     "test:watch": "vitest --watch",
-    "test:verbose": "vitest --run --reporter=verbose"
+    "test:verbose": "vitest --run --reporter=verbose",
+    "generate:auth": "drizzle-kit generate --config drizzle.auth.config.ts"
   },
   "dependencies": {
     "@pipong/shared": "workspace:*",
@@ -35,7 +36,8 @@
     "drizzle-query-logger": "catalog:shared",
     "pg": "catalog:database",
     "uuid": "catalog:shared",
-    "valibot": "catalog:shared"
+    "valibot": "catalog:shared",
+    "pg-boss": "catalog:mail"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",
