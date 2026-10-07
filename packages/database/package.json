@@ -6,6 +6,7 @@
     ".": "./src/index.ts",
     "./auth": "./src/auth/index.ts",
     "./helpers": "./src/helpers/index.ts",
+    "./tenancy": "./src/tenancy/index.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -13,6 +14,7 @@
       ".": "./dist/index.mjs",
       "./auth": "./dist/auth/index.mjs",
       "./helpers": "./dist/helpers/index.mjs",
+      "./tenancy": "./dist/tenancy/index.mjs",
       "./package.json": "./package.json"
     }
   },
@@ -20,14 +22,15 @@
     "build": "tsdown",
     "typecheck": "tsc --checkers 8",
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate --config drizzle.migrate.config.ts && drizzle-kit migrate --config drizzle.auth.migrate.config.ts",
-    "check": "drizzle-kit check && drizzle-kit check --config drizzle.auth.config.ts",
+    "migrate": "drizzle-kit migrate --config drizzle.migrate.config.ts && drizzle-kit migrate --config drizzle.auth.migrate.config.ts && drizzle-kit migrate --config drizzle.tenancy.migrate.config.ts",
+    "check": "drizzle-kit check && drizzle-kit check --config drizzle.auth.config.ts && drizzle-kit check --config drizzle.tenancy.config.ts",
     "studio:api": "drizzle-kit studio --config drizzle.api.config.ts",
     "studio:worker": "drizzle-kit studio --config drizzle.worker.config.ts",
     "test": "vitest --run",
     "test:watch": "vitest --watch",
     "test:verbose": "vitest --run --reporter=verbose",
-    "generate:auth": "drizzle-kit generate --config drizzle.auth.config.ts"
+    "generate:auth": "drizzle-kit generate --config drizzle.auth.config.ts",
+    "generate:tenancy": "drizzle-kit generate --config drizzle.tenancy.config.ts"
   },
   "dependencies": {
     "@pipong/shared": "workspace:*",
