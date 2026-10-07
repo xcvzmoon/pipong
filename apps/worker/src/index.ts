@@ -27,7 +27,6 @@ let closeMailTransport: (() => Promise<void>) | undefined;
 try {
   closeMailTransport = await startAuthMailWorker(mailQueue, mailConfig);
   for await (const _ of setInterval(60_000, undefined, { signal: abortController.signal })) {
-    // Waiting for shutdown.
   }
 } catch (error) {
   if (!abortController.signal.aborted) {
