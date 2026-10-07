@@ -81,9 +81,16 @@ const cursorSchema = v.variant('kind', [
     projectId: idSchema,
     afterId: idSchema,
   }),
+  v.strictObject({
+    version: v.literal(1),
+    kind: v.literal('environment'),
+    organizationId: idSchema,
+    projectId: idSchema,
+    environmentId: idSchema,
+    afterId: idSchema,
+  }),
 ]);
 
-type CollectionScope = Extract<TenantScope, { kind: 'organization' | 'project' }>;
 /**
  * Expected resource failure with an HTTP status and stable application code.
  */
@@ -109,7 +116,7 @@ export type ResourcePage<Record> = { items: Record[]; nextCursor: string | null 
 /**
  * Decodes a canonical base64url cursor and verifies its collection scope.
  *
- * @param scope - Collection that must match the encoded organization and project IDs.
+ * @param scope - Collection that must match the encoded organization, project, and environment IDs.
  * @param cursor - Cursor returned by resourcePage, or undefined for the first page.
  * @returns The exclusive record ID, undefined when no cursor is supplied, or false when decoding or scope validation fails.
  *
@@ -122,7 +129,7 @@ export type ResourcePage<Record> = { items: Record[]; nextCursor: string | null 
  * ```
  */
 export function readResourceCursor(
-  scope: CollectionScope,
+  scope: TenantScope,
   cursor: string | undefined,
 ): string | undefined | false {
   if (cursor === undefined) {
@@ -147,8 +154,15 @@ export function readResourceCursor(
     }
 
     if (
-      scope.kind === 'project' &&
-      (parsed.output.kind !== 'project' || parsed.output.projectId !== scope.projectId)
+      scope.kind !== 'organization' &&
+      (parsed.output.kind === 'organization' || parsed.output.projectId !== scope.projectId)
+    ) {
+      return false;
+    }
+
+    if (
+      scope.kind === 'environment' &&
+      (parsed.output.kind !== 'environment' || parsed.output.environmentId !== scope.environmentId)
     ) {
       return false;
     }
@@ -174,7 +188,7 @@ export function readResourceCursor(
  * ```
  */
 export function resourcePage<Record extends { id: string }>(
-  scope: CollectionScope,
+  scope: TenantScope,
   records: Record[],
   limit: number,
 ): ResourcePage<Record> {
