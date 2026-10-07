@@ -27,7 +27,6 @@
     "@pipong/shared": "workspace:*",
     "@xcvzlabs/env": "catalog:shared",
     "better-auth": "catalog:auth",
-    "drizzle-orm": "catalog:database",
     "handlebars": "catalog:mail",
     "pg-boss": "catalog:mail",
     "unemail": "catalog:mail",
@@ -36,10 +35,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:shared",
-    "@types/pg": "catalog:database",
     "auth": "catalog:auth",
-    "drizzle-kit": "catalog:database",
-    "pg": "catalog:database",
     "tsdown": "catalog:shared",
     "typescript": "catalog:shared",
     "vitest": "catalog:shared"
