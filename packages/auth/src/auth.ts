@@ -3,6 +3,7 @@ import type { AuthClient, AuthTransaction } from '@pipong/database/auth';
 import type { ApiConfig } from '@pipong/shared';
 import type { PgBoss } from 'pg-boss';
 import type { AuthMail } from './mail/payload.ts';
+import type { AuthenticationFailure, Principal } from './principal.ts';
 import { apiKey } from '@better-auth/api-key';
 import { createAuthClient } from '@pipong/database/auth';
 import { betterAuth } from 'better-auth/minimal';
@@ -12,10 +13,12 @@ import { v7 } from 'uuid';
 import { createAuthAdapter } from './adapter.ts';
 import { enrollmentBefore, enrollmentAfter } from './assurance.ts';
 import { enqueueAuthMail } from './mail/queue.ts';
+import { authenticateRequest } from './principal.ts';
 
 export type HumanAuth = {
   handler: (request: Request) => Promise<Response>;
   origin: string;
+  authenticate: (request: Request) => Promise<Principal | AuthenticationFailure>;
 };
 
 /** Creates Better Auth using the API database and an already-started auth mail queue. */
@@ -27,15 +30,27 @@ export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: 
     'http',
   );
 
+  const origin = new URL(config.authBaseUrl).origin;
+
   return {
     handler: auth.handler,
-    origin: new URL(config.authBaseUrl).origin,
+    origin,
+    authenticate: (request) => authenticateRequest(auth, origin, request),
   };
 }
 
-type AuthEngine = {
+export type AuthEngine = {
   handler: HumanAuth['handler'];
   api: {
+    getSession: (input: {
+      headers: Headers;
+      query: { disableCookieCache: true; disableRefresh: true };
+    }) => Promise<{ user: { id: string }; session: { id: string } } | null>;
+    verifyApiKey: (input: { body: { key: string; configId: string } }) => Promise<{
+      valid: boolean;
+      error: { code?: string } | null;
+      key: { id: string; referenceId: string } | null;
+    }>;
     signUpEmail: (input: {
       body: {
         name: string;
@@ -131,6 +146,13 @@ export function createAuthEngine(
     },
     plugins: [
       organization({
+        schema: {
+          organization: {
+            additionalFields: {
+              disabledAt: { type: 'date', required: false, input: false },
+            },
+          },
+        },
         allowUserToCreateOrganization: false,
         requireEmailVerificationOnInvitation: true,
         disableOrganizationDeletion: true,

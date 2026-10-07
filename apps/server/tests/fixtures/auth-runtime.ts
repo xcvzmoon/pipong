@@ -51,6 +51,7 @@ export type AuthFixture = {
 export async function startAuthFixture(
   adminUrl: string,
   seedAccounts = true,
+  serverEntrypoint = 'apps/server/.output/server/index.mjs',
 ): Promise<AuthFixture> {
   const admin = new Client({ connectionString: adminUrl });
   await admin.connect();
@@ -113,7 +114,7 @@ export async function startAuthFixture(
       API_DATABASE_MAX_POOL: '2',
       WORKER_DATABASE_MAX_POOL: '2',
     };
-    server = spawn(process.execPath, ['apps/server/.output/server/index.mjs'], {
+    server = spawn(process.execPath, [serverEntrypoint], {
       cwd: root,
       env: environment,
       stdio: ['ignore', 'pipe', 'pipe'],

@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./auth": "./src/auth/index.ts",
+    "./authorization": "./src/authorization/index.ts",
     "./helpers": "./src/helpers/index.ts",
     "./tenancy": "./src/tenancy/index.ts",
     "./package.json": "./package.json"
@@ -13,6 +14,7 @@
     "exports": {
       ".": "./dist/index.mjs",
       "./auth": "./dist/auth/index.mjs",
+      "./authorization": "./dist/authorization/index.mjs",
       "./helpers": "./dist/helpers/index.mjs",
       "./tenancy": "./dist/tenancy/index.mjs",
       "./package.json": "./package.json"

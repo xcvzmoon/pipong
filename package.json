@@ -20,6 +20,7 @@
     "worker": "pnpm --filter pipong-worker --fail-if-no-match run",
     "auth": "pnpm --filter @pipong/auth --fail-if-no-match run",
     "database": "pnpm --filter @pipong/database --fail-if-no-match run",
+    "service": "pnpm --filter @pipong/service --fail-if-no-match run",
     "shared": "pnpm --filter @pipong/shared --fail-if-no-match run",
     "migrate": "pnpm database migrate"
   },

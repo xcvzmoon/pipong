@@ -1,0 +1,1 @@
+ALTER TABLE "auth"."organizations" ADD COLUMN "disabled_at" timestamp(3) with time zone;

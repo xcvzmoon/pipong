@@ -348,10 +348,21 @@ gateway; savepoints within the callback retain that transaction's scope. Do not
 open another tenant gateway inside its callback or issue session-level scope SETs.
 
 The gateway validates scope shape, not membership, grants, revocation, or MFA.
-Those decisions belong to phase 08. Runtime SQL can choose its own context, so
+Those decisions belong to `@pipong/service`. Public capabilities use its
+`withAuthorizedTransaction` boundary, which reads live authority through
+`@pipong/database/authorization` before calling `setTenantScope` in the same transaction.
+Runtime SQL can choose its own context, so
 RLS protects against omitted predicates and does not replace authorization or
 parameterized queries. PostgreSQL constraint errors remain internal; future HTTP
 adapters must map them without exposing another tenant's identifiers.
+
+Authorization persistence includes organization disablement and
+`auth.service_key_grants`, with composite references to the key's organization
+and the complete environment scope. Grants are authority records read before
+tenant context, alongside human membership. Their migration belongs to the tenancy
+directory because it depends on the application environment tables. Worker
+credentials have no access to these auth records. See
+[domain authorization](../../AUTHORIZATION.md) for permissions and lock ordering.
 
 Generate tenant schema changes with `pnpm database generate:tenancy`. Review the
 SQL and preserve explicit `FORCE ROW LEVEL SECURITY` statements, which Drizzle's

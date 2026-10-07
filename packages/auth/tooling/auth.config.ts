@@ -20,7 +20,15 @@ const options: BetterAuthOptions = {
     storage: 'database',
   },
   plugins: [
-    organization(),
+    organization({
+      schema: {
+        organization: {
+          additionalFields: {
+            disabledAt: { type: 'date', required: false, input: false },
+          },
+        },
+      },
+    }),
     twoFactor(),
     apiKey({
       references: 'organization',

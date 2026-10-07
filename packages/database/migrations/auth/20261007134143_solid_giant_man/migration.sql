@@ -1,0 +1,1 @@
+ALTER TABLE "auth"."api_keys" ADD CONSTRAINT "api_keys_organization_id_id_unique" UNIQUE("reference_id","id");
