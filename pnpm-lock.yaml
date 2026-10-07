@@ -303,6 +303,9 @@ importers:
       '@pipong/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      uuid:
+        specifier: catalog:shared
+        version: 14.0.2
     devDependencies:
       '@better-auth/api-key':
         specifier: catalog:auth

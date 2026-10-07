@@ -1,6 +1,6 @@
 import type { Principal } from '@pipong/auth';
 import { defineHandler } from 'nitro';
-import { randomUUID } from 'node:crypto';
+import { v7 } from 'uuid';
 import { auth } from '../utils/auth.ts';
 import { problemResponse } from '../utils/problem.ts';
 
@@ -16,7 +16,7 @@ export default defineHandler(async (event) => {
     return undefined;
   }
 
-  const requestId = randomUUID();
+  const requestId = v7();
 
   event.context.requestId = requestId;
   event.res.headers.set('cache-control', 'no-store');

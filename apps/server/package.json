@@ -15,7 +15,8 @@
     "@pipong/auth": "workspace:*",
     "@pipong/database": "workspace:*",
     "@pipong/service": "workspace:*",
-    "@pipong/shared": "workspace:*"
+    "@pipong/shared": "workspace:*",
+    "uuid": "catalog:shared"
   },
   "devDependencies": {
     "@better-auth/api-key": "catalog:auth",
