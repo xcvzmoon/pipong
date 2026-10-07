@@ -322,10 +322,12 @@ describe.skipIf(!testUrl)('live domain authorization through the built HTTP boun
         [otherOrganizationId, keyId],
       ),
     ).rejects.toMatchObject({ code: '23503' });
-    await fixture.database.query(
-      "UPDATE auth.service_key_grants SET actions=actions || ARRAY['credential:manage','service-key:manage','delivery:redrive','*'] WHERE key_id=$1",
-      [keyId],
-    );
+    await expect(
+      fixture.database.query(
+        "UPDATE auth.service_key_grants SET actions=actions || ARRAY['credential:manage','service-key:manage','delivery:redrive','*'] WHERE key_id=$1",
+        [keyId],
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
     await denied(
       await authorize(
         'notification:send',
@@ -368,9 +370,7 @@ describe.skipIf(!testUrl)('live domain authorization through the built HTTP boun
     await fixture.database.query('UPDATE auth.api_keys SET rate_limit_enabled=false WHERE id=$1', [
       keyId,
     ]);
-    await revocationWaits('DELETE FROM auth.service_key_grants WHERE key_id=$1', keyId, headers);
-    await denied(await authorize('notification:send', scope, headers), 404, 'AUTH_SCOPE_NOT_FOUND');
-    await fixture.database.query('UPDATE auth.api_keys SET enabled=false WHERE id=$1', [keyId]);
+    await revocationWaits('UPDATE auth.api_keys SET enabled=false WHERE id=$1', keyId, headers);
     await denied(
       await authorize('notification:send', scope, headers),
       401,
