@@ -181,8 +181,8 @@ Auth's hard-delete behavior.
 Schema authoring and migration files stay in this package. Use the following
 workflow when a feature needs database changes:
 
-1. Add Drizzle definitions under `src/schema.ts` or modules it exports.
-2. Run `pnpm database generate` to generate SQL and snapshots.
+1. Add Drizzle definitions under `src/schema.ts` for foundation/application storage or `src/auth/schema.ts` for auth storage.
+2. Run `pnpm database generate` for foundation/application schemas or `pnpm database generate:auth` for `src/auth/schema.ts` to generate SQL and snapshots.
 3. Review the generated SQL. Include explicit SQL for grants and operations that
    are not represented by the schema generator.
 4. Run `pnpm database check`, then test the migrations on a disposable database.
@@ -210,14 +210,16 @@ account-specific default grants. Sequence access is USAGE and SELECT.
 migration execution. It stays separate because the migrator cannot create roles.
 Ordinary application startup performs neither provisioning nor migration work.
 
-## Why there are four Drizzle configs
+## Drizzle configs
 
-| File                        | Commands            | Responsibility                                                                         |
-| --------------------------- | ------------------- | -------------------------------------------------------------------------------------- |
-| `drizzle.config.ts`         | `generate`, `check` | Shared dialect, schema source, migration directory, and history schema; no credentials |
-| `drizzle.migrate.config.ts` | `migrate`           | Shared config plus the migration URL                                                   |
-| `drizzle.api.config.ts`     | `studio:api`        | Shared config plus API credentials; shows `auth`, `app`, and `pgboss`                  |
-| `drizzle.worker.config.ts`  | `studio:worker`     | Shared config plus worker credentials; shows `app` and `pgboss`                        |
+| File                             | Commands                 | Responsibility                                                                         |
+| -------------------------------- | ------------------------ | -------------------------------------------------------------------------------------- |
+| `drizzle.config.ts`              | `generate`, `check`      | Shared dialect, schema source, migration directory, and history schema; no credentials |
+| `drizzle.auth.config.ts`         | `generate:auth`, `check` | Auth schema source and migration directory; no credentials                             |
+| `drizzle.auth.migrate.config.ts` | `migrate`                | Auth config plus the migration URL                                                     |
+| `drizzle.migrate.config.ts`      | `migrate`                | Shared config plus the migration URL                                                   |
+| `drizzle.api.config.ts`          | `studio:api`             | Shared config plus API credentials; shows `auth`, `app`, and `pgboss`                  |
+| `drizzle.worker.config.ts`       | `studio:worker`          | Shared config plus worker credentials; shows `app` and `pgboss`                        |
 
 The API and worker configs are inspection tools. Running apps use `clients.ts`,
 not these files. Studio schema filters control what Studio displays; PostgreSQL
@@ -229,6 +231,7 @@ so changes through Studio can affect the database.
 | Repository-root command       | Action                                                               |
 | ----------------------------- | -------------------------------------------------------------------- |
 | `pnpm database generate`      | Generate migration SQL and snapshots from Drizzle definitions        |
+| `pnpm database generate:auth` | Generate auth migration SQL and snapshots                            |
 | `pnpm database migrate`       | Apply pending migrations as the migrator                             |
 | `pnpm database check`         | Check migration history consistency; does not verify a live database |
 | `pnpm database studio:api`    | Start Studio with API credentials                                    |
@@ -264,12 +267,12 @@ Query errors after startup are returned by Drizzle or node-postgres to the calle
 ## Verification
 
 Database environment tests run with `pnpm database test` without PostgreSQL.
-Persistence integration tests live in `packages/auth/tests/` and require a disposable
+Persistence integration tests live in `packages/database/tests/` and require a disposable
 PostgreSQL 18 cluster with local trust authentication and an administrator named
 `postgres`:
 
 ```sh
-TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres pnpm auth test
+TEST_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres pnpm database test
 ```
 
 Use the port of your disposable cluster. The suite creates a temporary database
@@ -287,23 +290,34 @@ against PostgreSQL.
 
 ## File responsibilities
 
-| Path                 | Owns                                                          |
-| -------------------- | ------------------------------------------------------------- |
-| `src/index.ts`       | Public application exports                                    |
-| `src/clients.ts`     | Pools, Drizzle clients, runtime identity checks, and shutdown |
-| `src/env.ts`         | Validated runtime environment                                 |
-| `src/env-schema.ts`  | Shared environment validators and production URL policy       |
-| `src/schema.ts`      | Drizzle schema declarations                                   |
-| `drizzle*.config.ts` | CLI configuration                                             |
-| `provision.sql`      | Administrator role provisioning                               |
-| `migrations/`        | Reviewed migration SQL and snapshots                          |
-| `tests/`             | Environment and PostgreSQL integration tests                  |
+| Path                 | Owns                                                                      |
+| -------------------- | ------------------------------------------------------------------------- |
+| `src/index.ts`       | Public application exports                                                |
+| `src/clients.ts`     | Pools, Drizzle clients, runtime identity checks, and shutdown             |
+| `src/env.ts`         | Validated runtime environment                                             |
+| `src/env-schema.ts`  | Shared environment validators and production URL policy                   |
+| `src/auth/`          | Auth schemas, relations, clients, enrollment queries, and MFA persistence |
+| `src/queue.ts`       | pg-boss startup and transaction integration                               |
+| `src/schema.ts`      | Foundation/application schema declarations                                |
+| `drizzle*.config.ts` | CLI configuration                                                         |
+| `provision.sql`      | Administrator role provisioning                                           |
+| `migrations/`        | Reviewed migration SQL and snapshots                                      |
+| `tests/`             | Environment and PostgreSQL integration tests                              |
 
 ## Auth persistence boundary
 
-`@pipong/auth` owns auth tables, relations, migrations, schema generation, and
-mail queue runtime. This package provides pools and shared schema helpers.
-Run `pnpm migrate` at the repository root to apply database foundation migrations
-before auth migrations. Use `pnpm auth generate` for auth schema changes.
+`@pipong/database` owns auth tables, relations, typed clients, SQL operations,
+migrations, and queue database infrastructure. `@pipong/database/auth` exposes
+concrete enrollment and MFA persistence functions. Table metadata is exported for
+the Better Auth adapter and schema generator; auth policy uses persistence functions.
+
+`@pipong/auth` owns Better Auth configuration and adapter wiring, enrollment/MFA
+policy, and auth email delivery. Its schema-generator config reflects its plugins
+and writes an ignored reference schema; reviewed schema definitions stay here.
+
+Run `pnpm migrate` at the repository root to apply `migrations/foundation/` before
+`migrations/auth/`. Both directories retain their original SQL and snapshot IDs
+and use the existing shared PostgreSQL history. Use `pnpm database generate:auth`
+for auth schema changes.
 
 See [human authentication](../../AUTHENTICATION.md) for auth persistence and mail.
