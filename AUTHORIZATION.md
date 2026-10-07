@@ -61,9 +61,9 @@ environment. Cancellation and security management remain available. The same
 resource locks serialize suspension with authorized work. See
 [projects and environments](./PROJECTS.md) for the HTTP contract.
 
-Key issuance, rotation, and revocation endpoints are phase 10 work. Native key
-mutation endpoints remain disabled. This phase supplies the authorization
-boundary without exposing a temporary issuance or diagnostic API.
+The [service-key lifecycle](./SERVICE_KEYS.md) exposes issuance, metadata listing,
+rotation, and revocation. Grants are immutable under runtime privileges. Native
+key mutation endpoints remain disabled.
 
 ## Transaction boundary
 
@@ -106,5 +106,5 @@ The suite covers the full role/action matrix, active-organization switching,
 forged context, membership removal/demotion, MFA age, disabled organizations,
 nested ownership, sibling environments, missing and revoked grants, expired and
 disabled keys, key throttling, session revocation, mixed credentials, and origins.
-It also proves that membership removal and grant deletion wait for an authorized
+It also proves that membership removal and key disablement wait for an authorized
 transaction and that subsequent HTTP requests are denied.

@@ -9,6 +9,7 @@ export default defineConfig({
     'src/authorization/index.ts',
     'src/projects/index.ts',
     'src/environments/index.ts',
+    'src/service-keys/index.ts',
   ],
   dts: true,
   exports: {

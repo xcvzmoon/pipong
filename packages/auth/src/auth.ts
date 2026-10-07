@@ -4,7 +4,7 @@ import type { ApiConfig } from '@pipong/shared';
 import type { PgBoss } from 'pg-boss';
 import type { AuthMail } from './mail/payload.ts';
 import type { AuthenticationFailure, Principal } from './principal.ts';
-import { apiKey } from '@better-auth/api-key';
+import type { ServiceKeyIssuer } from './service-keys.ts';
 import { createAuthClient } from '@pipong/database/auth';
 import { betterAuth } from 'better-auth/minimal';
 import { organization } from 'better-auth/plugins/organization';
@@ -14,20 +14,26 @@ import { createAuthAdapter } from './adapter.ts';
 import { enrollmentBefore, enrollmentAfter } from './assurance.ts';
 import { enqueueAuthMail } from './mail/queue.ts';
 import { authenticateRequest } from './principal.ts';
+import { createServiceKeyIssuer, serviceKeyPlugin } from './service-keys.ts';
 
 export type HumanAuth = {
   handler: (request: Request) => Promise<Response>;
   origin: string;
   authenticate: (request: Request) => Promise<Principal | AuthenticationFailure>;
+  issueServiceKey: ServiceKeyIssuer;
 };
 
 /**
  * Creates the HTTP authentication facade with public signup disabled.
  *
+ * The key issuer must run inside a transaction authorized for service-key:manage.
+ * Its caller binds the environment grant and audit before committing.
+ *
  * @param database - API runtime whose pool backs authentication queries.
  * @param config - Validated API settings and trusted authentication origin.
  * @param queue - Started auth mail queue.
- * @returns Request handler, canonical origin, and principal authentication function.
+ * @returns Request handler, canonical origin, principal authentication, and transactional key issuer.
+ * @throws {Error} Authentication setup failures propagate to the caller.
  *
  * @example
  * ```ts
@@ -49,6 +55,7 @@ export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: 
     handler: auth.handler,
     origin,
     authenticate: (request) => authenticateRequest(auth, origin, request),
+    issueServiceKey: createServiceKeyIssuer(config),
   };
 }
 
@@ -195,10 +202,7 @@ export function createAuthEngine(
       twoFactor({
         issuer: 'Pipong',
       }),
-      apiKey({
-        references: 'organization',
-        enableSessionForAPIKeys: false,
-      }),
+      serviceKeyPlugin(),
     ],
   });
 }

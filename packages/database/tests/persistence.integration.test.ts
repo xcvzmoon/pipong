@@ -150,7 +150,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     const result = await fixture.query<{ count: string }>(
       'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
     );
-    expect(result.rows[0]?.count).toBe('11');
+    expect(result.rows[0]?.count).toBe('12');
     const tables = await fixture.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema='auth' ORDER BY table_name",
     );
@@ -163,6 +163,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       'mfa_assurances',
       'organizations',
       'rate_limits',
+      'service_key_audits',
       'service_key_grants',
       'sessions',
       'two_factors',
@@ -355,7 +356,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       const history = await fixture.query<{ count: string }>(
         'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
       );
-      expect(history.rows[0]?.count).toBe('11');
+      expect(history.rows[0]?.count).toBe('12');
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
