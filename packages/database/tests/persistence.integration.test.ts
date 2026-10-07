@@ -150,7 +150,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     const result = await fixture.query<{ count: string }>(
       'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
     );
-    expect(result.rows[0]?.count).toBe('10');
+    expect(result.rows[0]?.count).toBe('11');
     const tables = await fixture.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema='auth' ORDER BY table_name",
     );
@@ -281,11 +281,11 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     vi.stubEnv('API_DATABASE_MAX_POOL', '1');
     vi.stubEnv('WORKER_DATABASE_MAX_POOL', '1');
     try {
-      await Promise.all(
-        (['api', 'worker'] as const).map(async (role) => {
-          await runClient(
-            role,
-            `
+      // oxlint-disable eslint/no-await-in-loop -- Both roles mutate the same tenant; finish cleanup before the next role starts.
+      for (const role of ['api', 'worker'] as const) {
+        await runClient(
+          role,
+          `
           for (const scope of [scopeA, scopeB, scopeA, scopeB]) {
             await withTenantTransaction(runtime, scope, async (transaction) => {
               const records = await transaction.select().from(projects);
@@ -313,9 +313,9 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
           });
           assert.deepEqual(await runtime.db.select().from(projects), []);
         `,
-          );
-        }),
-      );
+        );
+      }
+      // oxlint-enable eslint/no-await-in-loop
     } finally {
       vi.stubEnv('API_DATABASE_MAX_POOL', '2');
       vi.stubEnv('WORKER_DATABASE_MAX_POOL', '2');
@@ -355,7 +355,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       const history = await fixture.query<{ count: string }>(
         'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
       );
-      expect(history.rows[0]?.count).toBe('10');
+      expect(history.rows[0]?.count).toBe('11');
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
