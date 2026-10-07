@@ -58,6 +58,9 @@ The built entrypoint is `apps/worker/dist/index.mjs`. Deploy the whole `dist` di
 [Projects and environments](./PROJECTS.md) describes scoped resource operations,
 pagination, suspension, and the deletion gate.
 
+[Organization service keys](./SERVICE_KEYS.md) describes once-visible issuance,
+fixed environment grants, rotation overlap, revocation, and metadata retention.
+
 ## Deploying
 
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.
