@@ -14,9 +14,11 @@
   "dependencies": {
     "@pipong/auth": "workspace:*",
     "@pipong/database": "workspace:*",
+    "@pipong/service": "workspace:*",
     "@pipong/shared": "workspace:*"
   },
   "devDependencies": {
+    "@better-auth/api-key": "catalog:auth",
     "@better-auth/utils": "catalog:auth",
     "@types/node": "catalog:shared",
     "@types/pg": "catalog:database",
