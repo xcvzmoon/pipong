@@ -22,3 +22,19 @@ export {
   projectPathSchema,
   environmentPathSchema,
 } from './resources.ts';
+
+export type {
+  ServiceKeyActor,
+  ServiceKeyResult,
+  ServiceKeyInput,
+  ServiceKeyRotation,
+} from './service-keys.ts';
+export {
+  serviceKeyInputSchema,
+  serviceKeyRotationSchema,
+  serviceKeyPathSchema,
+  issueServiceKey,
+  listServiceKeys,
+  rotateServiceKey,
+  revokeServiceKey,
+} from './service-keys.ts';
