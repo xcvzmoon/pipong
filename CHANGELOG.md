@@ -1,5 +1,77 @@
 # Changelog
 
+## v0.0.4
+
+[compare changes](https://github.com/xcvzmoon/pipong/compare/v0.0.3...v0.0.4)
+
+### 🚀 Enhancements
+
+- **auth:** Persist organization disablement ([575657f](https://github.com/xcvzmoon/pipong/commit/575657f))
+- **database:** Bind service keys to environment grants ([a41f26c](https://github.com/xcvzmoon/pipong/commit/a41f26c))
+- **database:** Expose locked authorization reads ([9c37d00](https://github.com/xcvzmoon/pipong/commit/9c37d00))
+- **auth:** Authorize scoped domain operations ([f69728b](https://github.com/xcvzmoon/pipong/commit/f69728b))
+- **database:** Enforce scoped resource lifecycle invariants ([5f7db8e](https://github.com/xcvzmoon/pipong/commit/5f7db8e))
+- **database:** Expose scoped project operations ([4c43a51](https://github.com/xcvzmoon/pipong/commit/4c43a51))
+- **database:** Expose project-owned environment operations ([6839223](https://github.com/xcvzmoon/pipong/commit/6839223))
+- **api:** Expose scoped project and environment lifecycle ([9cf35cb](https://github.com/xcvzmoon/pipong/commit/9cf35cb))
+- **database:** Enforce immutable service-key lifecycle records ([d0a3fab](https://github.com/xcvzmoon/pipong/commit/d0a3fab))
+- **database:** Add scoped service-key lifecycle repositories ([f55ce0f](https://github.com/xcvzmoon/pipong/commit/f55ce0f))
+- **auth:** Issue organization keys within tenant transactions ([8007ac9](https://github.com/xcvzmoon/pipong/commit/8007ac9))
+- **service:** Bind resource cursors to environment scopes ([deb977c](https://github.com/xcvzmoon/pipong/commit/deb977c))
+- **service:** Implement organization service-key lifecycle policy ([e3813ac](https://github.com/xcvzmoon/pipong/commit/e3813ac))
+- **server:** Expose the scoped service-key HTTP lifecycle ([2e5618b](https://github.com/xcvzmoon/pipong/commit/2e5618b))
+
+### 🩹 Fixes
+
+- **server:** Generate UUIDv7 request IDs ([dece410](https://github.com/xcvzmoon/pipong/commit/dece410))
+- **server:** Resolve the source alias from the app config ([ad08cc4](https://github.com/xcvzmoon/pipong/commit/ad08cc4))
+
+### 📖 Documentation
+
+- **auth:** Explain the domain authorization boundary ([a1a2783](https://github.com/xcvzmoon/pipong/commit/a1a2783))
+- **plan:** Record domain authorization completion ([db71443](https://github.com/xcvzmoon/pipong/commit/db71443))
+- **api:** Document scoped resource lifecycle operations ([a03bc81](https://github.com/xcvzmoon/pipong/commit/a03bc81))
+- **plan:** Record project ownership completion ([5d0da79](https://github.com/xcvzmoon/pipong/commit/5d0da79))
+- **shared:** Document configuration parsing contracts ([fe56edd](https://github.com/xcvzmoon/pipong/commit/fe56edd))
+- **shared:** Document environment boolean parsing ([c1e4907](https://github.com/xcvzmoon/pipong/commit/c1e4907))
+- **database:** Document authentication client ownership ([d1ccf88](https://github.com/xcvzmoon/pipong/commit/d1ccf88))
+- **database:** Document MFA assurance persistence ([9a129a8](https://github.com/xcvzmoon/pipong/commit/9a129a8))
+- **database:** Document serialized enrollment persistence ([a59639e](https://github.com/xcvzmoon/pipong/commit/a59639e))
+- **database:** Document live authority query contracts ([a94410e](https://github.com/xcvzmoon/pipong/commit/a94410e))
+- **database:** Document tenant transaction boundaries ([33e826b](https://github.com/xcvzmoon/pipong/commit/33e826b))
+- **database:** Document project query contracts ([1bd93ba](https://github.com/xcvzmoon/pipong/commit/1bd93ba))
+- **database:** Document environment query contracts ([91e98e4](https://github.com/xcvzmoon/pipong/commit/91e98e4))
+- **database:** Document scoped name conflict detection ([f5a8d79](https://github.com/xcvzmoon/pipong/commit/f5a8d79))
+- **database:** Document UUID column defaults ([f567fd4](https://github.com/xcvzmoon/pipong/commit/f567fd4))
+- **database:** Document timestamp and audit column builders ([648c6ca](https://github.com/xcvzmoon/pipong/commit/648c6ca))
+- **database:** Add production URL validation example ([0c1bd22](https://github.com/xcvzmoon/pipong/commit/0c1bd22))
+- **database:** Document queue lifecycle and transaction adapter ([110331c](https://github.com/xcvzmoon/pipong/commit/110331c))
+- **service:** Document resource validation and pagination ([9a0047c](https://github.com/xcvzmoon/pipong/commit/9a0047c))
+- **service:** Document project operation results ([9f3a9ff](https://github.com/xcvzmoon/pipong/commit/9f3a9ff))
+- **service:** Document environment operation results ([85b08de](https://github.com/xcvzmoon/pipong/commit/85b08de))
+- **service:** Document authorized transaction contract ([9cafed2](https://github.com/xcvzmoon/pipong/commit/9cafed2))
+- **auth:** Document authentication engine configuration ([d57dec5](https://github.com/xcvzmoon/pipong/commit/d57dec5))
+- **auth:** Document principal authentication failures ([5293ec3](https://github.com/xcvzmoon/pipong/commit/5293ec3))
+- **auth:** Document public request handling policy ([1c2266d](https://github.com/xcvzmoon/pipong/commit/1c2266d))
+- **auth:** Document enrollment assurance hooks ([8390120](https://github.com/xcvzmoon/pipong/commit/8390120))
+- **auth:** Document operator enrollment contract ([923426a](https://github.com/xcvzmoon/pipong/commit/923426a))
+- **auth:** Document SMTP configuration requirements ([e907e82](https://github.com/xcvzmoon/pipong/commit/e907e82))
+- **auth:** Document email worker cleanup and failures ([6da52e3](https://github.com/xcvzmoon/pipong/commit/6da52e3))
+- **agents:** Require JSDoc for shared workspace functions ([836158d](https://github.com/xcvzmoon/pipong/commit/836158d))
+- **service-keys:** Document key issuance and rotation operations ([5fde1fb](https://github.com/xcvzmoon/pipong/commit/5fde1fb))
+- **plan:** Record completed service-key phase verification ([5512c31](https://github.com/xcvzmoon/pipong/commit/5512c31))
+
+### 🎨 Styles
+
+- **workspace:** Separate dependency catalog groups ([6b36a24](https://github.com/xcvzmoon/pipong/commit/6b36a24))
+- **workspace:** Alphabetize dependency catalog groups ([28974bc](https://github.com/xcvzmoon/pipong/commit/28974bc))
+- **worker:** Remove shutdown loop comment ([d9517bd](https://github.com/xcvzmoon/pipong/commit/d9517bd))
+- **tests:** Remove server startup probe comment ([5e8000f](https://github.com/xcvzmoon/pipong/commit/5e8000f))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.3
 
 [compare changes](https://github.com/xcvzmoon/pipong/compare/v0.0.2...v0.0.3)
