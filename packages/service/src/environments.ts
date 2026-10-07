@@ -11,6 +11,25 @@ import {
 import { readProject } from '@pipong/database/projects';
 import { readResourceCursor, resourcePage } from './resources.ts';
 
+/**
+ * Creates an environment within an authorized project.
+ *
+ * @param transaction - Active tenant transaction after authorization.
+ * @param scope - Project that owns the environments.
+ * @param name - Name already validated with resourceInputSchema.
+ * @returns The created record, or RESOURCE_NAME_CONFLICT when the name is already reserved. Returns RESOURCE_NOT_FOUND for a missing parent and RESOURCE_SUSPENDED for a suspended parent.
+ * @throws {Error} Database failures propagate to the caller.
+ *
+ * @example
+ * ```ts
+ * const result = await createEnvironment(transaction, scope, 'Production');
+ * if (result.ok) {
+ *   console.info(result.value.id);
+ * } else {
+ *   console.warn(result.code);
+ * }
+ * ```
+ */
 export async function createEnvironment(
   transaction: TenantTransaction,
   scope: ProjectScope,
@@ -57,6 +76,25 @@ export async function createEnvironment(
   };
 }
 
+/**
+ * Lists undeleted environments in ascending ID order using a scope-bound cursor.
+ *
+ * @param transaction - Active tenant transaction after authorization.
+ * @param scope - Project that owns the environments.
+ * @param limit - Validated page size from 1 to 100.
+ * @param cursor - Cursor from the previous page, or undefined for the first page.
+ * @returns A page with a nullable next cursor, or RESOURCE_CURSOR_INVALID for a malformed or mismatched cursor.
+ * @throws {Error} Database failures propagate to the caller.
+ *
+ * @example
+ * ```ts
+ * const result = await listEnvironments(transaction, scope, 20, undefined);
+ * if (result.ok) {
+ *   const { items, nextCursor } = result.value;
+ *   console.info(items, nextCursor);
+ * }
+ * ```
+ */
 export async function listEnvironments(
   transaction: TenantTransaction,
   scope: ProjectScope,
@@ -81,6 +119,25 @@ export async function listEnvironments(
   };
 }
 
+/**
+ * Reads an undeleted environment within its owning project.
+ *
+ * @param transaction - Active tenant transaction after authorization.
+ * @param scope - Project that owns the environments.
+ * @param id - ID of the environment within the supplied scope.
+ * @returns The record, or RESOURCE_NOT_FOUND when it is missing or deleted.
+ * @throws {Error} Database failures propagate to the caller.
+ *
+ * @example
+ * ```ts
+ * const result = await readEnvironment(transaction, scope, id);
+ * if (result.ok) {
+ *   console.info(result.value.id);
+ * } else {
+ *   console.warn(result.code);
+ * }
+ * ```
+ */
 export async function readEnvironment(
   transaction: TenantTransaction,
   scope: ProjectScope,
@@ -102,6 +159,26 @@ export async function readEnvironment(
   };
 }
 
+/**
+ * Renames an undeleted environment within its owning project.
+ *
+ * @param transaction - Active tenant transaction after authorization.
+ * @param scope - Project that owns the environments.
+ * @param id - ID of the environment within the supplied scope.
+ * @param name - Name already validated with resourceInputSchema.
+ * @returns The record, or RESOURCE_NOT_FOUND when it is missing or deleted.
+ * @throws {Error} Database failures propagate to the caller; a duplicate name during a rename is a database error.
+ *
+ * @example
+ * ```ts
+ * const result = await updateEnvironment(transaction, scope, id, 'Production');
+ * if (result.ok) {
+ *   console.info(result.value.id);
+ * } else {
+ *   console.warn(result.code);
+ * }
+ * ```
+ */
 export async function updateEnvironment(
   transaction: TenantTransaction,
   scope: ProjectScope,
@@ -124,6 +201,25 @@ export async function updateEnvironment(
   };
 }
 
+/**
+ * Suspends an undeleted environment, preserving its first suspension time.
+ *
+ * @param transaction - Active tenant transaction after authorization.
+ * @param scope - Project that owns the environments.
+ * @param id - ID of the environment within the supplied scope.
+ * @returns The record, or RESOURCE_NOT_FOUND when it is missing or deleted.
+ * @throws {Error} Database failures propagate to the caller.
+ *
+ * @example
+ * ```ts
+ * const result = await suspendEnvironment(transaction, scope, id);
+ * if (result.ok) {
+ *   console.info(result.value.id);
+ * } else {
+ *   console.warn(result.code);
+ * }
+ * ```
+ */
 export async function suspendEnvironment(
   transaction: TenantTransaction,
   scope: ProjectScope,

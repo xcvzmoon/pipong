@@ -26,7 +26,22 @@ const publicAuthOperations = new Map([
   ['/send-verification-email', 'POST'],
 ]);
 
-/** Applies the public endpoint policy to an untouched Web Request and preserves auth cookies. */
+/**
+ * Applies the public authentication endpoint allowlist and origin policy.
+ *
+ * Pass the original request without consuming its body. Allowed responses preserve
+ * authentication cookies and receive Cache-Control: no-store.
+ *
+ * @param auth - HTTP authentication facade with its trusted origin.
+ * @param request - Request under /api/auth with its original URL, method, headers, and body.
+ * @returns The authentication response, or a 403 problem for an invalid origin or disabled endpoint.
+ * @throws {Error} Handler failures propagate to the caller.
+ *
+ * @example
+ * ```ts
+ * const response = await handleAuthRequest(auth, request);
+ * ```
+ */
 export function handleAuthRequest(auth: HumanAuth, request: Request): Promise<Response> {
   const origin = request.headers.get('origin');
 

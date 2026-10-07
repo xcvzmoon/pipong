@@ -1,14 +1,23 @@
 import { defineEnv, EnvValidationError } from '@xcvzlabs/env';
 import * as v from 'valibot';
 
+/**
+ * Environment variable values supplied to configuration parsers.
+ */
 export type EnvironmentSource = Record<string, string | undefined>;
 
+/**
+ * Validated API authentication and credential keyring settings.
+ */
 export type ApiConfig = {
   authBaseUrl: string;
   authSecret: string;
   credentialKeyringRef: string;
 };
 
+/**
+ * Validated worker provider settings; optional providers remain undefined when unset.
+ */
 export type WorkerConfig = {
   credentialKeyringRef: string;
   apnsEnvironment: 'production' | 'sandbox';
@@ -16,8 +25,14 @@ export type WorkerConfig = {
   webPushSubject: string | undefined;
 };
 
+/**
+ * Stable error codes for API and worker configuration failures.
+ */
 export type ConfigErrorCode = 'API_CONFIG_INVALID' | 'WORKER_CONFIG_INVALID';
 
+/**
+ * Configuration error exposing a stable code and invalid variable names without their values.
+ */
 export class ConfigError extends Error {
   readonly code: ConfigErrorCode;
 
@@ -73,7 +88,22 @@ function parseConfig<T>(code: ConfigErrorCode, parse: () => T): T {
   }
 }
 
-/** Validates API environment values without opening database or provider connections. */
+/**
+ * Validates and normalizes API settings without opening external connections.
+ *
+ * @param source - Environment values to parse; unrelated keys are ignored.
+ * @returns Validated settings. AUTH_BASE_URL must be HTTPS, or HTTP on localhost, with no path, credentials, query, or fragment.
+ * @throws {ConfigError} API_CONFIG_INVALID when required values are missing or invalid.
+ *
+ * @example
+ * ```ts
+ * const config = parseApiConfig({
+ *   AUTH_BASE_URL: 'http://localhost:3000',
+ *   AUTH_SECRET: 'development-secret-at-least-32-characters',
+ *   CREDENTIAL_KEYRING_REF: 'development-keyring',
+ * });
+ * ```
+ */
 export function parseApiConfig(source: EnvironmentSource): ApiConfig {
   const values = parseConfig('API_CONFIG_INVALID', () =>
     defineEnv({
@@ -92,7 +122,21 @@ export function parseApiConfig(source: EnvironmentSource): ApiConfig {
   };
 }
 
-/** Validates worker environment values, including provider and credential settings. */
+/**
+ * Validates and normalizes worker settings without opening external connections.
+ *
+ * @param source - Environment values to parse; unrelated keys are ignored.
+ * @returns Validated settings with APNS defaulting to production.
+ * @throws {ConfigError} WORKER_CONFIG_INVALID when required values are missing or invalid.
+ *
+ * @example
+ * ```ts
+ * const config = parseWorkerConfig({
+ *   CREDENTIAL_KEYRING_REF: 'development-keyring',
+ *   APNS_ENVIRONMENT: 'sandbox',
+ * });
+ * ```
+ */
 export function parseWorkerConfig(source: EnvironmentSource): WorkerConfig {
   const values = parseConfig('WORKER_CONFIG_INVALID', () =>
     defineEnv({
@@ -137,12 +181,32 @@ const httpsContactUrlSchema = v.pipe(
 );
 const webPushSubjectSchema = v.union([mailtoSubjectSchema, httpsContactUrlSchema]);
 
-/** Loads validated API settings from the current process environment. */
+/**
+ * Loads API settings from the current process environment.
+ *
+ * @returns Validated API settings.
+ * @throws {ConfigError} API_CONFIG_INVALID when the environment is invalid.
+ *
+ * @example
+ * ```ts
+ * const config = loadApiConfig();
+ * ```
+ */
 export function loadApiConfig(): ApiConfig {
   return parseApiConfig(process.env);
 }
 
-/** Loads validated worker settings from the current process environment. */
+/**
+ * Loads worker settings from the current process environment.
+ *
+ * @returns Validated worker settings.
+ * @throws {ConfigError} WORKER_CONFIG_INVALID when the environment is invalid.
+ *
+ * @example
+ * ```ts
+ * const config = loadWorkerConfig();
+ * ```
+ */
 export function loadWorkerConfig(): WorkerConfig {
   return parseWorkerConfig(process.env);
 }

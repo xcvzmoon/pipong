@@ -50,7 +50,7 @@ oxlint is type-aware (`typeAware` / `typeCheck`) and includes the local **anti-s
 
 - Make the smallest correct change.
 - Do not polish unrelated code.
-- Do not remove correct comments or documentation.
+- Preserve accurate JSDoc and required tooling directives; remove ordinary comments when touching code.
 - Do not rename broad parts of the codebase unless required.
 - Do not expand a change into a repo-wide refactor unless necessary.
 - Prefer leaving correct existing code in place.
@@ -66,6 +66,17 @@ oxlint is type-aware (`typeAware` / `typeCheck`) and includes the local **anti-s
 - Prefer functions over classes.
 - Existing classes that are already correct can stay; do not rewrite them for style only.
 - Keep diffs small and focused.
+
+## JSDoc
+
+- Require JSDoc when adding or changing exported functions shared across workspace apps or packages through package entry points or subpath exports. An `export` used only within its own app or package does not require JSDoc.
+- Document internal functions only when callers need an explanation of non-obvious behavior, constraints, or resource ownership.
+- Include a clear description, `@param` entries for each parameter, `@returns`, and a practical `@example`. Document optional parameters and defaults accurately.
+- Add `@throws` for errors that can reach the caller, including stable error codes where applicable. Describe returned failure results under `@returns` instead of treating them as thrown errors.
+- Explain relevant validation requirements, side effects, authorization boundaries, and cleanup responsibilities. Keep existing JSDoc in sync with behavior.
+- In TypeScript, rely on the function signature for types rather than repeating them in JSDoc tags. Use fenced TypeScript examples that match the actual API.
+- Do not add ordinary line or block comments. Preserve required lint directives and `SAFETY:` comments.
+- Apply the `/unslop` skill to JSDoc text.
 
 ## Types And Naming
 

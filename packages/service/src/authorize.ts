@@ -11,6 +11,14 @@ import {
 import { setTenantScope } from '@pipong/database/tenancy';
 import * as v from 'valibot';
 
+/**
+ * Validates the domain permission requested by an authorized operation.
+ *
+ * @example
+ * ```ts
+ * const action = v.parse(domainActionSchema, 'notification:send');
+ * ```
+ */
 export const domainActionSchema = v.picklist([
   'organization:manage',
   'project:read',
@@ -33,8 +41,14 @@ export const domainActionSchema = v.picklist([
   'event:read',
 ]);
 
+/**
+ * Permission evaluated against a live human role or service-key grant.
+ */
 export type DomainAction = v.InferOutput<typeof domainActionSchema>;
 
+/**
+ * Authorization denial with its HTTP status and stable application code.
+ */
 export type AuthorizationFailure = {
   ok: false;
   status: 403 | 404 | 409;
@@ -46,6 +60,9 @@ export type AuthorizationFailure = {
     | 'AUTH_SCOPE_SUSPENDED';
 };
 
+/**
+ * Authorized callback result; check ok before reading value.
+ */
 export type AuthorizedResult<Result> =
   | {
       ok: true;
@@ -84,7 +101,31 @@ const keyActions: ReadonlySet<DomainAction> = new Set([
   'event:read',
 ]);
 
-/** Checks live authority and runs the operation in the same tenant transaction. */
+/**
+ * Checks live authority and runs an operation in the same tenant transaction.
+ *
+ * The callback runs only after organization, scope, role or key grants, and any
+ * required recent MFA checks pass. Callback failures roll back the transaction.
+ *
+ * @param database - API database runtime used for authority checks and the operation.
+ * @param principal - Previously authenticated human or service key.
+ * @param action - Permission required by the operation.
+ * @param scope - Validated tenant scope targeted by the operation.
+ * @param run - Operation to execute with transaction-local tenant context set.
+ * @returns The callback value wrapped in an ok result, or a structured authorization failure.
+ * @throws {Error} Database and callback errors propagate to the caller.
+ *
+ * @example
+ * ```ts
+ * const result = await withAuthorizedTransaction(
+ *   database, principal, 'project:read', scope,
+ *   (transaction) => listProjects(transaction, scope, 20, undefined),
+ * );
+ * if (!result.ok) {
+ *   console.warn(result.code);
+ * }
+ * ```
+ */
 export function withAuthorizedTransaction<Result>(
   database: DatabaseRuntime,
   principal: Principal,

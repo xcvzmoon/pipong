@@ -12,7 +12,25 @@ export type MailConfig = {
   password: string | undefined;
 };
 
-/** Reads sender and SMTP settings; rejects invalid settings with AUTH_MAIL_CONFIG_INVALID. */
+/**
+ * Validates sender and SMTP settings before creating a transport.
+ *
+ * The default port is 587 and security mode is STARTTLS. Plain SMTP is restricted
+ * to loopback hosts; a username and password must be supplied together.
+ *
+ * @param [source=process.env] - Environment values containing sender and SMTP settings.
+ * @returns Normalized sender, connection, TLS, and optional credential settings.
+ * @throws {Error} AUTH_MAIL_CONFIG_INVALID when sender or SMTP settings are invalid.
+ *
+ * @example
+ * ```ts
+ * const config = loadMailConfig({
+ *   AUTH_MAIL_FROM: 'auth@example.com',
+ *   SMTP_HOST: 'localhost',
+ *   SMTP_SECURITY: 'local',
+ * });
+ * ```
+ */
 export function loadMailConfig(source: EnvironmentSource = process.env): MailConfig {
   try {
     const values = defineEnv({

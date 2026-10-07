@@ -2,10 +2,16 @@ import type { AuthEngine } from './auth.ts';
 import { getSessionCookie } from 'better-auth/cookies';
 import * as v from 'valibot';
 
+/**
+ * Authenticated identity only; tenant permissions must be checked separately.
+ */
 export type Principal =
   | { kind: 'human'; userId: string; sessionId: string }
   | { kind: 'service-key'; keyId: string; organizationId: string };
 
+/**
+ * Credential or origin denial; rate-limit failures include retryAfter in seconds.
+ */
 export type AuthenticationFailure =
   | {
       kind: 'denied';
@@ -23,6 +29,26 @@ const rateLimitErrorSchema = v.object({
   details: v.object({ tryAgainIn: v.pipe(v.number(), v.finite(), v.minValue(0)) }),
 });
 
+/**
+ * Authenticates one session cookie or service key against live authentication state.
+ *
+ * Mixed credentials are rejected. Unsafe cookie requests require the trusted origin;
+ * any supplied origin must match. This function does not authorize a tenant action.
+ *
+ * @param auth - Engine used to verify keys and read sessions without cookie caching.
+ * @param origin - Canonical trusted origin.
+ * @param request - Incoming request with its original credential headers.
+ * @returns An authenticated principal or a denial with an HTTP status and stable code. Rate-limit denials include retryAfter in seconds.
+ * @throws {Error} Authentication backend failures and invalid backend rate-limit data propagate.
+ *
+ * @example
+ * ```ts
+ * const principal = await authenticateRequest(auth, origin, request);
+ * if (principal.kind === 'denied') {
+ *   console.warn(principal.code);
+ * }
+ * ```
+ */
 export async function authenticateRequest(
   auth: AuthEngine,
   origin: string,

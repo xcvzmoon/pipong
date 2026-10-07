@@ -68,6 +68,15 @@ export const databaseSettingsSchema = {
  * Applies production restrictions to an already validated PostgreSQL URL.
  * Development and test environments bypass this additional check.
  *
+ * @example
+ * ```ts
+ * validateProductionUrl(
+ *   'API_DATABASE_URL',
+ *   'postgresql://pipong_api:password@db.example.com/pipong?sslmode=verify-full',
+ *   'production',
+ * );
+ * ```
+ *
  * @param variable Environment variable name included in the redacted error.
  * @param value URL already accepted by databaseUrlSchema.
  * @param nodeEnv Validated execution environment.

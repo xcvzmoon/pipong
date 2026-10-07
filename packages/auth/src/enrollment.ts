@@ -18,6 +18,23 @@ export type EnrollmentResult = {
   organizationId: string | null;
 };
 
+/**
+ * Validates operator enrollment input and normalizes names and email addresses.
+ *
+ * Bootstrap includes an organization name and slug; provision creates only a user.
+ * Passwords must contain 12 to 128 characters.
+ *
+ * @example
+ * ```ts
+ * const action = v.parse(enrollmentActionSchema, {
+ *   action: 'provision',
+ *   name: 'Alex',
+ *   email: 'alex@example.com',
+ *   password: 'example-password-for-development',
+ * });
+ * const account = await enrollAccount(database, config, queue, action);
+ * ```
+ */
 export const enrollmentActionSchema = v.variant('action', [
   v.object({
     action: v.literal('bootstrap'),
@@ -35,6 +52,26 @@ export const enrollmentActionSchema = v.variant('action', [
   }),
 ]);
 
+/**
+ * Enrolls an account under a serialized transaction, including mail and audit records.
+ *
+ * Bootstrap requires an empty installation and creates its first organization.
+ * Provisioning requires an existing organization and creates only the account.
+ *
+ * @param database - API database runtime with authentication access.
+ * @param config - Validated API authentication settings.
+ * @param queue - Started queue used to enqueue mail through the enrollment transaction.
+ * @param action - Enrollment input already parsed with enrollmentActionSchema.
+ * @returns Created user ID and the bootstrap organization ID, or null for provisioning.
+ * @throws {Error} Enrollment state violations use AUTH_BOOTSTRAP_CLOSED, AUTH_BOOTSTRAP_REQUIRED, or AUTH_ACCOUNT_EXISTS. Organization creation failure uses AUTH_BOOTSTRAP_FAILED; queue rejection uses AUTH_MAIL_ENQUEUE_FAILED. Authentication and database errors also propagate.
+ *
+ * @example
+ * ```ts
+ * const action = v.parse(enrollmentActionSchema, input);
+ * const account = await enrollAccount(database, config, queue, action);
+ * console.info(account.userId);
+ * ```
+ */
 export function enrollAccount(
   database: DatabaseRuntime,
   config: ApiConfig,

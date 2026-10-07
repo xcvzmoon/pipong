@@ -21,7 +21,20 @@ export type HumanAuth = {
   authenticate: (request: Request) => Promise<Principal | AuthenticationFailure>;
 };
 
-/** Creates Better Auth using the API database and an already-started auth mail queue. */
+/**
+ * Creates the HTTP authentication facade with public signup disabled.
+ *
+ * @param database - API runtime whose pool backs authentication queries.
+ * @param config - Validated API settings and trusted authentication origin.
+ * @param queue - Started auth mail queue.
+ * @returns Request handler, canonical origin, and principal authentication function.
+ *
+ * @example
+ * ```ts
+ * const auth = createAuth(database, config, queue);
+ * const principal = await auth.authenticate(request);
+ * ```
+ */
 export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: PgBoss): HumanAuth {
   const auth = createAuthEngine(
     createAuthClient(database),
@@ -68,6 +81,20 @@ export type AuthEngine = {
   };
 };
 
+/**
+ * Configures authentication against a client or an existing enrollment transaction.
+ *
+ * @param client - Authentication client or transaction backing the adapter and hooks.
+ * @param config - Validated API settings.
+ * @param sendMail - Delivery callback; enrollment uses it to queue mail in the same transaction.
+ * @param mode - HTTP disables signup; operator enables enrollment and disables engine logging.
+ * @returns Configured authentication engine. Apply handleAuthRequest before exposing its handler publicly.
+ *
+ * @example
+ * ```ts
+ * const auth = createAuthEngine(client, config, sendMail, 'http');
+ * ```
+ */
 export function createAuthEngine(
   client: AuthClient | AuthTransaction,
   config: ApiConfig,
