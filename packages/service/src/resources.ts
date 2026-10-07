@@ -9,14 +9,47 @@ export const resourceNameSchema = v.pipe(
   v.regex(/\S/u),
   v.trim(),
 );
+/**
+ * Validates a resource body with exactly one name field.
+ *
+ * Names must contain 1 to 100 Unicode characters before trimming, include a
+ * non-whitespace character, and contain neither NUL nor unpaired surrogates.
+ *
+ * @example
+ * ```ts
+ * const input = v.parse(resourceInputSchema, { name: ' Production ' });
+ * console.info(input.name);
+ * ```
+ */
 export const resourceInputSchema = v.strictObject({ name: resourceNameSchema });
+/**
+ * Validates organization and project UUIDs from route parameters.
+ */
 export const projectPathSchema = v.strictObject({ organizationId: idSchema, projectId: idSchema });
+/**
+ * Validates the organization UUID for a project collection route.
+ */
 export const organizationPathSchema = v.pick(projectPathSchema, ['organizationId']);
+/**
+ * Validates organization, project, and environment UUIDs from route parameters.
+ */
 export const environmentPathSchema = v.strictObject({
   organizationId: idSchema,
   projectId: idSchema,
   environmentId: idSchema,
 });
+/**
+ * Parses collection query strings into a page size and optional cursor.
+ *
+ * The page size defaults to 50 and must be a decimal integer from 1 to 100.
+ * Cursor syntax is checked here; collection binding is checked by the service.
+ *
+ * @example
+ * ```ts
+ * const query = v.parse(resourcePageSchema, { limit: '20' });
+ * const result = await listProjects(transaction, scope, query.limit, query.cursor);
+ * ```
+ */
 export const resourcePageSchema = v.strictObject({
   limit: v.optional(
     v.pipe(
@@ -51,6 +84,9 @@ const cursorSchema = v.variant('kind', [
 ]);
 
 type CollectionScope = Extract<TenantScope, { kind: 'organization' | 'project' }>;
+/**
+ * Expected resource failure with an HTTP status and stable application code.
+ */
 export type ResourceFailure = {
   ok: false;
   status: 404 | 409 | 422;
@@ -61,9 +97,30 @@ export type ResourceFailure = {
     | 'RESOURCE_SUSPENDED'
     | 'RESOURCE_DELETION_GATED';
 };
+/**
+ * Resource result; check ok before reading the value or failure code.
+ */
 export type ResourceResult<Value> = { ok: true; value: Value } | ResourceFailure;
+/**
+ * Collection page whose nextCursor is null when no further page was detected.
+ */
 export type ResourcePage<Record> = { items: Record[]; nextCursor: string | null };
 
+/**
+ * Decodes a canonical base64url cursor and verifies its collection scope.
+ *
+ * @param scope - Collection that must match the encoded organization and project IDs.
+ * @param cursor - Cursor returned by resourcePage, or undefined for the first page.
+ * @returns The exclusive record ID, undefined when no cursor is supplied, or false when decoding or scope validation fails.
+ *
+ * @example
+ * ```ts
+ * const afterId = readResourceCursor(scope, cursor);
+ * if (afterId === false) {
+ *   console.warn('RESOURCE_CURSOR_INVALID');
+ * }
+ * ```
+ */
 export function readResourceCursor(
   scope: CollectionScope,
   cursor: string | undefined,
@@ -102,6 +159,20 @@ export function readResourceCursor(
   }
 }
 
+/**
+ * Builds a page and encodes the last included ID when more records are available.
+ *
+ * @param scope - Owning collection to bind into the cursor.
+ * @param records - Records in ascending ID order; fetch limit + 1 to detect another page.
+ * @param limit - Validated maximum number of items to include.
+ * @returns At most limit items and a cursor, or null when no extra record was fetched.
+ *
+ * @example
+ * ```ts
+ * const page = resourcePage(scope, records, 20);
+ * console.info(page.items, page.nextCursor);
+ * ```
+ */
 export function resourcePage<Record extends { id: string }>(
   scope: CollectionScope,
   records: Record[],
