@@ -80,6 +80,10 @@ async function runMigrations(connectionString: string, folder: string): Promise<
         connectionString,
         fileURLToPath(new URL('../migrations/auth/', import.meta.url)),
       );
+      await runMigrations(
+        connectionString,
+        fileURLToPath(new URL('../migrations/tenancy/', import.meta.url)),
+      );
     }
   } finally {
     await rm(configFolder, { recursive: true, force: true });
@@ -142,7 +146,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     const result = await fixture.query<{ count: string }>(
       'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
     );
-    expect(result.rows[0]?.count).toBe('6');
+    expect(result.rows[0]?.count).toBe('7');
     const tables = await fixture.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema='auth' ORDER BY table_name",
     );
@@ -160,7 +164,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       'users',
       'verifications',
     ]);
-  });
+  }, 15000);
 
   it('rolls back failed migrations without recording completion', async () => {
     const folder = await mkdtemp(join(tmpdir(), 'pipong-migration-'));
@@ -178,7 +182,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       const history = await fixture.query<{ count: string }>(
         'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
       );
-      expect(history.rows[0]?.count).toBe('6');
+      expect(history.rows[0]?.count).toBe('7');
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
