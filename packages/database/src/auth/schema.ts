@@ -13,7 +13,7 @@ import { generateUuid, generateTimestamps, TIMESTAMP_CONFIG } from '../helpers/i
 
 export const authSchema = pgSchema('auth');
 
-export const user = authSchema.table('users', {
+export const users = authSchema.table('users', {
   id: generateUuid(),
   name: text('name').notNull(),
   email: text('email').notNull().unique(),
@@ -23,7 +23,7 @@ export const user = authSchema.table('users', {
   ...generateTimestamps(),
 });
 
-export const session = authSchema.table(
+export const sessions = authSchema.table(
   'sessions',
   {
     id: generateUuid(),
@@ -33,14 +33,14 @@ export const session = authSchema.table(
     userAgent: text('user_agent'),
     userId: uuid('user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => users.id, { onDelete: 'cascade' }),
     activeOrganizationId: uuid('active_organization_id'),
     ...generateTimestamps(),
   },
   (table) => [index('session_userId_idx').on(table.userId)],
 );
 
-export const account = authSchema.table(
+export const accounts = authSchema.table(
   'accounts',
   {
     id: generateUuid(),
@@ -48,7 +48,7 @@ export const account = authSchema.table(
     providerId: text('provider_id').notNull(),
     userId: uuid('user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => users.id, { onDelete: 'cascade' }),
     accessToken: text('access_token'),
     refreshToken: text('refresh_token'),
     idToken: text('id_token'),
@@ -61,7 +61,7 @@ export const account = authSchema.table(
   (table) => [index('account_userId_idx').on(table.userId)],
 );
 
-export const verification = authSchema.table(
+export const verifications = authSchema.table(
   'verifications',
   {
     id: generateUuid(),
@@ -73,7 +73,7 @@ export const verification = authSchema.table(
   (table) => [index('verification_identifier_idx').on(table.identifier)],
 );
 
-export const organization = authSchema.table(
+export const organizations = authSchema.table(
   'organizations',
   {
     id: generateUuid(),
@@ -86,16 +86,16 @@ export const organization = authSchema.table(
   (table) => [uniqueIndex('organization_slug_uidx').on(table.slug)],
 );
 
-export const member = authSchema.table(
+export const members = authSchema.table(
   'members',
   {
     id: generateUuid(),
     organizationId: uuid('organization_id')
       .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
+      .references(() => organizations.id, { onDelete: 'cascade' }),
     userId: uuid('user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => users.id, { onDelete: 'cascade' }),
     role: text('role').default('member').notNull(),
     ...generateTimestamps(),
   },
@@ -105,20 +105,20 @@ export const member = authSchema.table(
   ],
 );
 
-export const invitation = authSchema.table(
+export const invitations = authSchema.table(
   'invitations',
   {
     id: generateUuid(),
     organizationId: uuid('organization_id')
       .notNull()
-      .references(() => organization.id, { onDelete: 'cascade' }),
+      .references(() => organizations.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
     role: text('role'),
     status: text('status').default('pending').notNull(),
     expiresAt: timestamp('expires_at', TIMESTAMP_CONFIG).notNull(),
     inviterId: uuid('inviter_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => users.id, { onDelete: 'cascade' }),
     ...generateTimestamps(),
   },
   (table) => [
@@ -127,7 +127,7 @@ export const invitation = authSchema.table(
   ],
 );
 
-export const twoFactor = authSchema.table(
+export const twoFactors = authSchema.table(
   'two_factors',
   {
     id: generateUuid(),
@@ -135,7 +135,7 @@ export const twoFactor = authSchema.table(
     backupCodes: text('backup_codes').notNull(),
     userId: uuid('user_id')
       .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+      .references(() => users.id, { onDelete: 'cascade' }),
     verified: boolean('verified').default(true),
     failedVerificationCount: integer('failed_verification_count').default(0),
     lockedUntil: timestamp('locked_until', TIMESTAMP_CONFIG),
@@ -147,7 +147,7 @@ export const twoFactor = authSchema.table(
   ],
 );
 
-export const apikey = authSchema.table(
+export const apikeys = authSchema.table(
   'api_keys',
   {
     id: generateUuid(),
@@ -179,7 +179,7 @@ export const apikey = authSchema.table(
   ],
 );
 
-export const rateLimit = authSchema.table('rate_limits', {
+export const rateLimits = authSchema.table('rate_limits', {
   id: generateUuid(),
   key: text('key').notNull().unique(),
   count: integer('count').notNull(),
@@ -187,7 +187,7 @@ export const rateLimit = authSchema.table('rate_limits', {
   ...generateTimestamps(),
 });
 
-export const enrollmentAudit = authSchema.table('enrollment_audits', {
+export const enrollmentAudits = authSchema.table('enrollment_audits', {
   id: generateUuid(),
   action: text('action').notNull(),
   userId: uuid('user_id').notNull(),
@@ -195,9 +195,9 @@ export const enrollmentAudit = authSchema.table('enrollment_audits', {
   createdAt: timestamp('created_at', TIMESTAMP_CONFIG).defaultNow().notNull(),
 });
 
-export const mfaAssurance = authSchema.table('mfa_assurances', {
+export const mfaAssurances = authSchema.table('mfa_assurances', {
   sessionId: uuid('session_id')
     .primaryKey()
-    .references(() => session.id, { onDelete: 'cascade' }),
+    .references(() => sessions.id, { onDelete: 'cascade' }),
   verifiedAt: timestamp('verified_at', TIMESTAMP_CONFIG).notNull(),
 });

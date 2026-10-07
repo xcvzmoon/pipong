@@ -1,6 +1,6 @@
 import type { AuthClient, AuthTransaction } from './client.ts';
 import { eq, sql } from 'drizzle-orm';
-import { enrollmentAudit, organization, user } from './schema.ts';
+import { enrollmentAudits, organizations, users } from './schema.ts';
 
 export type EnrollmentState = {
   hasOrganization: boolean;
@@ -29,14 +29,14 @@ export async function readEnrollmentState(
   email: string,
 ): Promise<EnrollmentState> {
   const [existingOrganization] = await transaction
-    .select({ id: organization.id })
-    .from(organization)
+    .select({ id: organizations.id })
+    .from(organizations)
     .limit(1);
-  const [existingUser] = await transaction.select({ id: user.id }).from(user).limit(1);
+  const [existingUser] = await transaction.select({ id: users.id }).from(users).limit(1);
   const [existingAccount] = await transaction
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.email, email))
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
     .limit(1);
   return {
     hasOrganization: existingOrganization !== undefined,
@@ -49,5 +49,5 @@ export async function insertEnrollmentAudit(
   transaction: AuthTransaction,
   entry: EnrollmentAuditEntry,
 ): Promise<void> {
-  await transaction.insert(enrollmentAudit).values(entry);
+  await transaction.insert(enrollmentAudits).values(entry);
 }

@@ -15,7 +15,7 @@ import { promisify } from 'node:util';
 import { Client } from 'pg';
 import { validate, version } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { user } from '../src/auth/schema.ts';
+import { users } from '../src/auth/schema.ts';
 
 const testUrl = process.env.TEST_DATABASE_URL;
 const migrationsFolder = fileURLToPath(new URL('../migrations/foundation/', import.meta.url));
@@ -35,11 +35,11 @@ const helperRecords = helperSchema.table('helper_records', {
 });
 const helperAuditRecords = helperSchema.table('helper_audit_records', {
   id: generateUuid(),
-  ...generateTimestampsWithAudit(() => user.id),
+  ...generateTimestampsWithAudit(() => users.id),
 });
 const helperCascadeRecords = helperSchema.table('helper_cascade_records', {
   id: generateUuid(),
-  ...generateTimestampsWithAudit(() => user.id, 'cascade'),
+  ...generateTimestampsWithAudit(() => users.id, 'cascade'),
 });
 const helperUnboundRecords = helperSchema.table('helper_unbound_records', {
   id: generateUuid(),
@@ -54,8 +54,8 @@ it('declares audit foreign keys against auth users with the selected deletion ac
     'set null',
   ]);
   for (const foreignKey of foreignKeys) {
-    expect(foreignKey.reference().foreignTable).toBe(user);
-    expect(foreignKey.reference().foreignColumns).toEqual([user.id]);
+    expect(foreignKey.reference().foreignTable).toBe(users);
+    expect(foreignKey.reference().foreignColumns).toEqual([users.id]);
   }
   expect(getTableConfig(helperCascadeRecords).foreignKeys[0]?.onDelete).toBe('cascade');
   expect(getTableConfig(helperUnboundRecords).foreignKeys).toEqual([]);
@@ -269,7 +269,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       await runClient(
         'api',
         `
-        const record = await authDb.query.user.findFirst({
+        const record = await authDb.query.users.findFirst({
           where: { id: '${userId}' },
           with: { sessions: true },
         });
@@ -281,7 +281,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       await runClient(
         'worker',
         `
-        await assert.rejects(authDb.query.user.findFirst({ with: { sessions: true } }));
+        await assert.rejects(authDb.query.users.findFirst({ with: { sessions: true } }));
       `,
       );
     } finally {
@@ -431,7 +431,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
         )
       `);
       const db = drizzle({ client: api });
-      await db.insert(user).values([
+      await db.insert(users).values([
         {
           id: '019a0000-0000-7000-8000-000000000001',
           name: 'Creator',
@@ -454,9 +454,9 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
         .returning();
       if (!inserted) throw new Error('TEST_AUDIT_INSERT_MISSING');
       await expect(
-        db.delete(user).where(eq(user.id, '019a0000-0000-7000-8000-000000000001')),
+        db.delete(users).where(eq(users.id, '019a0000-0000-7000-8000-000000000001')),
       ).rejects.toThrow();
-      await db.delete(user).where(eq(user.id, '019a0000-0000-7000-8000-000000000002'));
+      await db.delete(users).where(eq(users.id, '019a0000-0000-7000-8000-000000000002'));
       const [record] = await db
         .select()
         .from(helperAuditRecords)
@@ -470,7 +470,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       await db
         .insert(helperCascadeRecords)
         .values({ createdBy: '019a0000-0000-7000-8000-000000000003' });
-      await db.delete(user).where(eq(user.id, '019a0000-0000-7000-8000-000000000003'));
+      await db.delete(users).where(eq(users.id, '019a0000-0000-7000-8000-000000000003'));
       expect(await db.select().from(helperCascadeRecords)).toHaveLength(0);
       const [unbound] = await db
         .insert(helperUnboundRecords)

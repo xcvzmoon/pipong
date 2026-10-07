@@ -2,7 +2,7 @@ import type { AuthClient, AuthTransaction } from './client.ts';
 import type { EnrollmentAuditEntry } from './enrollment.ts';
 import { and, eq, gt } from 'drizzle-orm';
 import { insertEnrollmentAudit } from './enrollment.ts';
-import { mfaAssurance } from './schema.ts';
+import { mfaAssurances } from './schema.ts';
 
 export type MfaVerification = { sessionId: string; verifiedAt: Date };
 
@@ -12,25 +12,25 @@ export async function hasMfaAssurance(
   after: Date,
 ): Promise<boolean> {
   const [assurance] = await client
-    .select({ sessionId: mfaAssurance.sessionId })
-    .from(mfaAssurance)
-    .where(and(eq(mfaAssurance.sessionId, sessionId), gt(mfaAssurance.verifiedAt, after)));
+    .select({ sessionId: mfaAssurances.sessionId })
+    .from(mfaAssurances)
+    .where(and(eq(mfaAssurances.sessionId, sessionId), gt(mfaAssurances.verifiedAt, after)));
   return assurance !== undefined;
 }
 
 export async function recordAuthActivity(
   client: AuthClient | AuthTransaction,
-  verification: MfaVerification | undefined,
+  verifications: MfaVerification | undefined,
   audit: EnrollmentAuditEntry | undefined,
 ): Promise<void> {
   await client.transaction(async (transaction) => {
-    if (verification) {
+    if (verifications) {
       await transaction
-        .insert(mfaAssurance)
-        .values(verification)
+        .insert(mfaAssurances)
+        .values(verifications)
         .onConflictDoUpdate({
-          target: mfaAssurance.sessionId,
-          set: { verifiedAt: verification.verifiedAt },
+          target: mfaAssurances.sessionId,
+          set: { verifiedAt: verifications.verifiedAt },
         });
     }
     if (audit) await insertEnrollmentAudit(transaction, audit);

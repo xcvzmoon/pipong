@@ -1,99 +1,99 @@
 import { defineRelations } from 'drizzle-orm';
 import {
-  user,
-  session,
-  account,
-  verification,
-  organization,
-  member,
-  invitation,
-  twoFactor,
-  apikey,
-  rateLimit,
+  users,
+  sessions,
+  accounts,
+  verifications,
+  organizations,
+  members,
+  invitations,
+  twoFactors,
+  apikeys,
+  rateLimits,
 } from './schema.ts';
 
 export const authRelations = defineRelations(
   {
-    user,
-    session,
-    account,
-    verification,
-    organization,
-    member,
-    invitation,
-    twoFactor,
-    apikey,
-    rateLimit,
+    users,
+    sessions,
+    accounts,
+    verifications,
+    organizations,
+    members,
+    invitations,
+    twoFactors,
+    apikeys,
+    rateLimits,
   },
   (r) => ({
-    user: {
-      sessions: r.many.session({
-        from: r.user.id,
-        to: r.session.userId,
+    users: {
+      sessions: r.many.sessions({
+        from: r.users.id,
+        to: r.sessions.userId,
       }),
-      accounts: r.many.account({
-        from: r.user.id,
-        to: r.account.userId,
+      accounts: r.many.accounts({
+        from: r.users.id,
+        to: r.accounts.userId,
       }),
-      members: r.many.member({
-        from: r.user.id,
-        to: r.member.userId,
+      members: r.many.members({
+        from: r.users.id,
+        to: r.members.userId,
       }),
-      invitations: r.many.invitation({
-        from: r.user.id,
-        to: r.invitation.inviterId,
+      invitations: r.many.invitations({
+        from: r.users.id,
+        to: r.invitations.inviterId,
       }),
-      twoFactors: r.many.twoFactor({
-        from: r.user.id,
-        to: r.twoFactor.userId,
-      }),
-    },
-    session: {
-      user: r.one.user({
-        from: r.session.userId,
-        to: r.user.id,
+      twoFactors: r.many.twoFactors({
+        from: r.users.id,
+        to: r.twoFactors.userId,
       }),
     },
-    account: {
-      user: r.one.user({
-        from: r.account.userId,
-        to: r.user.id,
+    sessions: {
+      user: r.one.users({
+        from: r.sessions.userId,
+        to: r.users.id,
       }),
     },
-    organization: {
-      members: r.many.member({
-        from: r.organization.id,
-        to: r.member.organizationId,
-      }),
-      invitations: r.many.invitation({
-        from: r.organization.id,
-        to: r.invitation.organizationId,
+    accounts: {
+      user: r.one.users({
+        from: r.accounts.userId,
+        to: r.users.id,
       }),
     },
-    member: {
-      organization: r.one.organization({
-        from: r.member.organizationId,
-        to: r.organization.id,
+    organizations: {
+      members: r.many.members({
+        from: r.organizations.id,
+        to: r.members.organizationId,
       }),
-      user: r.one.user({
-        from: r.member.userId,
-        to: r.user.id,
-      }),
-    },
-    invitation: {
-      organization: r.one.organization({
-        from: r.invitation.organizationId,
-        to: r.organization.id,
-      }),
-      user: r.one.user({
-        from: r.invitation.inviterId,
-        to: r.user.id,
+      invitations: r.many.invitations({
+        from: r.organizations.id,
+        to: r.invitations.organizationId,
       }),
     },
-    twoFactor: {
-      user: r.one.user({
-        from: r.twoFactor.userId,
-        to: r.user.id,
+    members: {
+      organization: r.one.organizations({
+        from: r.members.organizationId,
+        to: r.organizations.id,
+      }),
+      user: r.one.users({
+        from: r.members.userId,
+        to: r.users.id,
+      }),
+    },
+    invitations: {
+      organization: r.one.organizations({
+        from: r.invitations.organizationId,
+        to: r.organizations.id,
+      }),
+      user: r.one.users({
+        from: r.invitations.inviterId,
+        to: r.users.id,
+      }),
+    },
+    twoFactors: {
+      user: r.one.users({
+        from: r.twoFactors.userId,
+        to: r.users.id,
       }),
     },
   }),

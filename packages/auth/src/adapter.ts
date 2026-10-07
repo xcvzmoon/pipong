@@ -7,6 +7,7 @@ export function createAuthAdapter(
 ): ReturnType<typeof drizzleAdapter> {
   return drizzleAdapter(client, {
     provider: 'pg',
+    usePlural: true,
     transaction: true,
     schemaName: 'auth',
     schema: authTables,

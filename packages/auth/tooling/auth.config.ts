@@ -11,6 +11,7 @@ const options: BetterAuthOptions = {
   secret: 'schema-generation-only-not-used-at-runtime',
   database: drizzleAdapter(createAuthSchemaClient(), {
     provider: 'pg',
+    usePlural: true,
     transaction: true,
     schemaName: 'auth',
     schema: authTables,
