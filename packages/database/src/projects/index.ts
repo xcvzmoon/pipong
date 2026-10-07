@@ -5,6 +5,21 @@ import { projects } from '../tenancy/schema.ts';
 export type OrganizationScope = Extract<TenantScope, { kind: 'organization' }>;
 export type ProjectRecord = typeof projects.$inferSelect;
 
+/**
+ * Inserts a project without raising a scoped name conflict.
+ *
+ * @param transaction - Active transaction with the tenant context already set.
+ * @param scope - Owning organization; this function does not check caller authority.
+ * @param name - Validated resource name.
+ * @returns The inserted record, or undefined when the scoped name conflicts.
+ * @throws {Error} Database errors propagate.
+ *
+ * @example
+ * ```ts
+ * const records = await createProject(transaction, scope, 'Production');
+ * console.info(records);
+ * ```
+ */
 export async function createProject(
   transaction: TenantTransaction,
   scope: OrganizationScope,
@@ -19,6 +34,22 @@ export async function createProject(
   return record;
 }
 
+/**
+ * Selects undeleted projects in ascending ID order.
+ *
+ * @param transaction - Active transaction with the tenant context already set.
+ * @param scope - Owning organization; this function does not check caller authority.
+ * @param limit - Maximum number of records to fetch.
+ * @param afterId - Exclusive ID boundary, or undefined to start at the first record.
+ * @returns Matching records, including suspended records.
+ * @throws {Error} Database errors propagate.
+ *
+ * @example
+ * ```ts
+ * const records = await listProjects(transaction, scope, 21, undefined);
+ * console.info(records);
+ * ```
+ */
 export function listProjects(
   transaction: TenantTransaction,
   scope: OrganizationScope,
@@ -39,6 +70,21 @@ export function listProjects(
     .limit(limit);
 }
 
+/**
+ * Selects one undeleted project within the supplied scope.
+ *
+ * @param transaction - Active transaction with the tenant context already set.
+ * @param scope - Owning organization; this function does not check caller authority.
+ * @param id - Project ID within the supplied scope.
+ * @returns The matching record, or undefined when it is missing, deleted, or outside the scope.
+ * @throws {Error} Database errors propagate.
+ *
+ * @example
+ * ```ts
+ * const records = await readProject(transaction, scope, id);
+ * console.info(records);
+ * ```
+ */
 export async function readProject(
   transaction: TenantTransaction,
   scope: OrganizationScope,
@@ -58,6 +104,22 @@ export async function readProject(
   return record;
 }
 
+/**
+ * Updates the name of an undeleted project.
+ *
+ * @param transaction - Active transaction with the tenant context already set.
+ * @param scope - Owning organization; this function does not check caller authority.
+ * @param id - Project ID within the supplied scope.
+ * @param name - Validated resource name.
+ * @returns The matching record, or undefined when it is missing, deleted, or outside the scope.
+ * @throws {Error} Database errors propagate, including scoped name conflicts.
+ *
+ * @example
+ * ```ts
+ * const records = await renameProject(transaction, scope, id, 'Production');
+ * console.info(records);
+ * ```
+ */
 export async function renameProject(
   transaction: TenantTransaction,
   scope: OrganizationScope,
@@ -79,6 +141,21 @@ export async function renameProject(
   return record;
 }
 
+/**
+ * Sets the suspension time once for an undeleted project.
+ *
+ * @param transaction - Active transaction with the tenant context already set.
+ * @param scope - Owning organization; this function does not check caller authority.
+ * @param id - Project ID within the supplied scope.
+ * @returns The matching record, or undefined when it is missing, deleted, or outside the scope.
+ * @throws {Error} Database errors propagate.
+ *
+ * @example
+ * ```ts
+ * const records = await suspendProject(transaction, scope, id);
+ * console.info(records);
+ * ```
+ */
 export async function suspendProject(
   transaction: TenantTransaction,
   scope: OrganizationScope,
