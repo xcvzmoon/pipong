@@ -1,13 +1,11 @@
-import type { DatabaseRuntime } from '@pipong/database';
+import type { DatabaseRuntime } from './clients.ts';
 import { PgBoss } from 'pg-boss';
-
-export const authMailQueueName = 'auth-email';
 
 /**
  * Starts pg-boss on the existing pool without creating or migrating queue storage.
  * Stop the returned queue before closing the database runtime.
  */
-export async function startMailQueue(database: DatabaseRuntime): Promise<PgBoss> {
+export async function startQueue(database: DatabaseRuntime): Promise<PgBoss> {
   const queue = new PgBoss({
     db: { executeSql: (text, values) => database.pool.query(text, values) },
     schema: 'pgboss',

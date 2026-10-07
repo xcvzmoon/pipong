@@ -1,5 +1,5 @@
-import { enrollAccount, enrollmentActionSchema, startMailQueue } from '@pipong/auth';
-import { useApiDb } from '@pipong/database';
+import { enrollAccount, enrollmentActionSchema } from '@pipong/auth';
+import { startQueue, useApiDb } from '@pipong/database';
 import { loadApiConfig } from '@pipong/shared';
 import { createInterface } from 'node:readline';
 import * as v from 'valibot';
@@ -44,7 +44,7 @@ try {
   const database = await useApiDb();
 
   try {
-    const queue = await startMailQueue(database);
+    const queue = await startQueue(database);
 
     try {
       const account = await enrollAccount(database, config, queue, action);

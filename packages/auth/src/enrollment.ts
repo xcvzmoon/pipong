@@ -6,7 +6,7 @@ import { eq, sql } from 'drizzle-orm';
 import { fromDrizzle } from 'pg-boss';
 import * as v from 'valibot';
 import { createAuthEngine } from './auth.ts';
-import { authMailQueueName } from './mail/runtime.ts';
+import { authMailQueueName } from './mail/queue.ts';
 
 const { enrollmentAudit, organization, user } = authTables;
 

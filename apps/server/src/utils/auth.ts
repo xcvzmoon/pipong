@@ -1,9 +1,10 @@
 import type { DatabaseRuntime } from '@pipong/database';
-import { createAuth, startMailQueue } from '@pipong/auth';
-import { useApiDb } from '@pipong/database';
+import { createAuth } from '@pipong/auth';
+import { startQueue, useApiDb } from '@pipong/database';
 import { loadApiConfig } from '@pipong/shared';
 
-type MailQueue = Awaited<ReturnType<typeof startMailQueue>>;
+type MailQueue = Awaited<ReturnType<typeof startQueue>>;
+
 type AuthRuntime = {
   database: DatabaseRuntime;
   mailQueue: MailQueue;
@@ -13,9 +14,11 @@ type AuthRuntime = {
 async function initializeAuth(): Promise<AuthRuntime> {
   const config = loadApiConfig();
   const database = await useApiDb();
+
   let mailQueue: MailQueue | undefined;
+
   try {
-    mailQueue = await startMailQueue(database);
+    mailQueue = await startQueue(database);
     return { database, mailQueue, auth: createAuth(database, config, mailQueue) };
   } catch (error) {
     try {

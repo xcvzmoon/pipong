@@ -4,16 +4,16 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./auth": "./src/auth/index.ts",
     "./helpers": "./src/helpers/index.ts",
-    "./package.json": "./package.json",
-    "./auth": "./src/auth/index.ts"
+    "./package.json": "./package.json"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
+      "./auth": "./dist/auth/index.mjs",
       "./helpers": "./dist/helpers/index.mjs",
-      "./package.json": "./package.json",
-      "./auth": "./dist/auth/index.mjs"
+      "./package.json": "./package.json"
     }
   },
   "scripts": {

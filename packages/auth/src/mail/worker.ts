@@ -2,8 +2,8 @@ import type { PgBoss } from 'pg-boss';
 import type { MailConfig } from './config.ts';
 import * as v from 'valibot';
 import { authMailSchema } from './payload.ts';
+import { authMailQueueName } from './queue.ts';
 import { renderAuthMail } from './render.ts';
-import { authMailQueueName } from './runtime.ts';
 import { createMailTransport } from './transport.ts';
 
 /**
