@@ -1,4 +1,3 @@
-import { generateUuid, generateTimestamps, TIMESTAMP_CONFIG } from '@pipong/database/helpers';
 import {
   pgSchema,
   text,
@@ -10,6 +9,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { generateUuid, generateTimestamps, TIMESTAMP_CONFIG } from '../helpers/index.ts';
 
 export const authSchema = pgSchema('auth');
 

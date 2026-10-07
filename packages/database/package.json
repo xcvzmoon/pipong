@@ -5,13 +5,15 @@
   "exports": {
     ".": "./src/index.ts",
     "./helpers": "./src/helpers/index.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./auth": "./src/auth/index.ts"
   },
   "publishConfig": {
     "exports": {
       ".": "./dist/index.mjs",
       "./helpers": "./dist/helpers/index.mjs",
-      "./package.json": "./package.json"
+      "./package.json": "./package.json",
+      "./auth": "./dist/auth/index.mjs"
     }
   },
   "scripts": {

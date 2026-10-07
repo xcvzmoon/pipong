@@ -1,15 +1,16 @@
 import type { DatabaseRuntime } from '@pipong/database';
+import type { AuthClient, AuthTransaction } from '@pipong/database/auth';
 import type { ApiConfig } from '@pipong/shared';
 import type { PgBoss } from 'pg-boss';
-import type { AuthClient, AuthTransaction } from './database.ts';
 import type { AuthMail } from './mail/payload.ts';
 import { apiKey } from '@better-auth/api-key';
+import { createAuthClient } from '@pipong/database/auth';
 import { betterAuth } from 'better-auth/minimal';
 import { organization } from 'better-auth/plugins/organization';
 import { twoFactor } from 'better-auth/plugins/two-factor';
 import { v7 } from 'uuid';
+import { createAuthAdapter } from './adapter.ts';
 import { enrollmentBefore, enrollmentAfter } from './assurance.ts';
-import { createAuthAdapter, createAuthClient } from './database.ts';
 import { enqueueAuthMail } from './mail/queue.ts';
 
 export type HumanAuth = {
@@ -60,7 +61,9 @@ export function createAuthEngine(
 ): AuthEngine {
   return betterAuth({
     appName: 'Pipong',
-    logger: { disabled: mode === 'operator' },
+    logger: {
+      disabled: mode === 'operator',
+    },
     hooks: {
       before: enrollmentBefore(client),
       after: enrollmentAfter(client),

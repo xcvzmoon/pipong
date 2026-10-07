@@ -15,7 +15,7 @@ import { promisify } from 'node:util';
 import { Client } from 'pg';
 import { validate, version } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { user } from '../src/schema.ts';
+import { user } from '../../database/src/auth/schema.ts';
 
 const testUrl = process.env.TEST_DATABASE_URL;
 const migrationsFolder = fileURLToPath(new URL('../../database/migrations/', import.meta.url));
@@ -93,7 +93,7 @@ async function runClient(role: 'api' | 'worker', body: string): Promise<string> 
     import { sql } from ${JSON.stringify(new URL('../node_modules/drizzle-orm/index.js', import.meta.url).href)};
     const { useApiDb, useWorkerDb } = await import(${JSON.stringify(clientPath)});
     const runtime = await ${role === 'api' ? 'useApiDb' : 'useWorkerDb'}();
-    const { createAuthClient } = await import(${JSON.stringify(new URL('../src/database.ts', import.meta.url).href)});
+    const { createAuthClient } = await import(${JSON.stringify(new URL('../../database/src/auth/client.ts', import.meta.url).href)});
     const authDb = createAuthClient(runtime);
     try { ${body} } finally { if (!runtime.pool.ending) await runtime.close(); }
   `;

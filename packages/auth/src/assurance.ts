@@ -1,10 +1,12 @@
+import type { AuthClient, AuthTransaction } from '@pipong/database/auth';
 import type { AuthMiddleware } from 'better-auth/api';
-import type { AuthClient, AuthTransaction } from './database.ts';
+import { authTables } from '@pipong/database/auth';
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from 'better-auth/api';
 import { and, eq, gt } from 'drizzle-orm';
 import * as v from 'valibot';
 import { enforceMfaPolicy } from './policy.ts';
-import { enrollmentAudit, mfaAssurance } from './schema.ts';
+
+const { enrollmentAudit, mfaAssurance } = authTables;
 
 const privilegedOperations = new Set([
   '/organization/invite-member',

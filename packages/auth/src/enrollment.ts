@@ -1,13 +1,14 @@
 import type { DatabaseRuntime } from '@pipong/database';
 import type { ApiConfig } from '@pipong/shared';
 import type { PgBoss } from 'pg-boss';
+import { createAuthClient, authTables } from '@pipong/database/auth';
 import { eq, sql } from 'drizzle-orm';
 import { fromDrizzle } from 'pg-boss';
 import * as v from 'valibot';
 import { createAuthEngine } from './auth.ts';
-import { createAuthClient } from './database.ts';
 import { authMailQueueName } from './mail/runtime.ts';
-import { enrollmentAudit, organization, user } from './schema.ts';
+
+const { enrollmentAudit, organization, user } = authTables;
 
 export const enrollmentActionSchema = v.variant('action', [
   v.object({
