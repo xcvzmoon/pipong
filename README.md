@@ -55,6 +55,9 @@ The built entrypoint is `apps/worker/dist/index.mjs`. Deploy the whole `dist` di
 
 [Domain authorization](./AUTHORIZATION.md) describes role permissions, environment-bound service keys, recent MFA, and the transaction boundary used by `/api/v1` capabilities.
 
+[Projects and environments](./PROJECTS.md) describes scoped resource operations,
+pagination, suspension, and the deletion gate.
+
 ## Deploying
 
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.

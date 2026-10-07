@@ -7,6 +7,8 @@ export default defineConfig({
     'src/auth/index.ts',
     'src/tenancy/index.ts',
     'src/authorization/index.ts',
+    'src/projects/index.ts',
+    'src/environments/index.ts',
   ],
   dts: true,
   exports: {

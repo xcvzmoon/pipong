@@ -1,6 +1,7 @@
 import type { TenantScope, TenantTransaction } from '@pipong/database/tenancy';
 import type { DomainAction } from '@pipong/service';
 import type { H3Event } from 'nitro/h3';
+import { isResourceNameConflict } from '@pipong/database/projects';
 import { withAuthorizedTransaction } from '@pipong/service';
 import { database } from './auth.ts';
 import { problemResponse } from './problem.ts';
@@ -28,7 +29,11 @@ export async function withAuthorizedRequest(
     result.value.headers.set('x-request-id', requestId);
 
     return result.value;
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && isResourceNameConflict(error)) {
+      return problemResponse(409, 'RESOURCE_NAME_CONFLICT', requestId);
+    }
+
     console.error('AUTHORIZATION_UNAVAILABLE: authorized transaction failed');
     return problemResponse(503, 'AUTHORIZATION_UNAVAILABLE', requestId);
   }

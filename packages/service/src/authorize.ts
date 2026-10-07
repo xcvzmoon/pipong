@@ -6,6 +6,7 @@ import {
   readHumanAuthority,
   readKeyAuthority,
   scopeExists,
+  scopeSuspended,
 } from '@pipong/database/authorization';
 import { setTenantScope } from '@pipong/database/tenancy';
 import * as v from 'valibot';
@@ -33,16 +34,24 @@ export const domainActionSchema = v.picklist([
 ]);
 
 export type DomainAction = v.InferOutput<typeof domainActionSchema>;
+
 export type AuthorizationFailure = {
   ok: false;
-  status: 403 | 404;
+  status: 403 | 404 | 409;
   code:
     | 'AUTH_PERMISSION_DENIED'
     | 'AUTH_SCOPE_NOT_FOUND'
     | 'AUTH_ORGANIZATION_DISABLED'
-    | 'AUTH_RECENT_MFA_REQUIRED';
+    | 'AUTH_RECENT_MFA_REQUIRED'
+    | 'AUTH_SCOPE_SUSPENDED';
 };
-export type AuthorizedResult<Result> = { ok: true; value: Result } | AuthorizationFailure;
+
+export type AuthorizedResult<Result> =
+  | {
+      ok: true;
+      value: Result;
+    }
+  | AuthorizationFailure;
 
 const memberActions: ReadonlySet<DomainAction> = new Set([
   'project:read',
@@ -185,6 +194,20 @@ export function withAuthorizedTransaction<Result>(
         ok: false,
         status: 404,
         code: 'AUTH_SCOPE_NOT_FOUND',
+      };
+    }
+
+    if (
+      (action === 'notification:send' ||
+        action === 'delivery:redrive' ||
+        action === 'recipient:write' ||
+        action === 'endpoint:write') &&
+      (await scopeSuspended(transaction, scope))
+    ) {
+      return {
+        ok: false,
+        status: 409,
+        code: 'AUTH_SCOPE_SUSPENDED',
       };
     }
 

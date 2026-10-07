@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
-import { foreignKey, pgPolicy, text, unique, uuid } from 'drizzle-orm/pg-core';
+import { foreignKey, pgPolicy, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from '../auth/schema.ts';
-import { generateTimestamps, generateUuid } from '../helpers/index.ts';
+import { TIMESTAMP_CONFIG, generateTimestamps, generateUuid } from '../helpers/index.ts';
 import { appSchema } from '../schema.ts';
 
 const organizationPredicate = sql`
@@ -34,9 +34,11 @@ export const projects = appSchema.table(
       .notNull()
       .references(() => organizations.id),
     name: text('name').notNull(),
+    suspendedAt: timestamp('suspended_at', TIMESTAMP_CONFIG),
     ...generateTimestamps(),
   },
   (table) => [
+    unique('projects_scoped_name_unique').on(table.organizationId, table.name),
     unique('projects_organization_id_id_unique').on(table.organizationId, table.id),
     pgPolicy('projects_scope', {
       for: 'all',
@@ -54,9 +56,11 @@ export const environments = appSchema.table(
     organizationId: uuid('organization_id').notNull(),
     projectId: uuid('project_id').notNull(),
     name: text('name').notNull(),
+    suspendedAt: timestamp('suspended_at', TIMESTAMP_CONFIG),
     ...generateTimestamps(),
   },
   (table) => [
+    unique('environments_scoped_name_unique').on(table.organizationId, table.projectId, table.name),
     unique('environments_organization_project_id_unique').on(
       table.organizationId,
       table.projectId,

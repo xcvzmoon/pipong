@@ -4,6 +4,6 @@
 
 ## Product
 
-1. [ ] Implement the scoped self-hosted notification service; phases 01–08 complete, next is phase 09 project/environment ownership [[plans/01-notification-service/overview]]
+1. [ ] Implement the scoped self-hosted notification service; phases 01–09 complete, next is phase 10 organization service keys [[plans/01-notification-service/overview]]
 
 Completed tasks: [[archive/todos]]
