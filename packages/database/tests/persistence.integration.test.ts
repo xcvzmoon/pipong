@@ -279,6 +279,55 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     expect(await runClient('api', 'await runtime.db.execute(sql`SELECT 42`);')).toBe('');
   }, 15000);
 
+  it('persists MFA assurance and audit together, with a strict freshness cutoff', async () => {
+    const userId = '019a0000-0000-7000-8000-000000000031';
+    const sessionId = '019a0000-0000-7000-8000-000000000032';
+    await fixture.query('INSERT INTO auth."user" (id,name,email) VALUES ($1,$2,$3)', [
+      userId,
+      'Assurance',
+      'assurance@example.com',
+    ]);
+    try {
+      await fixture.query(
+        'INSERT INTO auth.session (id,user_id,token,expires_at) VALUES ($1,$2,$3,now())',
+        [sessionId, userId, 'assurance-session'],
+      );
+      await runClient(
+        'api',
+        `
+        const { hasMfaAssurance, recordAuthActivity } = await import(${JSON.stringify(new URL('../src/auth/index.ts', import.meta.url).href)});
+        const verifiedAt = new Date('2026-10-07T10:00:00.000Z');
+        const cutoff = new Date(verifiedAt.getTime() - 1);
+        assert.equal(await hasMfaAssurance(authDb, '${sessionId}', cutoff), false);
+        await assert.rejects(recordAuthActivity(
+          authDb,
+          { sessionId: '${sessionId}', verifiedAt },
+          { action: 'failed-audit', userId: 'invalid-uuid', sessionId: '${sessionId}' },
+        ));
+        assert.equal(await hasMfaAssurance(authDb, '${sessionId}', cutoff), false);
+        await recordAuthActivity(
+          authDb,
+          { sessionId: '${sessionId}', verifiedAt },
+          { action: 'backup-code-recovery', userId: '${userId}', sessionId: '${sessionId}' },
+        );
+        assert.equal(await hasMfaAssurance(authDb, '${sessionId}', cutoff), true);
+        assert.equal(await hasMfaAssurance(authDb, '${sessionId}', verifiedAt), false);
+        await recordAuthActivity(authDb, { sessionId: '${sessionId}', verifiedAt: cutoff }, undefined);
+        assert.equal(await hasMfaAssurance(authDb, '${sessionId}', cutoff), false);
+        const audit = await runtime.pool.query('SELECT action FROM auth.enrollment_audit WHERE user_id=$1', ['${userId}']);
+        assert.deepEqual(audit.rows, [{ action: 'backup-code-recovery' }]);
+      `,
+      );
+    } finally {
+      await fixture.query('DELETE FROM auth."user" WHERE id=$1', [userId]);
+    }
+    const assurance = await fixture.query(
+      'SELECT session_id FROM auth.mfa_assurance WHERE session_id=$1',
+      [sessionId],
+    );
+    expect(assurance.rows).toEqual([]);
+  });
+
   it('rejects privileged and mismatched identities without leaking connections', async () => {
     vi.stubEnv('API_DATABASE_URL', roleUrl('postgres'));
     await expect(runClient('api', '')).rejects.toThrow('DATABASE_STARTUP_FAILED');
