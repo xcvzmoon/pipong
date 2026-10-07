@@ -16,7 +16,7 @@ Provide local-only bootstrap, account provisioning, verification/invitation/rese
 
 - Local enrollment: `apps/worker/src/operator.ts`, `packages/auth/src/enrollment.ts`, and `apps/server/tests/enrollment.integration.test.ts`.
 - Native policy: `packages/auth/src/assurance.ts`, `packages/auth/src/auth.ts`, and `packages/auth/src/requests.ts`.
-- Persistence: auth-owned assurance/audit tables and generated migration. Database pools remain in `packages/database`.
+- Persistence: database owns assurance/audit tables, enrollment and MFA queries, transaction mechanics, and generated migrations. Auth owns enrollment and MFA policy.
 - Build/script wiring and operator instructions belong to these packets; no `packages/service` enrollment layer is needed.
 
 ## Delivered behavior

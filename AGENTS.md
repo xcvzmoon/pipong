@@ -76,6 +76,7 @@ oxlint is type-aware (`typeAware` / `typeCheck`) and includes the local **anti-s
 - Keep generics minimal and purposeful.
 - Reuse existing helper types before inventing new ones.
 - Use descriptive names.
+- Always use plural SQL table names and plural table declaration identifiers in every schema, including test fixtures (for example, `users` and `verifications`).
 - Do not abbreviate iterable items; prefer `item`, `entry`, `record`, `status`.
 - Avoid one-letter names except for conventional indexes.
 
@@ -96,8 +97,13 @@ Project skills live in `.agents/skills/` and are tracked in `skills-lock.json`. 
 
 ## Agents
 
-- Disable co-author and never commit nor push.
-- When explicitly ask to commit: commit all the files relative to their changes, dont do it all at once, split them, and use one-liner commit message.
+- Commit or push only when explicitly asked. Never add co-author trailers.
+- When asked to commit, include all task-related changes and leave unrelated changes alone.
+- Split changes into the smallest coherent, independently reviewable commits. Each commit must have one specific purpose; broad categories such as "refactor persistence" or "update docs" are not enough to justify bundling independent changes.
+- Separate independent modules and concerns, including SQL table renames, declaration renames, dependency cleanup, lint rules, tests, and documentation. Keep imports, types, call sites, and tests together when they are required for a change to work.
+- Stage explicit paths or hunks. If a file contains several independent changes, stage each change separately instead of committing the whole file.
+- Review the staged diff before every commit. Split it further if its purpose needs multiple independent actions to describe. Keep each intermediate commit valid.
+- Use a one-line Conventional Commit message for each commit. Do not combine changes just to reduce the number of commits.
 - When ask to create a Pull Request: use the proper template, run `unslop` skill, assign to me, and add proper labels.
 - Do not preserve backward compatibility. Remove obsolete paths instead of adding compatibility layers, fallbacks, or migrations.
 - Choose the simplest implementation that fully meets the current requirements. Avoid speculative abstractions, configuration, and indirection.

@@ -3,7 +3,7 @@
 The API exposes Better Auth at `/api/auth`. PostgreSQL stores accounts, sessions,
 organization membership, organization-owned API keys, TOTP data, and rate-limit
 counters. The Drizzle adapter runs auth transactions; its tables and migrations
-belong to `packages/auth`.
+belong to `packages/database`.
 
 Operators bootstrap an installation and provision accounts through a local command.
 Verified users accept organization invitations through the native auth handler.
@@ -169,11 +169,11 @@ allowed only with `SMTP_SECURITY=local` and a loopback host for development.
 
 `pnpm auth generate:schema` uses the pinned Better Auth CLI and a schema-only
 configuration with the same plugins, database rate-limit storage, and `auth`
-namespace. It writes an ignored reference schema to
-`packages/auth/tooling/auth-schema.generated.ts` without opening a database
-connection. Apply needed changes to `src/schema.ts`, preserving the UUIDv7
-and timestamp helpers and keeping relations in `src/relations.ts`. Then run
-`pnpm auth generate` and review the SQL. The adapter and generator use
+namespace, with `usePlural: true` matching the plural table declarations. It writes an ignored reference schema to
+`packages/database/tooling/auth-schema.generated.ts` without opening a database
+connection. Apply needed changes to `packages/database/src/auth/schema.ts`, preserving the UUIDv7
+and timestamp helpers, plural SQL table names, and keeping relations in `packages/database/src/auth/relations.ts`. Then run
+`pnpm database generate:auth` and review the SQL. The adapter and generator use
 Drizzle's Relations v2 API, matching the installed Drizzle 1.0 release candidate.
 
 The queue migration contains pg-boss 12.37.0's construction SQL and the fixed mail
@@ -181,7 +181,7 @@ queue policy. Its standalone transaction wrapper is removed because Drizzle owns
 the migration transaction. To regenerate that migration before it is deployed:
 
 ```sh
-pnpm --filter @pipong/auth exec node tooling/generate-mail-queue.ts migrations/20261006135512_auth_mail_queue
+pnpm --filter @pipong/database exec node tooling/generate-mail-queue.ts migrations/auth/20261006135512_auth_mail_queue
 ```
 
 Do not regenerate or edit an applied migration. Future upgrades require a new
@@ -199,7 +199,7 @@ pnpm check
 ```
 
 The suite creates and removes fixed deployment roles. Use a fresh cluster with no
-existing Pipong roles. Run persistence integration tests in `@pipong/auth` separately with
+existing Pipong roles. Run persistence integration tests in `@pipong/database` separately with
 `TEST_DATABASE_URL`; the two suites must not concurrently provision the same roles.
 Without the corresponding URL, each integration suite is skipped. Unit tests
 still run, but they do not establish runtime correctness.
@@ -213,9 +213,12 @@ for the same source file. The worker bundles `@pipong/auth`, including its templ
 Recipient values remain escaped in HTML.
 
 Apply all persistence migrations with `pnpm migrate` from the repository root.
-It applies the database foundation before the auth package’s migration history.
-Auth owns its schema, relations, adapter, mail queue runtime, and generation tools;
-the database package supplies pools and shared schema helpers.
+The database package applies `migrations/foundation/` before `migrations/auth/`,
+using the existing shared PostgreSQL migration history. It owns schemas, relations,
+clients, SQL operations, queue database setup, and migration tooling. Auth owns the
+Better Auth adapter, policy, schema-generator configuration, and email delivery.
+Enrollment shares one database transaction across Better Auth, auditing, and
+queued mail.
 
 Environment references: [auth package](packages/auth/.env.example),
 [API runtime](apps/server/.env.example), and [worker runtime](apps/worker/.env.example).

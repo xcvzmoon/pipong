@@ -116,5 +116,45 @@ export default defineConfig({
     typeAware: true,
     typeCheck: true,
   },
+  overrides: [
+    {
+      files: ['packages/auth/src/**/*.ts', 'packages/auth/tooling/**/*.ts'],
+      rules: {
+        'eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: ['drizzle-orm', 'drizzle-orm/*', 'drizzle-kit', 'pg'],
+                message: 'Database clients, schemas, and SQL belong in @pipong/database.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ['packages/database/src/**/*.ts'],
+      rules: {
+        'eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              {
+                group: [
+                  '@pipong/auth',
+                  '@pipong/auth/*',
+                  'better-auth',
+                  'better-auth/*',
+                  '@better-auth/*',
+                ],
+                message: 'Authentication policy and Better Auth setup belong in @pipong/auth.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+  ],
   ignorePatterns: ['.agents/**', 'tools/oxlint/anti-slop/**'],
 });

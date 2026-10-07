@@ -7,4 +7,4 @@ dist
 .env
 .env.local
 
-packages/auth/tooling/auth-schema.generated.ts
+packages/database/tooling/auth-schema.generated.ts

@@ -18,10 +18,7 @@
     "test": "vitest --run",
     "test:watch": "vitest --watch",
     "test:verbose": "vitest --run --reporter=verbose",
-    "generate:schema": "auth generate --config tooling/auth.config.ts --output tooling/auth-schema.generated.ts --yes",
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate --config drizzle.migrate.config.ts",
-    "check": "drizzle-kit check"
+    "generate:schema": "auth generate --config tooling/auth.config.ts --output ../database/tooling/auth-schema.generated.ts --yes"
   },
   "dependencies": {
     "@better-auth/api-key": "catalog:auth",
@@ -30,7 +27,6 @@
     "@pipong/shared": "workspace:*",
     "@xcvzlabs/env": "catalog:shared",
     "better-auth": "catalog:auth",
-    "drizzle-orm": "catalog:database",
     "handlebars": "catalog:mail",
     "pg-boss": "catalog:mail",
     "unemail": "catalog:mail",
@@ -39,10 +35,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:shared",
-    "@types/pg": "catalog:database",
     "auth": "catalog:auth",
-    "drizzle-kit": "catalog:database",
-    "pg": "catalog:database",
     "tsdown": "catalog:shared",
     "typescript": "catalog:shared",
     "vitest": "catalog:shared"

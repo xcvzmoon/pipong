@@ -103,7 +103,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
   }, 30_000);
 
   beforeEach(async () => {
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
   });
 
   afterAll(async () => {
@@ -132,7 +132,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     const session = v.parse(sessionSchema, await (await getSession(cookies)).json());
     expect(session.user.id).toBe('019a0000-0000-7000-8000-000000000011');
     const row = await fixture.database.query<{ id: string; ip_address: string }>(
-      'SELECT id, ip_address FROM auth.session WHERE token=$1',
+      'SELECT id, ip_address FROM auth.sessions WHERE token=$1',
       [session.session.token],
     );
     expect(row.rows[0]?.ip_address).toBe('127.0.0.1');
@@ -169,7 +169,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     expect(
       (
         await fixture.database.query<{ count: string }>(
-          'SELECT count(*) FROM auth."user" WHERE email=\'intruder@example.com\'',
+          'SELECT count(*) FROM auth."users" WHERE email=\'intruder@example.com\'',
         )
       ).rows[0]?.count,
     ).toBe('0');
@@ -195,7 +195,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     const enrollment = v.parse(enableSchema, await enabling.json());
     const secret = new URL(enrollment.totpURI).searchParams.get('secret');
     if (!secret) throw new Error('TEST_TOTP_SECRET_MISSING');
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     expect(
       (
         await post(
@@ -206,7 +206,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
       ).status,
     ).toBe(200);
     await post('/sign-out', {}, cookies);
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     const challenge = await post(
       '/sign-in/email',
       { email: 'verified@example.com', password: 'test-password-long-enough' },
@@ -219,7 +219,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     expect(setCookies.some((value) => value.startsWith('better-auth.two_factor='))).toBe(true);
     expect(await (await getSession(cookies)).json()).toBeNull();
     expect((await post('/two-factor/verify-totp', { code: 'invalid' }, cookies)).status).toBe(401);
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     const code = await createOTP(new TextDecoder().decode(base32.decode(secret))).totp();
     const backupCode = enrollment.backupCodes[0];
     if (!backupCode) throw new Error('TEST_BACKUP_CODE_MISSING');
@@ -244,7 +244,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
       }),
     );
 
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     expect(
       (
         await post(
@@ -258,7 +258,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
       '019a0000-0000-7000-8000-000000000011',
     );
     await post('/sign-out', {}, cookies);
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     v.parse(
       challengeSchema,
       await (
@@ -277,7 +277,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     ).toBe(200);
     expect(cookies.get('better-auth.trust_device')).toBeUndefined();
     await post('/sign-out', {}, cookies);
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     v.parse(
       challengeSchema,
       await (
@@ -296,7 +296,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     ).toBe(401);
     expect(await (await getSession(cookies)).json()).toBeNull();
 
-    await fixture.database.query('DELETE FROM auth.rate_limit');
+    await fixture.database.query('DELETE FROM auth.rate_limits');
     const authSecret = fixture.environment.AUTH_SECRET;
     if (!authSecret) throw new Error('TEST_AUTH_SECRET_MISSING');
     const userId = '019a0000-0000-7000-8000-000000000011';
@@ -307,7 +307,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     const value = `${token}!${identifier}`;
     const signature = createHmac('sha256', authSecret).update(value).digest('base64');
     await fixture.database.query(
-      "INSERT INTO auth.verification (id,identifier,value,expires_at) VALUES ($1,$2,$3,now()+interval '30 days')",
+      "INSERT INTO auth.verifications (id,identifier,value,expires_at) VALUES ($1,$2,$3,now()+interval '30 days')",
       ['019a0000-0000-7000-8000-000000000031', identifier, userId],
     );
     cookies.set('better-auth.trust_device', encodeURIComponent(`${value}.${signature}`));
@@ -327,7 +327,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     expect(await (await getSession(cookies)).json()).toBeNull();
     expect(
       (
-        await fixture.database.query('SELECT id FROM auth.verification WHERE identifier=$1', [
+        await fixture.database.query('SELECT id FROM auth.verifications WHERE identifier=$1', [
           identifier,
         ])
       ).rows,
@@ -359,7 +359,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     // oxlint-enable eslint/no-await-in-loop
     expect(statuses).toContain(429);
     const counters = await fixture.database.query<{ key: string }>(
-      'SELECT key FROM auth.rate_limit',
+      'SELECT key FROM auth.rate_limits',
     );
     expect(counters.rows.length).toBeGreaterThan(0);
     expect(counters.rows.some(({ key }) => key.includes('198.51.100.9'))).toBe(false);
@@ -391,7 +391,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
   it('locks failed MFA attempts across separate sign-in challenges', async () => {
     const userId = '019a0000-0000-7000-8000-000000000011';
     await fixture.database.query(
-      'UPDATE auth.two_factor SET failed_verification_count=0,locked_until=NULL WHERE user_id=$1',
+      'UPDATE auth.two_factors SET failed_verification_count=0,locked_until=NULL WHERE user_id=$1',
       [userId],
     );
 
@@ -399,7 +399,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
       // oxlint-disable eslint/no-await-in-loop -- Challenges and failed attempts share the account lockout budget.
       for (let challenge = 0; challenge < 2; challenge++) {
         const cookies: CookieJar = new Map();
-        await fixture.database.query('DELETE FROM auth.rate_limit');
+        await fixture.database.query('DELETE FROM auth.rate_limits');
         v.parse(
           challengeSchema,
           await (
@@ -415,7 +415,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
         );
 
         for (let attempt = 0; attempt < 5; attempt++) {
-          await fixture.database.query('DELETE FROM auth.rate_limit');
+          await fixture.database.query('DELETE FROM auth.rate_limits');
           expect((await post('/two-factor/verify-totp', { code: 'invalid' }, cookies)).status).toBe(
             401,
           );
@@ -423,7 +423,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
 
         expect(await (await getSession(cookies)).json()).toBeNull();
         if (challenge === 1) {
-          await fixture.database.query('DELETE FROM auth.rate_limit');
+          await fixture.database.query('DELETE FROM auth.rate_limits');
           const locked = await post('/two-factor/verify-backup-code', { code: 'invalid' }, cookies);
           expect(locked.status).toBe(429);
           expect(v.parse(errorSchema, await locked.json()).code).toBe('ACCOUNT_TEMPORARILY_LOCKED');
@@ -434,14 +434,14 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
       const rows = await fixture.database.query<{
         failed_verification_count: number;
         locked_until: Date;
-      }>('SELECT failed_verification_count,locked_until FROM auth.two_factor WHERE user_id=$1', [
+      }>('SELECT failed_verification_count,locked_until FROM auth.two_factors WHERE user_id=$1', [
         userId,
       ]);
       expect(rows.rows[0]?.failed_verification_count).toBe(10);
       expect(rows.rows[0]?.locked_until.getTime()).toBeGreaterThan(Date.now());
     } finally {
       await fixture.database.query(
-        'UPDATE auth.two_factor SET failed_verification_count=0,locked_until=NULL WHERE user_id=$1',
+        'UPDATE auth.two_factors SET failed_verification_count=0,locked_until=NULL WHERE user_id=$1',
         [userId],
       );
     }
@@ -476,7 +476,7 @@ describe.skipIf(!testUrl)('built authentication and email runtimes (disposable P
     expect(
       (
         await fixture.database.query<{ email_verified: boolean }>(
-          'SELECT email_verified FROM auth."user" WHERE id=\'019a0000-0000-7000-8000-000000000012\'',
+          'SELECT email_verified FROM auth."users" WHERE id=\'019a0000-0000-7000-8000-000000000012\'',
         )
       ).rows[0]?.email_verified,
     ).toBe(true);
