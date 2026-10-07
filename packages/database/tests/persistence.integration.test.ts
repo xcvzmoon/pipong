@@ -99,6 +99,10 @@ async function runClient(role: 'api' | 'worker', body: string): Promise<string> 
     const runtime = await ${role === 'api' ? 'useApiDb' : 'useWorkerDb'}();
     const { createAuthClient } = await import(${JSON.stringify(new URL('../src/auth/client.ts', import.meta.url).href)});
     const authDb = createAuthClient(runtime);
+    const { withTenantTransaction } = await import(${JSON.stringify(new URL('../src/tenancy/index.ts', import.meta.url).href)});
+    const { projects, environments } = await import(${JSON.stringify(new URL('../src/tenancy/schema.ts', import.meta.url).href)});
+    const scopeA = { kind: 'organization', organizationId: '019a0000-0000-7000-8000-000000000101' };
+    const scopeB = { kind: 'organization', organizationId: '019a0000-0000-7000-8000-000000000102' };
     try { ${body} } finally { if (!runtime.pool.ending) await runtime.close(); }
   `;
   const result = await runCommand(process.execPath, ['--input-type=module', '-e', script], {
@@ -165,6 +169,174 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       'verifications',
     ]);
   }, 15000);
+
+  it('enforces FORCE RLS and fails closed without tenant context for both runtime roles', async () => {
+    await fixture.query(`INSERT INTO auth.organizations(id,name,slug) VALUES
+      ('019a0000-0000-7000-8000-000000000101','Tenant A','tenant-a'),
+      ('019a0000-0000-7000-8000-000000000102','Tenant B','tenant-b')`);
+    await fixture.query(`INSERT INTO app.projects(id,organization_id,name) VALUES
+      ('019a0000-0000-7000-8000-000000000111','019a0000-0000-7000-8000-000000000101','Project A'),
+      ('019a0000-0000-7000-8000-000000000112','019a0000-0000-7000-8000-000000000102','Project B'),
+      ('019a0000-0000-7000-8000-000000000113','019a0000-0000-7000-8000-000000000101','Sibling A')`);
+    await fixture.query(`INSERT INTO app.environments(id,organization_id,project_id,name) VALUES
+      ('019a0000-0000-7000-8000-000000000121','019a0000-0000-7000-8000-000000000101','019a0000-0000-7000-8000-000000000111','Production'),
+      ('019a0000-0000-7000-8000-000000000122','019a0000-0000-7000-8000-000000000101','019a0000-0000-7000-8000-000000000111','Development')`);
+    const policies = await fixture.query<{ relrowsecurity: boolean; relforcerowsecurity: boolean }>(
+      "SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE oid IN ('app.projects'::regclass,'app.environments'::regclass)",
+    );
+    expect(policies.rows).toEqual([
+      { relrowsecurity: true, relforcerowsecurity: true },
+      { relrowsecurity: true, relforcerowsecurity: true },
+    ]);
+
+    await Promise.all(
+      (['api', 'worker'] as const).map(async (role) => {
+        await runClient(
+          role,
+          `
+        assert.deepEqual(await runtime.db.select().from(projects), []);
+        assert.deepEqual(await runtime.db.select().from(environments), []);
+        await assert.rejects(runtime.pool.query(
+          "INSERT INTO app.projects(id,organization_id,name) VALUES ('019a0000-0000-7000-8000-000000000141','019a0000-0000-7000-8000-000000000101','Denied')"
+        ), { code: '42501' });
+        assert.throws(() => withTenantTransaction(runtime, { kind: 'organization', organizationId: 'invalid' }, async () => {}), /TENANT_SCOPE_INVALID/);
+        assert.throws(() => withTenantTransaction(runtime, { kind: 'environment', organizationId: scopeA.organizationId, environmentId: '019a0000-0000-7000-8000-000000000121' }, async () => {}), /TENANT_SCOPE_INVALID/);
+        assert.deepEqual(await runtime.db.select().from(projects), []);
+      `,
+        );
+      }),
+    );
+  });
+
+  it('restricts reads, updates, and deletes to the selected ownership scope', async () => {
+    await Promise.all(
+      (['api', 'worker'] as const).map(async (role) => {
+        await runClient(
+          role,
+          `
+        await withTenantTransaction(runtime, scopeA, async (transaction) => {
+          const records = await transaction.select().from(projects);
+          assert.equal(records.length, 2);
+          assert.ok(records.every((record) => record.organizationId === scopeA.organizationId));
+          assert.deepEqual(await transaction.execute(sql\`UPDATE app.projects SET name='Denied' WHERE organization_id=\${scopeB.organizationId}::uuid RETURNING id\`).then((result) => result.rows), []);
+          assert.deepEqual(await transaction.execute(sql\`DELETE FROM app.projects WHERE organization_id=\${scopeB.organizationId}::uuid RETURNING id\`).then((result) => result.rows), []);
+        });
+        await withTenantTransaction(runtime, { kind: 'project', organizationId: scopeA.organizationId, projectId: '019a0000-0000-7000-8000-000000000111' }, async (transaction) => {
+          assert.equal((await transaction.select().from(projects)).length, 1);
+          assert.equal((await transaction.select().from(environments)).length, 2);
+        });
+        await withTenantTransaction(runtime, { kind: 'environment', organizationId: scopeA.organizationId, projectId: '019a0000-0000-7000-8000-000000000111', environmentId: '019a0000-0000-7000-8000-000000000121' }, async (transaction) => {
+          const records = await transaction.select().from(environments);
+          assert.equal(records.length, 1);
+          assert.equal(records[0].name, 'Production');
+        });
+        await withTenantTransaction(runtime, { kind: 'project', organizationId: scopeA.organizationId, projectId: '019a0000-0000-7000-8000-000000000112' }, async (transaction) => {
+          assert.deepEqual(await transaction.select().from(projects), []);
+          assert.deepEqual(await transaction.select().from(environments), []);
+        });
+      `,
+        );
+      }),
+    );
+  });
+
+  it('rejects cross-scope inserts and ownership changes', async () => {
+    await Promise.all(
+      (['api', 'worker'] as const).map(async (role) => {
+        await runClient(
+          role,
+          `
+        await assert.rejects(withTenantTransaction(runtime, scopeA, async (transaction) => {
+          await transaction.insert(projects).values({ organizationId: scopeB.organizationId, name: 'Denied' });
+        }), (error) => error.cause?.code === '42501');
+        await assert.rejects(withTenantTransaction(runtime, scopeA, async (transaction) => {
+          await transaction.execute(sql\`UPDATE app.projects SET organization_id=\${scopeB.organizationId}::uuid WHERE id='019a0000-0000-7000-8000-000000000113'\`);
+        }), (error) => error.cause?.code === '42501');
+        await assert.rejects(withTenantTransaction(runtime, { kind: 'environment', organizationId: scopeA.organizationId, projectId: '019a0000-0000-7000-8000-000000000111', environmentId: '019a0000-0000-7000-8000-000000000121' }, async (transaction) => {
+          await transaction.execute(sql\`UPDATE app.environments SET id='019a0000-0000-7000-8000-000000000123'\`);
+        }), (error) => error.cause?.code === '42501');
+      `,
+        );
+      }),
+    );
+  });
+
+  it('rejects nested ownership mismatches through composite foreign keys', async () => {
+    await Promise.all(
+      (['api', 'worker'] as const).map(async (role) => {
+        await runClient(
+          role,
+          `
+        await assert.rejects(withTenantTransaction(runtime, scopeA, async (transaction) => {
+          await transaction.insert(environments).values({ organizationId: scopeA.organizationId, projectId: '019a0000-0000-7000-8000-000000000112', name: 'Denied' });
+        }), (error) => error.cause?.code === '23503');
+      `,
+        );
+      }),
+    );
+  });
+
+  it('resets pooled context after commits and rollbacks and isolates concurrent transactions', async () => {
+    vi.stubEnv('API_DATABASE_MAX_POOL', '1');
+    vi.stubEnv('WORKER_DATABASE_MAX_POOL', '1');
+    try {
+      await Promise.all(
+        (['api', 'worker'] as const).map(async (role) => {
+          await runClient(
+            role,
+            `
+          for (const scope of [scopeA, scopeB, scopeA, scopeB]) {
+            await withTenantTransaction(runtime, scope, async (transaction) => {
+              const records = await transaction.select().from(projects);
+              assert.ok(records.length > 0);
+              assert.ok(records.every((record) => record.organizationId === scope.organizationId));
+            });
+            assert.deepEqual(await runtime.db.select().from(projects), []);
+          }
+          const committedId = await withTenantTransaction(runtime, scopeA, async (transaction) => {
+            const [record] = await transaction.insert(projects).values({ organizationId: scopeA.organizationId, name: 'Committed' }).returning();
+            return record.id;
+          });
+          assert.deepEqual(await runtime.db.select().from(projects), []);
+          await withTenantTransaction(runtime, scopeA, async (transaction) => {
+            const records = await transaction.execute(sql\`DELETE FROM app.projects WHERE id=\${committedId}::uuid RETURNING id\`);
+            assert.equal(records.rows.length, 1);
+          });
+          await assert.rejects(withTenantTransaction(runtime, scopeA, async (transaction) => {
+            await transaction.insert(projects).values({ organizationId: scopeA.organizationId, name: 'Rolled back' });
+            throw new Error('TEST_ROLLBACK');
+          }), /TEST_ROLLBACK/);
+          assert.deepEqual(await runtime.db.select().from(projects), []);
+          await withTenantTransaction(runtime, scopeA, async (transaction) => {
+            assert.equal((await transaction.select().from(projects)).length, 2);
+          });
+          assert.deepEqual(await runtime.db.select().from(projects), []);
+        `,
+          );
+        }),
+      );
+    } finally {
+      vi.stubEnv('API_DATABASE_MAX_POOL', '2');
+      vi.stubEnv('WORKER_DATABASE_MAX_POOL', '2');
+    }
+
+    await Promise.all(
+      (['api', 'worker'] as const).map(async (role) => {
+        await runClient(
+          role,
+          `
+        await Promise.all([scopeA, scopeB].map((scope) => withTenantTransaction(runtime, scope, async (transaction) => {
+          await transaction.execute(sql\`SELECT pg_sleep(0.02)\`);
+          const records = await transaction.select().from(projects);
+          assert.ok(records.length > 0);
+          assert.ok(records.every((record) => record.organizationId === scope.organizationId));
+        })));
+        assert.deepEqual(await runtime.db.select().from(projects), []);
+      `,
+        );
+      }),
+    );
+  });
 
   it('rolls back failed migrations without recording completion', async () => {
     const folder = await mkdtemp(join(tmpdir(), 'pipong-migration-'));

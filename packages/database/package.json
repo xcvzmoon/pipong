@@ -6,6 +6,7 @@
     ".": "./src/index.ts",
     "./auth": "./src/auth/index.ts",
     "./helpers": "./src/helpers/index.ts",
+    "./tenancy": "./src/tenancy/index.ts",
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -13,6 +14,7 @@
       ".": "./dist/index.mjs",
       "./auth": "./dist/auth/index.mjs",
       "./helpers": "./dist/helpers/index.mjs",
+      "./tenancy": "./dist/tenancy/index.mjs",
       "./package.json": "./package.json"
     }
   },
