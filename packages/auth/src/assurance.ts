@@ -1,12 +1,9 @@
 import type { AuthClient, AuthTransaction } from '@pipong/database/auth';
 import type { AuthMiddleware } from 'better-auth/api';
-import { authTables } from '@pipong/database/auth';
+import { hasMfaAssurance, recordAuthActivity } from '@pipong/database/auth';
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from 'better-auth/api';
-import { and, eq, gt } from 'drizzle-orm';
 import * as v from 'valibot';
 import { enforceMfaPolicy } from './policy.ts';
-
-const { enrollmentAudit, mfaAssurance } = authTables;
 
 const privilegedOperations = new Set([
   '/organization/invite-member',
@@ -23,13 +20,22 @@ const privilegedAuditActions = new Map([
 ]);
 
 const privilegedResultSchema = v.union([
-  v.object({ status: v.literal(true) }),
-  v.object({ id: v.string() }),
+  v.object({
+    status: v.literal(true),
+  }),
+  v.object({
+    id: v.string(),
+  }),
 ]);
 
 const verificationResultSchema = v.union([
-  v.object({ status: v.literal(true) }),
-  v.object({ token: v.optional(v.string()), user: v.object({ id: v.string() }) }),
+  v.object({
+    status: v.literal(true),
+  }),
+  v.object({
+    token: v.optional(v.string()),
+    user: v.object({ id: v.string() }),
+  }),
 ]);
 
 export function enrollmentBefore(client: AuthClient | AuthTransaction): AuthMiddleware {
@@ -63,15 +69,11 @@ export function enrollmentBefore(client: AuthClient | AuthTransaction): AuthMidd
       });
     }
 
-    const [assurance] = await client
-      .select()
-      .from(mfaAssurance)
-      .where(
-        and(
-          eq(mfaAssurance.sessionId, active.session.id),
-          gt(mfaAssurance.verifiedAt, new Date(Date.now() - 300_000)),
-        ),
-      );
+    const assurance = await hasMfaAssurance(
+      client,
+      active.session.id,
+      new Date(Date.now() - 300_000),
+    );
 
     if (!assurance) {
       throw new APIError('FORBIDDEN', {
@@ -133,21 +135,14 @@ export function enrollmentAfter(client: AuthClient | AuthTransaction): AuthMiddl
 
     const auditAction = isRecovery ? 'backup-code-recovery' : action;
 
-    await client.transaction(async (transaction) => {
-      if ((isTotp || isRecovery) && active?.user.twoFactorEnabled) {
-        await transaction
-          .insert(mfaAssurance)
-          .values({ sessionId: active.session.id, verifiedAt: new Date() })
-          .onConflictDoUpdate({ target: mfaAssurance.sessionId, set: { verifiedAt: new Date() } });
-      }
-
-      if (auditAction) {
-        await transaction.insert(enrollmentAudit).values({
-          action: auditAction,
-          userId,
-          sessionId: active?.session.id ?? null,
-        });
-      }
-    });
+    await recordAuthActivity(
+      client,
+      (isTotp || isRecovery) && active?.user.twoFactorEnabled
+        ? { sessionId: active.session.id, verifiedAt: new Date() }
+        : undefined,
+      auditAction
+        ? { action: auditAction, userId, sessionId: active?.session.id ?? null }
+        : undefined,
+    );
   });
 }
