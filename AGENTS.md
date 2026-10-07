@@ -76,6 +76,7 @@ oxlint is type-aware (`typeAware` / `typeCheck`) and includes the local **anti-s
 - Keep generics minimal and purposeful.
 - Reuse existing helper types before inventing new ones.
 - Use descriptive names.
+- Always use plural SQL table names and plural table declaration identifiers in every schema, including test fixtures (for example, `users` and `verifications`).
 - Do not abbreviate iterable items; prefer `item`, `entry`, `record`, `status`.
 - Avoid one-letter names except for conventional indexes.
 
