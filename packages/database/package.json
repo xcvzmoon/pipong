@@ -7,6 +7,7 @@
     "./auth": "./src/auth/index.ts",
     "./authorization": "./src/authorization/index.ts",
     "./helpers": "./src/helpers/index.ts",
+    "./projects": "./src/projects/index.ts",
     "./tenancy": "./src/tenancy/index.ts",
     "./package.json": "./package.json"
   },
@@ -16,6 +17,7 @@
       "./auth": "./dist/auth/index.mjs",
       "./authorization": "./dist/authorization/index.mjs",
       "./helpers": "./dist/helpers/index.mjs",
+      "./projects": "./dist/projects/index.mjs",
       "./tenancy": "./dist/tenancy/index.mjs",
       "./package.json": "./package.json"
     }
