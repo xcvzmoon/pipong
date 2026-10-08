@@ -1,6 +1,11 @@
 import type { SecretContext, SecretKeyring } from '@pipong/service';
-import { decryptSecret, encryptSecret, loadSecretKeyring } from '@pipong/service';
-import { createSecretKey } from 'node:crypto';
+import {
+  credentialInputSchema,
+  decryptSecret,
+  encryptSecret,
+  loadSecretKeyring,
+} from '@pipong/service';
+import { createECDH, createSecretKey, generateKeyPairSync } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -117,5 +122,67 @@ describe('tenant-bound secret encryption', () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
+  });
+
+  it('validates provider-specific private key material', () => {
+    const apns = generateKeyPairSync('ec', { namedCurve: 'prime256v1' }).privateKey.export({
+      type: 'pkcs8',
+      format: 'pem',
+    });
+    const rsa = generateKeyPairSync('rsa', { modulusLength: 2048 }).privateKey.export({
+      type: 'pkcs8',
+      format: 'pem',
+    });
+    const key = createECDH('prime256v1');
+    key.generateKeys();
+    expect(
+      v.safeParse(credentialInputSchema, {
+        provider: 'apns',
+        appId: 'com.example.app',
+        secret: {
+          teamId: 'ABCDEFGHIJ',
+          keyId: '0123456789',
+          environment: 'sandbox',
+          privateKey: apns,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      v.safeParse(credentialInputSchema, {
+        provider: 'fcm',
+        appId: 'target-project',
+        secret: {
+          projectId: 'source-project',
+          clientEmail: 'service@source-project.iam.gserviceaccount.com',
+          privateKey: rsa,
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      v.safeParse(credentialInputSchema, {
+        provider: 'web-push',
+        appId: 'web-app',
+        secret: { privateKey: key.getPrivateKey().toString('base64url') },
+      }).success,
+    ).toBe(true);
+    expect(
+      v.safeParse(credentialInputSchema, {
+        provider: 'web-push',
+        appId: 'web-app',
+        secret: { privateKey: Buffer.alloc(32).toString('base64url') },
+      }).success,
+    ).toBe(false);
+    expect(
+      v.safeParse(credentialInputSchema, {
+        provider: 'apns',
+        appId: 'com.example.app',
+        secret: {
+          teamId: 'ABCDEFGHIJ',
+          keyId: '0123456789',
+          environment: 'sandbox',
+          privateKey: rsa,
+        },
+      }).success,
+    ).toBe(false);
   });
 });
