@@ -67,6 +67,8 @@ export const resourcePageSchema = v.strictObject({
   ),
 });
 
+type ResourceScope = TenantScope & { collection?: 'recipients' };
+
 const cursorSchema = v.variant('kind', [
   v.strictObject({
     version: v.literal(1),
@@ -84,6 +86,7 @@ const cursorSchema = v.variant('kind', [
   v.strictObject({
     version: v.literal(1),
     kind: v.literal('environment'),
+    collection: v.optional(v.literal('recipients')),
     organizationId: idSchema,
     projectId: idSchema,
     environmentId: idSchema,
@@ -102,7 +105,8 @@ export type ResourceFailure = {
     | 'RESOURCE_NAME_CONFLICT'
     | 'RESOURCE_CURSOR_INVALID'
     | 'RESOURCE_SUSPENDED'
-    | 'RESOURCE_DELETION_GATED';
+    | 'RESOURCE_DELETION_GATED'
+    | 'RECIPIENT_DELETED';
 };
 /**
  * Resource result; check ok before reading the value or failure code.
@@ -116,7 +120,7 @@ export type ResourcePage<Record> = { items: Record[]; nextCursor: string | null 
 /**
  * Decodes a canonical base64url cursor and verifies its collection scope.
  *
- * @param scope - Collection that must match the encoded organization, project, and environment IDs.
+ * @param scope - Collection whose tenant IDs and optional recipient collection discriminator must match the cursor.
  * @param cursor - Cursor returned by resourcePage, or undefined for the first page.
  * @returns The exclusive record ID, undefined when no cursor is supplied, or false when decoding or scope validation fails.
  *
@@ -129,7 +133,7 @@ export type ResourcePage<Record> = { items: Record[]; nextCursor: string | null 
  * ```
  */
 export function readResourceCursor(
-  scope: TenantScope,
+  scope: ResourceScope,
   cursor: string | undefined,
 ): string | undefined | false {
   if (cursor === undefined) {
@@ -162,7 +166,9 @@ export function readResourceCursor(
 
     if (
       scope.kind === 'environment' &&
-      (parsed.output.kind !== 'environment' || parsed.output.environmentId !== scope.environmentId)
+      (parsed.output.kind !== 'environment' ||
+        parsed.output.environmentId !== scope.environmentId ||
+        parsed.output.collection !== scope.collection)
     ) {
       return false;
     }
@@ -176,7 +182,7 @@ export function readResourceCursor(
 /**
  * Builds a page and encodes the last included ID when more records are available.
  *
- * @param scope - Owning collection to bind into the cursor.
+ * @param scope - Owning tenant scope and optional recipient collection discriminator to bind into the cursor.
  * @param records - Records in ascending ID order; fetch limit + 1 to detect another page.
  * @param limit - Validated maximum number of items to include.
  * @returns At most limit items and a cursor, or null when no extra record was fetched.
@@ -188,7 +194,7 @@ export function readResourceCursor(
  * ```
  */
 export function resourcePage<Record extends { id: string }>(
-  scope: TenantScope,
+  scope: ResourceScope,
   records: Record[],
   limit: number,
 ): ResourcePage<Record> {

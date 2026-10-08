@@ -9,6 +9,12 @@ Back to [[plans/01-notification-service/overview]]
 - Extend existing CI with real PostgreSQL 18, reviewed migrations, API/worker builds, and isolated database fixtures. Turn off passWithNoTests once suites exist; review isolate:false before adding stateful tests. Dependency injection/local protocol fixtures instead of forbidden module mocks.
 - Per completed capability: pnpm install before first typecheck; pnpm check, pnpm test, pnpm build; actual API/worker/operator runtime smoke. Generated output and docs must agree with the released contract.
 
+## Recipient contract evidence
+
+- Phase 11: `apps/server/tests/recipients.integration.test.ts` covers PUT collection upsert, GET collection list, GET recipient read, and DELETE recipient soft deletion through built Nitro HTTP with PostgreSQL 18. Generated OpenAPI input, recipient, page, and service-key security definitions are checked.
+- Same external ID in sibling environments stays independent. Concurrent/repeated upsert retains one UUID; deleted identities cannot be revived. Wrong nested scope, revoked authority, insufficient roles/grants, malformed inputs, suspended writes, and cross-collection cursors are denied.
+- Endpoint metadata inspection awaits phase 14; no endpoint or delivery proof is claimed here.
+
 ## Security gates
 
 - Two organizations, overlapping external recipient IDs, sibling projects/environments: deny cross-scope routes, nested mismatches, key grants, provider clients, status queries, cursors, SSE, and redrive. Test raw auth-plugin routes as well as custom routes.

@@ -38,3 +38,12 @@ export {
   rotateServiceKey,
   revokeServiceKey,
 } from './service-keys.ts';
+
+export {
+  recipientInputSchema,
+  recipientPathSchema,
+  upsertRecipient,
+  listRecipients,
+  readRecipient,
+  deleteRecipient,
+} from './recipients.ts';
