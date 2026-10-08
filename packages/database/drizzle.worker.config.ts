@@ -11,6 +11,6 @@ export default defineConfig({
   dbCredentials: {
     url: env.worker.database.url,
   },
-  schema: ['./src/schema.ts', './src/tenancy/schema.ts'],
+  schema: ['./src/schema.ts', './src/tenancy/schema.ts', './src/credentials/schema.ts'],
   schemaFilter: ['app', 'pgboss'],
 });
