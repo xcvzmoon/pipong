@@ -35,7 +35,7 @@ PostgreSQL composite ownership constraints and forced row-level security enforce
 
 ## Endpoint metadata
 
-Endpoint persistence, registration, redacted metadata inspection, and deletion ordering with pending/in-flight delivery belong to phase 14 and subsequent delivery phases. This recipient increment stores no provider tokens, subscriptions, or endpoint secrets. It does not establish push delivery readiness.
+Use the [endpoint operations](./ENDPOINTS.md) to register installations and inspect redacted metadata. Deleted recipients reject endpoint registration, disable, and inspection. Pending/in-flight delivery admission belongs to the later delivery phases.
 
 ## Verification
 

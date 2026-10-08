@@ -69,6 +69,9 @@ upsert/read/list operations, pagination, and bounded soft deletion.
 [Provider credentials](./CREDENTIALS.md) describes encrypted immutable versions,
 activation, retirement, VAPID public keys, and encryption-key rotation.
 
+[Recipient endpoints](./ENDPOINTS.md) describes encrypted installation registration,
+generation checks, provider binding, and redacted metadata.
+
 ## Deploying
 
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.

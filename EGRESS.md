@@ -1,8 +1,8 @@
 # Web Push egress
 
-Phase 13 supplies `loadEgressPolicy`, `validateDestination`, and `sendWebPushRequest` from `@pipong/service`. Endpoint registration and provider dispatch are implemented in later phases. No tenant-facing policy mutation route exists.
+Phase 13 supplies `loadEgressPolicy`, `validateDestination`, and `sendWebPushRequest` from `@pipong/service`. [Endpoint registration](./ENDPOINTS.md) applies destination checks before storing subscriptions. Provider dispatch is a later phase. No tenant-facing policy mutation route exists.
 
-Load policy from an operator-owned absolute JSON file, or omit the path for defaults. Only deployment code may select the policy file or DNS resolver. Never construct exceptions from subscription input. API registration and worker sends must use the same deployment policy.
+Load policy from an operator-owned absolute JSON file, or omit the path for defaults. Only deployment code may select the policy file or DNS resolver. Never construct exceptions from subscription input. API registration reads `WEB_PUSH_EGRESS_POLICY_REF` for the operator-owned policy file; omit it for defaults. API registration and worker sends must use the same deployment policy.
 
 Defaults allow public HTTPS destinations on port 443. Every DNS answer must pass screening; mixed public/private answers fail. IPv4-mapped IPv6 is screened as IPv4. Loopback, private, link-local, multicast, reserved, and transition ranges are blocked by default. Each send resolves again and connects to one screened address with the original Host and TLS identity. Connections are not pooled, proxies are not used, and redirects are rejected.
 
