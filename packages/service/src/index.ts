@@ -61,3 +61,8 @@ export {
 } from './credentials.ts';
 export type { SecretKeyring, SecretContext, EncryptedValue } from './secrets.ts';
 export { loadSecretKeyring, encryptSecret, decryptSecret } from './secrets.ts';
+
+export type { EgressPolicy, AllowedDestination, DestinationResolver } from './egress.ts';
+export { loadEgressPolicy, validateDestination } from './egress.ts';
+export type { WebPushResponse } from './web-push-transport.ts';
+export { sendWebPushRequest } from './web-push-transport.ts';

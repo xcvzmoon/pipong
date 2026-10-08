@@ -14,16 +14,21 @@
   },
   "scripts": {
     "build": "tsdown",
-    "typecheck": "tsc --checkers 8"
+    "typecheck": "tsc --checkers 8",
+    "test": "vitest run"
   },
   "dependencies": {
     "@pipong/auth": "workspace:*",
     "@pipong/database": "workspace:*",
-    "valibot": "catalog:shared"
+    "ipaddr.js": "catalog:",
+    "valibot": "catalog:shared",
+    "web-push": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",
+    "@types/web-push": "catalog:",
     "tsdown": "catalog:shared",
-    "typescript": "catalog:shared"
+    "typescript": "catalog:shared",
+    "vitest": "catalog:shared"
   }
 }

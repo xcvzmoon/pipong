@@ -2,6 +2,13 @@
 
 Back to [[plans/01-notification-service/overview]]
 
+## Status
+
+- Implemented on `feat/web-push-egress`, 2026-10-08; pending PR integration.
+- Six protocol fixture tests passed: destination filtering, DNS pinning/re-resolution, redirects/body limits, DNS/stream deadlines, TLS trust/hostname checks, and controlled UDP DNS to HTTPS.
+- `pnpm check`, workspace tests, and workspace build passed. Existing database-dependent tests skipped without their integration environment; this phase adds no persistence.
+- Operator contract: [EGRESS.md](../../../EGRESS.md). No public operation belongs to this transport increment; registration wiring follows in phase 14 and provider dispatch in phase 23.
+
 ## Goal
 
 Implement guarded destination validation/connection pinning, TLS verification, response limits, total deadlines, and operator-only private-origin exceptions. Reuse web-push request generation, not custom crypto.
@@ -10,7 +17,7 @@ Implement guarded destination validation/connection pinning, TLS verification, r
 
 - packages/service/src/egress.ts
 - packages/service/src/web-push-transport.ts
-- tests/egress.integration.test.ts
+- packages/service/tests/egress.integration.test.ts
 
 - Commit generated SQL/lockfile changes required by this capability; review its documented contract. Do not edit vendored skills or anti-slop tooling.
 - Service capabilities require the HTTP adapter packets in [[plans/01-notification-service/http-packet]]; neither service-only smoke nor this file list excuses missing public operations.

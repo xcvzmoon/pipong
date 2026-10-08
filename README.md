@@ -6,6 +6,8 @@ API service for notifications, built with [Nitro v3](https://nitro.build), [h3](
 
 The notification service design, scope, implementation phases, and release gates are in [the implementation plan](./brain/plans/01-notification-service/overview.md).
 
+Web Push destination checks and operator exceptions are documented in [Web Push egress](./EGRESS.md).
+
 ## Getting started
 
 Use Node.js 24.x and pnpm 12.6.0, declared in `package.json`. `pnpm install` downloads the configured Node.js runtime when needed; CI reads the same `devEngines` declarations.
