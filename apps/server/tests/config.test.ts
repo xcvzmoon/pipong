@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 const validApiEnvironment = {
   AUTH_BASE_URL: 'https://notify.example.com',
   AUTH_SECRET: 'test-secret-that-must-not-appear-and-is-long-enough',
-  CREDENTIAL_KEYRING_REF: 'vault://pipong/credentials',
+  CREDENTIAL_KEYRING_REF: '/run/secrets/credential-keyring.json',
 };
 
 describe('runtime configuration', () => {
@@ -39,7 +39,14 @@ describe('runtime configuration', () => {
   });
 
   it('validates provider settings', () => {
-    const workerBase = { CREDENTIAL_KEYRING_REF: 'vault://pipong/credentials' };
+    expect(() =>
+      parseApiConfig({ ...validApiEnvironment, CREDENTIAL_KEYRING_REF: 'vault://unsupported' }),
+    ).toThrow(expect.objectContaining({ code: 'API_CONFIG_INVALID' }));
+    expect(() => parseWorkerConfig({ CREDENTIAL_KEYRING_REF: 'relative-keyring.json' })).toThrow(
+      expect.objectContaining({ code: 'WORKER_CONFIG_INVALID' }),
+    );
+
+    const workerBase = { CREDENTIAL_KEYRING_REF: '/run/secrets/credential-keyring.json' };
     expect(parseWorkerConfig(workerBase).apnsEnvironment).toBe('production');
     expect(parseWorkerConfig({ ...workerBase, FCM_PROJECT_ID: ' project-123 ' }).fcmProjectId).toBe(
       'project-123',
@@ -74,7 +81,7 @@ describe('runtime configuration', () => {
       ...validApiEnvironment,
     });
     const workerConfig = parseWorkerConfig({
-      CREDENTIAL_KEYRING_REF: 'vault://pipong/credentials',
+      CREDENTIAL_KEYRING_REF: '/run/secrets/credential-keyring.json',
       APNS_ENVIRONMENT: 'sandbox',
     });
 

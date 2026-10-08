@@ -44,6 +44,7 @@ export class ConfigError extends Error {
 }
 
 const requiredStringSchema = v.pipe(v.string(), v.trim(), v.nonEmpty());
+const keyringPathSchema = v.pipe(requiredStringSchema, v.startsWith('/'), v.excludes('\0'));
 const authSecretSchema = v.pipe(requiredStringSchema, v.minLength(32));
 function canonicalAuthUrlSchema(): v.GenericSchema<string> {
   return v.pipe(
@@ -92,7 +93,7 @@ function parseConfig<T>(code: ConfigErrorCode, parse: () => T): T {
  * Validates and normalizes API settings without opening external connections.
  *
  * @param source - Environment values to parse; unrelated keys are ignored.
- * @returns Validated settings. AUTH_BASE_URL must be HTTPS, or HTTP on localhost, with no path, credentials, query, or fragment.
+ * @returns Validated settings. AUTH_BASE_URL must be HTTPS, or HTTP on localhost, with no path, credentials, query, or fragment. The keyring reference must be an absolute file path; this parser does not read it.
  * @throws {ConfigError} API_CONFIG_INVALID when required values are missing or invalid.
  *
  * @example
@@ -100,7 +101,7 @@ function parseConfig<T>(code: ConfigErrorCode, parse: () => T): T {
  * const config = parseApiConfig({
  *   AUTH_BASE_URL: 'http://localhost:3000',
  *   AUTH_SECRET: 'development-secret-at-least-32-characters',
- *   CREDENTIAL_KEYRING_REF: 'development-keyring',
+ *   CREDENTIAL_KEYRING_REF: '/run/secrets/credential-keyring.json',
  * });
  * ```
  */
@@ -111,7 +112,7 @@ export function parseApiConfig(source: EnvironmentSource): ApiConfig {
       schema: {
         AUTH_BASE_URL: canonicalAuthUrlSchema(),
         AUTH_SECRET: authSecretSchema,
-        CREDENTIAL_KEYRING_REF: requiredStringSchema,
+        CREDENTIAL_KEYRING_REF: keyringPathSchema,
       },
     }),
   );
@@ -126,13 +127,13 @@ export function parseApiConfig(source: EnvironmentSource): ApiConfig {
  * Validates and normalizes worker settings without opening external connections.
  *
  * @param source - Environment values to parse; unrelated keys are ignored.
- * @returns Validated settings with APNS defaulting to production.
+ * @returns Validated settings with APNS defaulting to production and an absolute keyring file path. This parser does not read the file.
  * @throws {ConfigError} WORKER_CONFIG_INVALID when required values are missing or invalid.
  *
  * @example
  * ```ts
  * const config = parseWorkerConfig({
- *   CREDENTIAL_KEYRING_REF: 'development-keyring',
+ *   CREDENTIAL_KEYRING_REF: '/run/secrets/credential-keyring.json',
  *   APNS_ENVIRONMENT: 'sandbox',
  * });
  * ```
@@ -142,7 +143,7 @@ export function parseWorkerConfig(source: EnvironmentSource): WorkerConfig {
     defineEnv({
       source,
       schema: {
-        CREDENTIAL_KEYRING_REF: requiredStringSchema,
+        CREDENTIAL_KEYRING_REF: keyringPathSchema,
         APNS_ENVIRONMENT: v.optional(v.picklist(['production', 'sandbox']), 'production'),
         FCM_PROJECT_ID: v.optional(v.pipe(v.string(), v.trim(), v.nonEmpty())),
         WEB_PUSH_SUBJECT: v.optional(webPushSubjectSchema),
