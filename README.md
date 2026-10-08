@@ -64,6 +64,9 @@ fixed environment grants, rotation overlap, revocation, and metadata retention.
 [Application recipients](./RECIPIENTS.md) describes environment-scoped identities,
 upsert/read/list operations, pagination, and bounded soft deletion.
 
+[Provider credentials](./CREDENTIALS.md) describes encrypted immutable versions,
+activation, retirement, VAPID public keys, and encryption-key rotation.
+
 ## Deploying
 
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.
