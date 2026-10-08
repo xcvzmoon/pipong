@@ -46,3 +46,8 @@ Back to [[plans/01-notification-service/overview]]
 - Also test burst/backlog drain, one 1,000-endpoint request, 1,000 concurrent SSE clients over a bounded number of environments, and noisy-tenant fairness. Report environment count, bytes, memory, CPU, DB waits, and provider latency.
 - Proposed API availability objective 99.9% in a qualifying HA deployment; no universal self-hosted SLA or provider/display guarantee. Publish a supported envelope only after measurement.
 - Release only when all required functional/security/durability/provider/restore gates pass and installation works from the published artifacts without source checkout.
+
+## Credential contract evidence
+
+- Phase 12: built Nitro HTTP/OpenAPI and PostgreSQL 18 cover create/list/read/activate/retire, rotation, and VAPID public keys. Tests verify tenant-bound ciphertext, missing keys, concurrent activation, permanent retirement, recent MFA, service-key denial, pagination, and RLS. Encryption tests cover tampering, keyring reload/removal, and typed provider material. All 86 tests passed; check/build/migration checks passed.
+- Provider caches, pinned-work retirement gates, and future endpoint/message rotation remain requirements of later phases.
