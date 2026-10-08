@@ -76,7 +76,7 @@ flag and open a separate transaction for the operation.
 Authorization reads PostgreSQL for each operation. It locks the organization,
 then the principal's session/user/membership or key/grant, then the scoped project
 and environment. Management actions acquire update locks on the resources they
-manage; other actions acquire shared locks. Tenant context is transaction-local
+manage. Endpoint writes acquire the environment update lock to serialize registration, credential binding, and disable ordering; other actions acquire shared locks. Tenant context is transaction-local
 and is set only after authority has been checked. Nested IDs must match the
 requested ownership chain, even for an owner.
 
