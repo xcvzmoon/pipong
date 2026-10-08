@@ -10,6 +10,7 @@ export default defineConfig({
     'src/projects/index.ts',
     'src/environments/index.ts',
     'src/service-keys/index.ts',
+    'src/recipients/index.ts',
   ],
   dts: true,
   exports: {

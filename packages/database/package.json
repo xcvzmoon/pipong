@@ -9,6 +9,7 @@
     "./environments": "./src/environments/index.ts",
     "./helpers": "./src/helpers/index.ts",
     "./projects": "./src/projects/index.ts",
+    "./recipients": "./src/recipients/index.ts",
     "./service-keys": "./src/service-keys/index.ts",
     "./tenancy": "./src/tenancy/index.ts",
     "./package.json": "./package.json"
@@ -21,6 +22,7 @@
       "./environments": "./dist/environments/index.mjs",
       "./helpers": "./dist/helpers/index.mjs",
       "./projects": "./dist/projects/index.mjs",
+      "./recipients": "./dist/recipients/index.mjs",
       "./service-keys": "./dist/service-keys/index.mjs",
       "./tenancy": "./dist/tenancy/index.mjs",
       "./package.json": "./package.json"
