@@ -47,3 +47,6 @@ export {
   readRecipient,
   deleteRecipient,
 } from './recipients.ts';
+
+export type { SecretKeyring, SecretContext, EncryptedValue } from './secrets.ts';
+export { loadSecretKeyring, encryptSecret, decryptSecret } from './secrets.ts';
