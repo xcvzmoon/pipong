@@ -59,6 +59,8 @@ oxlint is type-aware (`typeAware` / `typeCheck`) and includes the local **anti-s
 ## Formatting And Style
 
 - Match the surrounding file's formatting instead of hand-styling custom layouts.
+- Observe the user's spacing and preserve it in edited code.
+- Always use braces `{ }` for `if` / `else` branches and loops, including single-statement bodies.
 - Prefer `function name()` for named functions and helpers.
 - Do not prefer `const fn = () => {}` for normal top-level helpers.
 - Exception: callbacks should stay as arrows, for example `items.map((item) => item.id)`.
@@ -108,6 +110,7 @@ Project skills live in `.agents/skills/` and are tracked in `skills-lock.json`. 
 
 ## Agents
 
+- Use the main worktree unless the user explicitly asks for a new worktree.
 - Commit or push only when explicitly asked. Never add co-author trailers.
 - When asked to commit, include all task-related changes and leave unrelated changes alone.
 - Split changes into the smallest coherent, independently reviewable commits. Each commit must have one specific purpose; broad categories such as "refactor persistence" or "update docs" are not enough to justify bundling independent changes.
