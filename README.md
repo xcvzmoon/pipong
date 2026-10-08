@@ -61,6 +61,9 @@ pagination, suspension, and the deletion gate.
 [Organization service keys](./SERVICE_KEYS.md) describes once-visible issuance,
 fixed environment grants, rotation overlap, revocation, and metadata retention.
 
+[Application recipients](./RECIPIENTS.md) describes environment-scoped identities,
+upsert/read/list operations, pagination, and bounded soft deletion.
+
 ## Deploying
 
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.
