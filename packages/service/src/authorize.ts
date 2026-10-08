@@ -228,7 +228,7 @@ export function withAuthorizedTransaction<Result>(
         transaction,
         scope,
         action === 'project:manage' ? 'update' : 'share',
-        action === 'environment:manage' ? 'update' : 'share',
+        action === 'environment:manage' || action === 'credential:manage' ? 'update' : 'share',
       ))
     ) {
       return {

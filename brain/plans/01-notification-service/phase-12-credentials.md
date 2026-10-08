@@ -2,6 +2,14 @@
 
 Back to [[plans/01-notification-service/overview]]
 
+## Status
+
+- Implemented 2026-10-08 on `feat/provider-credentials`; pending PR integration.
+- Persistence lives in packages/database/src/credentials with generated tenancy SQL, FORCE RLS, composite ownership, restricted mutation grants, and a retirement guard.
+- Built HTTP/OpenAPI and PostgreSQL 18 evidence: all 86 tests passed; pnpm check, pnpm build, and pnpm database check passed.
+- No plaintext/key cache exists; key removal takes effect on the next encryption operation. Provider client caches and pending-delivery retirement checks belong to the delivery phases before consumers ship.
+- Operator keyring and rotation procedure: CREDENTIALS.md. Next: [[plans/01-notification-service/phase-13-egress]].
+
 ## Goal
 
 Implement AEAD-protected credentials/endpoint secrets and immutable provider versions with tenant-bound authenticated context. Provide metadata reads, activation/retirement and keyring rotation without leaking secrets.
@@ -10,7 +18,7 @@ Implement AEAD-protected credentials/endpoint secrets and immutable provider ver
 
 - packages/service/src/credentials.ts
 - packages/service/src/secrets.ts
-- tests/credentials.integration.test.ts
+- apps/server/tests/credentials.integration.test.ts
 
 - Commit generated SQL/lockfile changes required by this capability; review its documented contract. Do not edit vendored skills or anti-slop tooling.
 - Service capabilities require the HTTP adapter packets in [[plans/01-notification-service/http-packet]]; neither service-only smoke nor this file list excuses missing public operations.

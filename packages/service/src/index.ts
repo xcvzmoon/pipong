@@ -47,3 +47,17 @@ export {
   readRecipient,
   deleteRecipient,
 } from './recipients.ts';
+
+export type { CredentialInput } from './credentials.ts';
+export {
+  credentialInputSchema,
+  credentialPathSchema,
+  createCredentialVersion,
+  listCredentialVersions,
+  readCredentialVersion,
+  activateCredentialVersion,
+  retireCredentialVersion,
+  rotateCredentialEncryption,
+} from './credentials.ts';
+export type { SecretKeyring, SecretContext, EncryptedValue } from './secrets.ts';
+export { loadSecretKeyring, encryptSecret, decryptSecret } from './secrets.ts';

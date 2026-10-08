@@ -67,7 +67,7 @@ export const resourcePageSchema = v.strictObject({
   ),
 });
 
-type ResourceScope = TenantScope & { collection?: 'recipients' };
+type ResourceScope = TenantScope & { collection?: 'recipients' | 'credentials' };
 
 const cursorSchema = v.variant('kind', [
   v.strictObject({
@@ -86,7 +86,7 @@ const cursorSchema = v.variant('kind', [
   v.strictObject({
     version: v.literal(1),
     kind: v.literal('environment'),
-    collection: v.optional(v.literal('recipients')),
+    collection: v.optional(v.picklist(['recipients', 'credentials'])),
     organizationId: idSchema,
     projectId: idSchema,
     environmentId: idSchema,
@@ -106,6 +106,7 @@ export type ResourceFailure = {
     | 'RESOURCE_CURSOR_INVALID'
     | 'RESOURCE_SUSPENDED'
     | 'RESOURCE_DELETION_GATED'
+    | 'CREDENTIAL_RETIRED'
     | 'RECIPIENT_DELETED';
 };
 /**
@@ -120,7 +121,7 @@ export type ResourcePage<Record> = { items: Record[]; nextCursor: string | null 
 /**
  * Decodes a canonical base64url cursor and verifies its collection scope.
  *
- * @param scope - Collection whose tenant IDs and optional recipient collection discriminator must match the cursor.
+ * @param scope - Collection whose tenant IDs and optional collection discriminator must match the cursor.
  * @param cursor - Cursor returned by resourcePage, or undefined for the first page.
  * @returns The exclusive record ID, undefined when no cursor is supplied, or false when decoding or scope validation fails.
  *
@@ -182,7 +183,7 @@ export function readResourceCursor(
 /**
  * Builds a page and encodes the last included ID when more records are available.
  *
- * @param scope - Owning tenant scope and optional recipient collection discriminator to bind into the cursor.
+ * @param scope - Owning tenant scope and optional collection discriminator to bind into the cursor.
  * @param records - Records in ascending ID order; fetch limit + 1 to detect another page.
  * @param limit - Validated maximum number of items to include.
  * @returns At most limit items and a cursor, or null when no extra record was fetched.

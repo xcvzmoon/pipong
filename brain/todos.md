@@ -4,6 +4,6 @@
 
 ## Product
 
-1. [ ] Implement the scoped self-hosted notification service; phases 01–10 integrated; phase 11 recipients implemented and verified on `feat/application-recipients` (pending PR integration); next implementation is phase 12 encrypted credential versions [[plans/01-notification-service/overview]]
+1. [ ] Implement the scoped self-hosted notification service; phases 01–11 integrated; phase 12 encrypted credential versions implemented and verified on `feat/provider-credentials` (pending PR integration); next implementation is phase 13 Web Push destination policy [[plans/01-notification-service/overview]]
 
 Completed tasks: [[archive/todos]]

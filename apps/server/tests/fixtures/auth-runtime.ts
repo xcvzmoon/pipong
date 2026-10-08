@@ -2,8 +2,10 @@ import type { ChildProcess } from 'node:child_process';
 import { hashPassword } from 'better-auth/crypto';
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
@@ -53,8 +55,15 @@ export async function startAuthFixture(
   seedAccounts = true,
   serverEntrypoint = 'apps/server/.output/server/index.mjs',
 ): Promise<AuthFixture> {
+  const secretDirectory = await mkdtemp(join(tmpdir(), 'pipong-credentials-'));
+  const keyringPath = join(secretDirectory, 'keyring.json');
   const admin = new Client({ connectionString: adminUrl });
-  await admin.connect();
+  try {
+    await admin.connect();
+  } catch (error) {
+    await rm(secretDirectory, { recursive: true, force: true });
+    throw error;
+  }
   function roleUrl(role: string): string {
     const url = new URL(adminUrl);
     url.pathname = `/${databaseName}`;
@@ -74,9 +83,15 @@ export async function startAuthFixture(
       if (createdDatabase) await admin.query(`DROP DATABASE ${databaseName} WITH (FORCE)`);
       if (createdRoles) await admin.query('DROP ROLE pipong_api, pipong_worker, pipong_migrator');
       await admin.end();
+      await rm(secretDirectory, { recursive: true, force: true });
     }
   }
   try {
+    await writeFile(
+      keyringPath,
+      JSON.stringify({ activeKeyId: 'first', keys: { first: '11'.repeat(32) } }),
+      { mode: 0o600 },
+    );
     await admin.query(`CREATE DATABASE ${databaseName}`);
     createdDatabase = true;
     await database.connect();
@@ -108,7 +123,7 @@ export async function startAuthFixture(
       HOST: '127.0.0.1',
       AUTH_BASE_URL: baseUrl,
       AUTH_SECRET: 'test-auth-secret-at-least-thirty-two-characters',
-      CREDENTIAL_KEYRING_REF: 'test://credentials',
+      CREDENTIAL_KEYRING_REF: keyringPath,
       API_DATABASE_URL: roleUrl('pipong_api'),
       WORKER_DATABASE_URL: roleUrl('pipong_worker'),
       API_DATABASE_MAX_POOL: '2',

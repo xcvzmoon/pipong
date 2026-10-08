@@ -8,7 +8,7 @@ The API and worker validate their own settings when they start. Invalid settings
 | ------------------------ | -------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `AUTH_BASE_URL`          | Yes      |         | Canonical public HTTP origin used by authentication. HTTPS is required except for HTTP on `localhost`. Paths, credentials, query strings, and fragments are rejected. |
 | `AUTH_SECRET`            | Yes      |         | Secret used by the authentication service. Supply at least 32 characters through the deployment secret manager.                                                       |
-| `CREDENTIAL_KEYRING_REF` | Yes      |         | Operator controlled reference to the credential encryption keyring. Key material itself is not read from this setting.                                                |
+| `CREDENTIAL_KEYRING_REF` | Yes      |         | Absolute path to an operator-owned JSON encryption keyring. See [provider credentials](./CREDENTIALS.md).                                                             |
 | `API_DATABASE_MAX_POOL`  | No       | `8`     | API process database pool budget, from 1 to 100.                                                                                                                      |
 
 `API_DATABASE_URL` is read and validated inside the database package. The API calls `useApiDb()` without passing connection settings. The database package also owns pool-budget validation.
@@ -19,7 +19,7 @@ The API and worker budgets are applied independently to node-postgres pools. Con
 
 | Variable                   | Required | Default      | Purpose                                                                                                |
 | -------------------------- | -------- | ------------ | ------------------------------------------------------------------------------------------------------ |
-| `CREDENTIAL_KEYRING_REF`   | Yes      |              | The same operator managed keyring reference used by API processes.                                     |
+| `CREDENTIAL_KEYRING_REF`   | Yes      |              | The same absolute keyring file path used by API processes.                                             |
 | `WORKER_DATABASE_MAX_POOL` | No       | `12`         | Worker process database pool budget, from 1 to 100. This budget is independent of the API pool budget. |
 | `APNS_ENVIRONMENT`         | No       | `production` | APNs target environment: `production` or `sandbox`.                                                    |
 | `FCM_PROJECT_ID`           | No       |              | Explicit Firebase target project identifier.                                                           |

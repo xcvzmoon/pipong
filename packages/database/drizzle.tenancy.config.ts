@@ -6,6 +6,7 @@ export default defineConfig({
     './src/tenancy/schema.ts',
     './src/authorization/schema.ts',
     './src/recipients/schema.ts',
+    './src/credentials/schema.ts',
   ],
   out: './migrations/tenancy',
   migrations: {
