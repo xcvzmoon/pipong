@@ -2,6 +2,10 @@
 
 Back to [[plans/01-notification-service/overview]]
 
+## Dependency note
+
+- Own redacted endpoint inspection deferred from phase 11. Publish metadata lists only after endpoint persistence and registration exist; tokens/subscriptions remain excluded from all responses. Recipient deletion must block later send-start reservations once delivery admission is implemented.
+
 ## Goal
 
 Register/update/disable typed APNs, FCM FID/registration, and Web Push endpoints via trusted-backend authority after encryption, credential binding, and egress protection exist. Persist encrypted identifiers/subscriptions, validate binding/VAPID version, and apply destination policy at registration. Every confirmation advances generation, including the same provider identifier.
