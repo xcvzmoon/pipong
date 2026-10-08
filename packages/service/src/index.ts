@@ -66,3 +66,14 @@ export type { EgressPolicy, AllowedDestination, DestinationResolver } from './eg
 export { loadEgressPolicy, validateDestination } from './egress.ts';
 export type { WebPushResponse } from './web-push-transport.ts';
 export { sendWebPushRequest } from './web-push-transport.ts';
+
+export type { EndpointInput } from './endpoints.ts';
+export {
+  endpointInputSchema,
+  endpointPathSchema,
+  endpointDisableSchema,
+  registerEndpoint,
+  listEndpoints,
+  readEndpoint,
+  disableEndpoint,
+} from './endpoints.ts';

@@ -67,7 +67,10 @@ export const resourcePageSchema = v.strictObject({
   ),
 });
 
-type ResourceScope = TenantScope & { collection?: 'recipients' | 'credentials' };
+type ResourceScope = TenantScope & {
+  collection?: 'recipients' | 'credentials' | 'endpoints';
+  recipientId?: string;
+};
 
 const cursorSchema = v.variant('kind', [
   v.strictObject({
@@ -86,10 +89,11 @@ const cursorSchema = v.variant('kind', [
   v.strictObject({
     version: v.literal(1),
     kind: v.literal('environment'),
-    collection: v.optional(v.picklist(['recipients', 'credentials'])),
+    collection: v.optional(v.picklist(['recipients', 'credentials', 'endpoints'])),
     organizationId: idSchema,
     projectId: idSchema,
     environmentId: idSchema,
+    recipientId: v.optional(idSchema),
     afterId: idSchema,
   }),
 ]);
@@ -107,7 +111,13 @@ export type ResourceFailure = {
     | 'RESOURCE_SUSPENDED'
     | 'RESOURCE_DELETION_GATED'
     | 'CREDENTIAL_RETIRED'
-    | 'RECIPIENT_DELETED';
+    | 'RECIPIENT_DELETED'
+    | 'ENDPOINT_BINDING_INVALID'
+    | 'ENDPOINT_GENERATION_STALE'
+    | 'ENDPOINT_INSTALLATION_CONFLICT'
+    | 'ENDPOINT_TARGET_CONFLICT'
+    | 'EGRESS_DESTINATION_INVALID'
+    | 'EGRESS_DESTINATION_BLOCKED';
 };
 /**
  * Resource result; check ok before reading the value or failure code.
@@ -169,7 +179,8 @@ export function readResourceCursor(
       scope.kind === 'environment' &&
       (parsed.output.kind !== 'environment' ||
         parsed.output.environmentId !== scope.environmentId ||
-        parsed.output.collection !== scope.collection)
+        parsed.output.collection !== scope.collection ||
+        parsed.output.recipientId !== scope.recipientId)
     ) {
       return false;
     }
