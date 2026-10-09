@@ -77,17 +77,3 @@ export {
   readEndpoint,
   disableEndpoint,
 } from './endpoints.ts';
-
-export type {
-  NotificationRequest,
-  NotificationResult,
-  ApiProblem,
-} from './notification-contract.ts';
-export {
-  notificationLimits,
-  notificationRequestSchema,
-  parseNotificationRequest,
-  boundNotificationTargets,
-} from './notification-contract.ts';
-export type { PayloadDestination, DeliveryIdentity, ProviderPayload } from './provider-payloads.ts';
-export { encodeProviderPayload } from './provider-payloads.ts';
