@@ -72,9 +72,6 @@ activation, retirement, VAPID public keys, and encryption-key rotation.
 [Recipient endpoints](./ENDPOINTS.md) describes encrypted installation registration,
 generation checks, provider binding, and redacted metadata.
 
-[Notification contracts](./NOTIFICATIONS.md) describes validated requests, provider
-payload limits, and the remaining submission work.
-
 ## Deploying
 
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.
