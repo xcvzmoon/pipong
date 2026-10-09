@@ -4,6 +4,6 @@
 
 ## Product
 
-1. [ ] Implement the scoped self-hosted notification service; phases 01–13 integrated; phase 14 endpoint generations implemented and verified on `feat/endpoint-generations` (pending PR integration); next implementation is phase 15 notification contract [[plans/01-notification-service/overview]]
+1. [ ] Implement the scoped self-hosted notification service; phases 01–14 integrated; phase 15 notification contracts implemented and verified locally; next implementation is phase 16 durable queue [[plans/01-notification-service/overview]]
 
 Completed tasks: [[archive/todos]]
