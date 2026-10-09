@@ -49,6 +49,12 @@
       "skillPath": "better-auth/create-auth/SKILL.md",
       "computedHash": "9a9b498bc144367b8e237233f89def63fb2bd69e8cafe173eaa58fe3a863cdc4"
     },
+    "create-pr-with-evidence": {
+      "source": "luoling8192/create-pr-with-evidence-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "b7807aa4b2912fa93da304297b832bfccb851c54535d443286e87dd079c546c7"
+    },
     "debugging": {
       "source": "poteto/noodle",
       "sourceType": "github",
