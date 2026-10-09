@@ -372,3 +372,44 @@ migration directories in dependency order. Deployments must serialize migrations
 The PostgreSQL suite verifies missing and invalid context, scope-limited reads
 and mutations, composite ownership, FORCE RLS flags, rollback, concurrent
 transactions, and context reset using a one-connection pool for each runtime role.
+
+## Provider delivery queues
+
+The tenancy migration provisions `delivery-apns`, `delivery-fcm`, and
+`delivery-web-push` in the existing `pgboss` schema. Run `pnpm migrate` with
+migration credentials before deploying the worker. Runtime accounts can use
+queue tables but cannot create queues, run migrations, or execute queue DDL
+functions.
+
+`startDeliveryQueue(database, 'producer')` starts without supervision;
+`startDeliveryQueue(database, 'worker')` enables infrastructure recovery and
+checks that all provider queues exist. Neither call creates storage or registers
+provider consumers. Stop the queue before closing its database pool. The worker
+uses one queue runtime for authentication mail and provider queue supervision.
+
+`@pipong/service` exports `enqueueDelivery`. Pass the authorized application
+transaction, a fresh UUIDv7 queue job ID, and tenant/notification/delivery IDs
+with the provider. The strict job schema rejects extra fields. Queue jobs hold
+identifiers only; workers must load and authorize application state before a
+send. A suppressed insertion throws `DELIVERY_ENQUEUE_FAILED`, so callers must
+let the transaction roll back rather than accept the request.
+
+Database uses the pinned pg-boss Drizzle adapter for insertion and completion.
+Insertion sets `keep_until` to PostgreSQL infinity in the same transaction because
+pg-boss otherwise deletes queued/retry jobs when their retention expires.
+`completeDeliveryJob` receives the fetched claim's ID and retry count and
+requires exactly one affected job. `DELIVERY_QUEUE_CLAIM_LOST` rolls back the
+result transaction when that claim is stale or no longer active.
+
+Provider queues use a 120-second execution lease, a 30-second heartbeat, and five
+infrastructure recovery retries with exponential backoff from 5 seconds capped
+at 300 seconds. Provider outcome retries belong to application policy, not these
+recovery retries. No provider consumers are enabled yet. Provider requests must
+finish within the heartbeat/lease budget once consumers are implemented.
+
+Automatic deletion is disabled for finished provider jobs, including exhausted
+failures. Unfinished jobs and failed evidence remain until application retention
+and reconciliation are implemented. Operators should monitor queue storage;
+this increment does not provide notification submission or delivery status APIs.
+The PostgreSQL lifecycle suite exercises transactional insertion/completion,
+suppression, stale claims, crash recovery, retention, and provisioning denial.

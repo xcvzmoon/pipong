@@ -44,7 +44,7 @@ try {
   const database = await useApiDb();
 
   try {
-    const queue = await startQueue(database);
+    const queue = await startQueue(database, 'producer');
 
     try {
       const account = await enrollAccount(database, config, queue, action);

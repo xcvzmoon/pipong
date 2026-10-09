@@ -150,7 +150,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     const result = await fixture.query<{ count: string }>(
       'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
     );
-    expect(result.rows[0]?.count).toBe('15');
+    expect(result.rows[0]?.count).toBe('16');
     const tables = await fixture.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema='auth' ORDER BY table_name",
     );
@@ -171,6 +171,153 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       'verifications',
     ]);
   }, 15000);
+
+  it('rejects incomplete delivery queue provisioning and cleans up startup', async () => {
+    await fixture.query(
+      "UPDATE pgboss.queue SET name='missing-delivery-fcm' WHERE name='delivery-fcm'",
+    );
+    try {
+      await runClient(
+        'api',
+        `
+        const { startDeliveryQueue } = await import(${JSON.stringify(new URL('../src/delivery-queue.ts', import.meta.url).href)});
+        await assert.rejects(startDeliveryQueue(runtime, 'producer'), /DELIVERY_QUEUE_NOT_PROVISIONED/);
+        const result = await runtime.pool.query('SELECT id FROM pgboss.instance WHERE stopped_on IS NULL');
+        assert.equal(result.rows.length, 0);
+      `,
+      );
+    } finally {
+      await fixture.query(
+        "UPDATE pgboss.queue SET name='delivery-fcm' WHERE name='missing-delivery-fcm'",
+      );
+    }
+  });
+
+  it('commits provider jobs atomically and rolls back writes on failure or suppressed enqueue', async () => {
+    await fixture.query(
+      'SET ROLE pipong_migrator; CREATE TABLE app.queue_probes (id uuid PRIMARY KEY); RESET ROLE',
+    );
+    await runClient(
+      'api',
+      `
+      const { startDeliveryQueue } = await import(${JSON.stringify(new URL('../src/delivery-queue.ts', import.meta.url).href)});
+      const { enqueueDelivery } = await import(${JSON.stringify(new URL('../../service/src/queue.ts', import.meta.url).href)});
+      const queue = await startDeliveryQueue(runtime, 'producer');
+      const job = {
+        organizationId: scopeA.organizationId,
+        projectId: '019a0000-0000-7000-8000-000000000111',
+        environmentId: '019a0000-0000-7000-8000-000000000121',
+        notificationId: '019a0000-0000-7000-8000-000000000301',
+        deliveryId: '019a0000-0000-7000-8000-000000000302',
+        provider: 'apns',
+      };
+      const id = '019a0000-0000-7000-8000-000000000303';
+      try {
+        await runtime.db.transaction(async (transaction) => {
+          await transaction.execute(sql\`INSERT INTO app.queue_probes VALUES (\${id}::uuid)\`);
+          assert.equal(await enqueueDelivery(queue, transaction, id, job), id);
+          assert.equal((await runtime.pool.query('SELECT id FROM pgboss.job WHERE id=$1', [id])).rows.length, 0);
+          assert.equal((await runtime.pool.query('SELECT id FROM app.queue_probes WHERE id=$1', [id])).rows.length, 0);
+        });
+        assert.equal((await runtime.pool.query('SELECT id FROM app.queue_probes WHERE id=$1', [id])).rows.length, 1);
+        for (const provider of ['fcm', 'web-push']) {
+          const jobId = provider === 'fcm' ? '019a0000-0000-7000-8000-000000000304' : '019a0000-0000-7000-8000-000000000305';
+          await runtime.db.transaction((transaction) => enqueueDelivery(queue, transaction, jobId, { ...job, provider }));
+        }
+        await assert.rejects(runtime.db.transaction(async (transaction) => {
+          await transaction.execute(sql\`INSERT INTO app.queue_probes VALUES ('019a0000-0000-7000-8000-000000000306')\`);
+          await enqueueDelivery(queue, transaction, '019a0000-0000-7000-8000-000000000306', job);
+          throw new Error('TEST_ROLLBACK');
+        }), /TEST_ROLLBACK/);
+        await assert.rejects(runtime.db.transaction(async (transaction) => {
+          await transaction.execute(sql\`INSERT INTO app.queue_probes VALUES ('019a0000-0000-7000-8000-000000000307')\`);
+          await enqueueDelivery(queue, transaction, id, job);
+        }), /DELIVERY_ENQUEUE_FAILED/);
+        await assert.rejects(runtime.db.transaction((transaction) => enqueueDelivery(queue, transaction, id, { ...job, secret: 'forbidden' })), /DELIVERY_JOB_INVALID/);
+        await assert.rejects(runtime.db.transaction((transaction) => enqueueDelivery(queue, transaction, '019a0000-0000-4000-8000-000000000309', job)), /DELIVERY_JOB_INVALID/);
+        assert.equal((await runtime.pool.query('SELECT id FROM app.queue_probes')).rows.length, 1);
+        assert.equal((await runtime.pool.query("SELECT id FROM pgboss.job WHERE name LIKE 'delivery-%'")).rows.length, 3);
+        const instances = await queue.getInstances();
+        assert.equal(instances.find((instance) => instance.stoppedOn === null)?.supervise, false);
+      } finally { await queue.stop({ graceful: true }); }
+    `,
+    );
+  });
+
+  it('fetches committed provider jobs and fences transactional completion to the current claim', async () => {
+    await runClient(
+      'worker',
+      `
+      const { startDeliveryQueue, completeDeliveryJob } = await import(${JSON.stringify(new URL('../src/delivery-queue.ts', import.meta.url).href)});
+      const queue = await startDeliveryQueue(runtime, 'worker');
+      try {
+        for (const provider of ['apns', 'fcm', 'web-push']) {
+          const [claim] = await queue.fetch('delivery-' + provider);
+          assert.ok(claim);
+          assert.equal(claim.data.provider, provider);
+          assert.equal(claim.retryCount, 0);
+          await assert.rejects(runtime.db.transaction(async (transaction) => {
+            await transaction.execute(sql\`INSERT INTO app.queue_probes VALUES ('019a0000-0000-7000-8000-000000000308')\`);
+            await completeDeliveryJob(queue, transaction, provider, { id: claim.id, retryCount: claim.retryCount + 1 });
+          }), /DELIVERY_QUEUE_CLAIM_LOST/);
+          assert.equal((await runtime.pool.query("SELECT id FROM app.queue_probes WHERE id='019a0000-0000-7000-8000-000000000308'")).rows.length, 0);
+          await assert.rejects(runtime.db.transaction(async (transaction) => {
+            await completeDeliveryJob(queue, transaction, provider, claim);
+            throw new Error('TEST_ROLLBACK');
+          }), /TEST_ROLLBACK/);
+          assert.equal((await queue.findJobs('delivery-' + provider, { id: claim.id }))[0].state, 'active');
+          await runtime.db.transaction((transaction) => completeDeliveryJob(queue, transaction, provider, claim));
+          assert.equal((await queue.findJobs('delivery-' + provider, { id: claim.id }))[0].state, 'completed');
+          await assert.rejects(runtime.db.transaction((transaction) => completeDeliveryJob(queue, transaction, provider, claim)), /DELIVERY_QUEUE_CLAIM_LOST/);
+        }
+      } finally { await queue.stop({ graceful: true }); }
+      assert.equal(runtime.pool.waitingCount, 0);
+    `,
+    );
+  });
+
+  it('protects queued and exhausted provider jobs from retention and recovers expired claims', async () => {
+    await runClient(
+      'worker',
+      `
+      const { startDeliveryQueue, insertDeliveryJob, completeDeliveryJob } = await import(${JSON.stringify(new URL('../src/delivery-queue.ts', import.meta.url).href)});
+      const queue = await startDeliveryQueue(runtime, 'worker');
+      const id = '019a0000-0000-7000-8000-000000000310';
+      const job = { organizationId: scopeA.organizationId, projectId: '019a0000-0000-7000-8000-000000000111', environmentId: '019a0000-0000-7000-8000-000000000121', notificationId: '019a0000-0000-7000-8000-000000000301', deliveryId: '019a0000-0000-7000-8000-000000000302', provider: 'apns' };
+      try {
+        const settings = await queue.getQueue('delivery-apns');
+        assert.equal(settings.expireInSeconds, 120);
+        assert.equal(settings.heartbeatSeconds, 30);
+        assert.equal(settings.retryLimit, 5);
+        assert.equal(settings.deleteAfterSeconds, 0);
+        await runtime.db.transaction((transaction) => insertDeliveryJob(queue, transaction, id, job));
+        await runtime.pool.query("UPDATE pgboss.job SET created_on=now()-interval '60 days', start_after=now()-interval '60 days' WHERE id=$1", [id]);
+        assert.equal((await runtime.pool.query('SELECT keep_until::text FROM pgboss.job WHERE id=$1', [id])).rows[0].keep_until, 'infinity');
+        await runtime.pool.query("UPDATE pgboss.queue SET monitor_on=NULL, monitor_claim_on=NULL, maintain_on=NULL WHERE name='delivery-apns'");
+        await queue.supervise('delivery-apns');
+        let [claim] = await queue.fetch('delivery-apns');
+        assert.ok(claim);
+        const originalClaim = claim;
+        await runtime.pool.query("UPDATE pgboss.job SET started_on=now()-interval '1 hour', heartbeat_on=now()-interval '1 hour', retry_delay=0, retry_backoff=false WHERE id=$1", [id]);
+        await runtime.pool.query("UPDATE pgboss.queue SET monitor_on=NULL, monitor_claim_on=NULL, maintain_on=NULL WHERE name='delivery-apns'");
+        await queue.supervise('delivery-apns');
+        [claim] = await queue.fetch('delivery-apns');
+        assert.ok(claim);
+        assert.equal(claim.retryCount, 1);
+        await assert.rejects(runtime.db.transaction((transaction) => completeDeliveryJob(queue, transaction, 'apns', originalClaim)), /DELIVERY_QUEUE_CLAIM_LOST/);
+        assert.equal((await queue.findJobs('delivery-apns', { id }))[0].state, 'active');
+        await runtime.pool.query("UPDATE pgboss.job SET started_on=now()-interval '1 hour', heartbeat_on=now()-interval '1 hour', retry_limit=retry_count WHERE id=$1", [id]);
+        await runtime.pool.query("UPDATE pgboss.queue SET monitor_on=NULL, monitor_claim_on=NULL, maintain_on=NULL WHERE name='delivery-apns'");
+        await queue.supervise('delivery-apns');
+        assert.equal((await queue.findJobs('delivery-apns', { id }))[0].state, 'failed');
+        await runtime.pool.query("UPDATE pgboss.job SET completed_on=now()-interval '60 days' WHERE id=$1", [id]);
+        await runtime.pool.query("UPDATE pgboss.queue SET monitor_on=NULL, monitor_claim_on=NULL, maintain_on=NULL WHERE name='delivery-apns'");
+        await queue.supervise('delivery-apns');
+        assert.equal((await queue.findJobs('delivery-apns', { id }))[0].state, 'failed');
+      } finally { await queue.stop({ graceful: true }); }
+    `,
+    );
+  });
 
   it('enforces FORCE RLS and fails closed without tenant context for both runtime roles', async () => {
     await fixture.query(`INSERT INTO auth.organizations(id,name,slug) VALUES
@@ -356,7 +503,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       const history = await fixture.query<{ count: string }>(
         'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
       );
-      expect(history.rows[0]?.count).toBe('15');
+      expect(history.rows[0]?.count).toBe('16');
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
