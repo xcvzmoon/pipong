@@ -413,3 +413,12 @@ and reconciliation are implemented. Operators should monitor queue storage;
 this increment does not provide notification submission or delivery status APIs.
 The PostgreSQL lifecycle suite exercises transactional insertion/completion,
 suppression, stale claims, crash recovery, retention, and provisioning denial.
+
+## Ordered delivery events
+
+The event ledger uses `app.event_streams` and `app.delivery_events` with
+environment-scoped FORCE RLS. Append events through `recordDeliveryEvent` in the
+state-change transaction. Replay and seven-day prefix pruning share the stream
+lock, keeping sequence allocation, visible events, and retention watermarks
+consistent through commit or rollback. See [event replay](../../EVENTS.md) for
+the HTTP contract and transaction ownership requirements.

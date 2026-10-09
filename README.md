@@ -75,6 +75,9 @@ generation checks, provider binding, and redacted metadata.
 [Notification contracts](./NOTIFICATIONS.md) describes validated requests, provider
 payload limits, and the remaining submission work.
 
+[Delivery event replay](./EVENTS.md) describes ordered events, scoped cursors,
+and retention watermarks.
+
 ## Deploying
 
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.
