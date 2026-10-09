@@ -422,3 +422,11 @@ state-change transaction. Replay and seven-day prefix pruning share the stream
 lock, keeping sequence allocation, visible events, and retention watermarks
 consistent through commit or rollback. See [event replay](../../EVENTS.md) for
 the HTTP contract and transaction ownership requirements.
+
+## Distributed admission
+
+Tenant budget counters and acceptance reservations use organization-scoped FORCE
+RLS. Operator-owned limits are immutable to runtime accounts. Provider claims
+share a PostgreSQL lock per provider and use pg-boss organization groups for
+distributed tenant concurrency. See [distributed admission](../../ADMISSION.md)
+for transaction ownership, defaults, operator configuration, and verification.
