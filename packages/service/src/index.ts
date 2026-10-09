@@ -95,3 +95,12 @@ export { encodeProviderPayload } from './provider-payloads.ts';
 export type { DeliveryJob, QueueRuntime } from '@pipong/database/delivery-queue';
 export { startDeliveryQueue, completeDeliveryJob } from '@pipong/database/delivery-queue';
 export { deliveryJobSchema, enqueueDelivery } from './queue.ts';
+
+export { recordDeliveryEvent, replayDeliveryEvents, deliveryEventInputSchema } from './events.ts';
+export type {
+  DeliveryEvent,
+  EventCursor,
+  ReplayWatermark,
+  EventPage,
+  EventReplayResult,
+} from './events.ts';

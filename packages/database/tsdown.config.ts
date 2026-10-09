@@ -4,6 +4,7 @@ export default defineConfig({
   entry: [
     'src/index.ts',
     'src/delivery-queue.ts',
+    'src/events.ts',
     'src/helpers/index.ts',
     'src/auth/index.ts',
     'src/tenancy/index.ts',

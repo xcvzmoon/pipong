@@ -3,6 +3,7 @@ const problemTitles = {
   403: 'Forbidden',
   404: 'Not found',
   409: 'Conflict',
+  410: 'Gone',
   413: 'Content too large',
   415: 'Unsupported media type',
   422: 'Invalid request',
