@@ -75,6 +75,7 @@ and `pnpm --filter @pipong/database exec vitest run tests/limits.integration.tes
 It creates and drops its own database and runtime roles; use a dedicated cluster,
 separate from other database integration suites running concurrently.
 
-Public submission and delivery consumers remain phases 19 and 20. This increment
-provides their admission and claim boundaries; HTTP 429 and live provider traffic
-are not enabled yet.
+Public submission now uses admission in its atomic acceptance transaction and
+returns HTTP 429 with Retry-After. Identical replays consume request capacity only.
+See [notification submission](./NOTIFICATIONS.md). Delivery consumers remain gated
+on fenced attempts and provider adapter qualification.

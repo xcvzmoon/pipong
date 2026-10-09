@@ -73,7 +73,7 @@ activation, retirement, VAPID public keys, and encryption-key rotation.
 generation checks, provider binding, and redacted metadata.
 
 [Notification contracts](./NOTIFICATIONS.md) describes validated requests, provider
-payload limits, and the remaining submission work.
+payload limits, atomic submission, and seven-day idempotent replay.
 
 [Delivery event replay](./EVENTS.md) describes ordered events, scoped cursors,
 and retention watermarks.
