@@ -1,0 +1,3 @@
+SELECT pgboss.create_queue('delivery-apns', '{"policy":"standard","retryLimit":5,"retryDelay":5,"retryBackoff":true,"retryDelayMax":300,"expireInSeconds":120,"heartbeatSeconds":30,"retentionSeconds":2419200,"deleteAfterSeconds":0}'::jsonb);
+SELECT pgboss.create_queue('delivery-fcm', '{"policy":"standard","retryLimit":5,"retryDelay":5,"retryBackoff":true,"retryDelayMax":300,"expireInSeconds":120,"heartbeatSeconds":30,"retentionSeconds":2419200,"deleteAfterSeconds":0}'::jsonb);
+SELECT pgboss.create_queue('delivery-web-push', '{"policy":"standard","retryLimit":5,"retryDelay":5,"retryBackoff":true,"retryDelayMax":300,"expireInSeconds":120,"heartbeatSeconds":30,"retentionSeconds":2419200,"deleteAfterSeconds":0}'::jsonb);
