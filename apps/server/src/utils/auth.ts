@@ -18,7 +18,7 @@ async function initializeAuth(): Promise<AuthRuntime> {
   let mailQueue: MailQueue | undefined;
 
   try {
-    mailQueue = await startQueue(database);
+    mailQueue = await startQueue(database, 'producer');
     return { database, mailQueue, auth: createAuth(database, config, mailQueue) };
   } catch (error) {
     try {

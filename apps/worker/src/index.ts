@@ -6,7 +6,7 @@ import { setInterval } from 'node:timers/promises';
 loadWorkerConfig();
 const mailConfig = loadMailConfig();
 const database = await useWorkerDb();
-const mailQueue = await startQueue(database).catch(async (error: Error) => {
+const mailQueue = await startQueue(database, 'worker').catch(async (error: Error) => {
   await database.close();
   throw error;
 });

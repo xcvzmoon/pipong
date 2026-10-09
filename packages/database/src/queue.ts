@@ -11,12 +11,13 @@ import { PgBoss, fromDrizzle } from 'pg-boss';
  * the database runtime.
  *
  * @param database - Runtime whose pool will execute queue queries.
+ * @param role - Producer or worker process; only workers supervise jobs.
  * @returns Started queue backed by the pgboss schema.
  * @throws {Error} AUTH_MAIL_QUEUE_STARTUP_FAILED when startup fails; the queue is stopped before rejection.
  *
  * @example
  * ```ts
- * const queue = await startQueue(database);
+ * const queue = await startQueue(database, 'worker');
  * try {
  *   await runWorker(queue);
  * } finally {
@@ -24,7 +25,10 @@ import { PgBoss, fromDrizzle } from 'pg-boss';
  * }
  * ```
  */
-export async function startQueue(database: DatabaseRuntime): Promise<PgBoss> {
+export async function startQueue(
+  database: DatabaseRuntime,
+  role: 'producer' | 'worker',
+): Promise<PgBoss> {
   const queue = new PgBoss({
     db: { executeSql: (text, values) => database.pool.query(text, values) },
     schema: 'pgboss',
@@ -32,6 +36,7 @@ export async function startQueue(database: DatabaseRuntime): Promise<PgBoss> {
     createSchema: false,
     schedule: false,
     reindex: false,
+    supervise: role === 'worker',
   });
 
   queue.on('error', () => {
