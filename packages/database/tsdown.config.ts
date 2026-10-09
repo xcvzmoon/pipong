@@ -6,6 +6,7 @@ export default defineConfig({
     'src/delivery-queue.ts',
     'src/events.ts',
     'src/limits.ts',
+    'src/submission.ts',
     'src/helpers/index.ts',
     'src/auth/index.ts',
     'src/tenancy/index.ts',
