@@ -1,9 +1,10 @@
-import type { PgBoss } from 'pg-boss';
+import type { Job, PgBoss } from 'pg-boss';
 import type { DatabaseRuntime } from './clients.ts';
 import type { TenantTransaction } from './tenancy/index.ts';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { fromDrizzle } from 'pg-boss';
 import * as v from 'valibot';
+import { providerBudgets } from './limits-schema.ts';
 import { startQueue } from './queue.ts';
 
 /** Identifier-only job; endpoint generations and payloads are loaded under tenant context. */
@@ -72,7 +73,11 @@ export async function insertDeliveryJob(
   job: DeliveryJob,
 ): Promise<string> {
   const name = `delivery-${job.provider}`;
-  const id = await queue.send(name, job, { id: jobId, db: fromDrizzle(transaction, sql) });
+  const id = await queue.send(name, job, {
+    id: jobId,
+    group: { id: job.organizationId },
+    db: fromDrizzle(transaction, sql),
+  });
   if (id === null) {
     throw new Error('DELIVERY_ENQUEUE_FAILED: job insertion was suppressed');
   }
@@ -83,6 +88,56 @@ export async function insertDeliveryJob(
     throw new Error('DELIVERY_ENQUEUE_FAILED: unfinished job retention was not protected');
   }
   return id;
+}
+
+/**
+ * Claims provider work within database-wide and per-tenant concurrency limits.
+ * All delivery consumers must use this boundary. It serializes claim selection per
+ * provider, counts active pg-boss claims, and commits before network I/O. A tenant's
+ * group cap leaves provider capacity for other tenants. Limits are operator-owned.
+ * This bounds active claims; phase 20 must fence stale attempts and bound network deadlines.
+ * @param database - Worker runtime owning the claim transaction.
+ * @param queue - Started queue using this same database.
+ * @param provider - Provider queue to claim from.
+ * @returns At most one claim, or an empty array when capacity or runnable work is unavailable.
+ * @throws {Error} DELIVERY_PROVIDER_BUDGET_UNAVAILABLE if provider limits are missing. Database/queue failures propagate and roll back the claim.
+ * @example
+ * ```ts
+ * const jobs = await fetchDeliveryJobs(database, queue, 'apns');
+ * ```
+ */
+export function fetchDeliveryJobs(
+  database: DatabaseRuntime,
+  queue: QueueRuntime,
+  provider: DeliveryJob['provider'],
+): Promise<Job<DeliveryJob>[]> {
+  return database.db.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`SELECT pg_advisory_xact_lock(hashtextextended(${'pipong.delivery.' + provider}, 0))`,
+    );
+    const [budget] = await transaction
+      .select()
+      .from(providerBudgets)
+      .where(eq(providerBudgets.provider, provider));
+    if (!budget) {
+      throw new Error('DELIVERY_PROVIDER_BUDGET_UNAVAILABLE: provider budget is unavailable');
+    }
+    const result = await transaction.execute(
+      sql`SELECT count(*)::integer AS active FROM pgboss.job WHERE name = ${'delivery-' + provider} AND state = 'active'`,
+    );
+    const active = v.parse(
+      v.object({ active: v.pipe(v.number(), v.integer(), v.minValue(0)) }),
+      result.rows[0],
+    ).active;
+    if (active >= budget.globalConcurrency) {
+      return [];
+    }
+    return queue.fetch<DeliveryJob>(`delivery-${provider}`, {
+      batchSize: 1,
+      groupConcurrency: budget.tenantConcurrency,
+      db: fromDrizzle(transaction, sql),
+    });
+  });
 }
 
 /**

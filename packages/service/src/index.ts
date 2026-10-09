@@ -97,6 +97,7 @@ export { startDeliveryQueue, completeDeliveryJob } from '@pipong/database/delive
 export { deliveryJobSchema, enqueueDelivery } from './queue.ts';
 export { admitNotification, releaseNotificationCapacity } from './limits.ts';
 export type { AdmissionDecision, TenantBudget } from './limits.ts';
+export { fetchDeliveryJobs } from '@pipong/database/delivery-queue';
 
 export { recordDeliveryEvent, replayDeliveryEvents, deliveryEventInputSchema } from './events.ts';
 export type {

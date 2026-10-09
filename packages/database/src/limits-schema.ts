@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, integer, pgPolicy, primaryKey, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { check, integer, pgPolicy, primaryKey, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { organizations } from './auth/schema.ts';
 import { TIMESTAMP_CONFIG } from './helpers/index.ts';
 import { appSchema } from './schema.ts';
@@ -86,5 +86,21 @@ export const admissionReservations = appSchema.table(
       using: organizationPredicate,
       withCheck: organizationPredicate,
     }),
+  ],
+);
+
+export const providerBudgets = appSchema.table(
+  'provider_budgets',
+  {
+    provider: text('provider', { enum: ['apns', 'fcm', 'web-push'] }).primaryKey(),
+    globalConcurrency: integer('global_concurrency').notNull(),
+    tenantConcurrency: integer('tenant_concurrency').notNull(),
+  },
+  (table) => [
+    check('provider_budgets_provider_valid', sql`${table.provider} IN ('apns', 'fcm', 'web-push')`),
+    check(
+      'provider_budgets_concurrency_bounds',
+      sql`${table.tenantConcurrency} > 0 AND ${table.globalConcurrency} > ${table.tenantConcurrency}`,
+    ),
   ],
 );

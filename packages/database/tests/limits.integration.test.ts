@@ -6,8 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { Client } from 'pg';
 import { v7 } from 'uuid';
+import * as v from 'valibot';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { insertDeliveryJob, startDeliveryQueue } from '../src/delivery-queue.ts';
+import {
+  completeDeliveryJob,
+  fetchDeliveryJobs,
+  insertDeliveryJob,
+  startDeliveryQueue,
+} from '../src/delivery-queue.ts';
 import { reserveAdmission, settleAdmission } from '../src/limits.ts';
 import { withTenantTransaction } from '../src/tenancy/index.ts';
 
@@ -46,7 +52,7 @@ describe.skipIf(!testUrl)('distributed admission in disposable PostgreSQL', () =
       const { useApiDb, useWorkerDb } = await import(${JSON.stringify(new URL('../src/index.ts', import.meta.url).href)});
       const { withTenantTransaction } = await import(${JSON.stringify(new URL('../src/tenancy/index.ts', import.meta.url).href)});
       const { admitNotification, releaseNotificationCapacity } = await import(${JSON.stringify(new URL('../../service/src/limits.ts', import.meta.url).href)});
-      const { startDeliveryQueue } = await import(${JSON.stringify(new URL('../src/delivery-queue.ts', import.meta.url).href)});
+      const { startDeliveryQueue, fetchDeliveryJobs } = await import(${JSON.stringify(new URL('../src/delivery-queue.ts', import.meta.url).href)});
       const runtime = await ${role === 'api' ? 'useApiDb' : 'useWorkerDb'}();
       const queue = ${role === 'worker' ? "await startDeliveryQueue(runtime, 'worker')" : 'null'};
       const scope = ${JSON.stringify(scope)};
@@ -97,7 +103,7 @@ describe.skipIf(!testUrl)('distributed admission in disposable PostgreSQL', () =
 
   beforeEach(async () => {
     await fixture.query(
-      "DELETE FROM app.admission_reservations; DELETE FROM app.key_budgets; DELETE FROM app.tenant_budgets; DELETE FROM pgboss.job WHERE name LIKE 'delivery-%'",
+      "DELETE FROM app.admission_reservations; DELETE FROM app.key_budgets; DELETE FROM app.tenant_budgets; DELETE FROM pgboss.job WHERE name LIKE 'delivery-%'; UPDATE app.provider_budgets SET global_concurrency=3, tenant_concurrency=1",
     );
     await fixture.query(
       'INSERT INTO app.tenant_budgets (organization_id,request_limit,key_request_limit,fanout_limit,pending_limit) VALUES ($1,3,2,4,4),($2,3,2,4,4)',
@@ -268,6 +274,64 @@ describe.skipIf(!testUrl)('distributed admission in disposable PostgreSQL', () =
     ).toEqual({ requests: 2, fanout: 2, pending: 2 });
   });
 
+  it('caps active provider claims across worker processes and bypasses a saturated noisy tenant', async () => {
+    await fixture.query('UPDATE app.provider_budgets SET tenant_concurrency=2 WHERE provider=$1', [
+      'apns',
+    ]);
+    const inputs = Array.from({ length: 12 }, (_entry, index) => {
+      const tenantId = index < 10 ? organizationId : healthyId;
+      const tenantScope = { kind: 'organization', organizationId: tenantId } as const;
+      const job = {
+        organizationId: tenantId,
+        projectId: v7(),
+        environmentId: v7(),
+        notificationId: v7(),
+        deliveryId: v7(),
+        provider: 'apns' as const,
+      };
+      return withTenantTransaction(api, tenantScope, (transaction) =>
+        insertDeliveryJob(queue, transaction, v7(), job),
+      );
+    });
+    await Promise.all(inputs);
+    const outputs = await Promise.all([
+      runReplica(
+        'worker',
+        "const batches = await Promise.all(Array.from({ length: 6 }, () => fetchDeliveryJobs(runtime, queue, 'apns'))); console.info(JSON.stringify(batches.flat()));",
+      ),
+      runReplica(
+        'worker',
+        "const batches = await Promise.all(Array.from({ length: 6 }, () => fetchDeliveryJobs(runtime, queue, 'apns'))); console.info(JSON.stringify(batches.flat()));",
+      ),
+    ]);
+    const claimSchema = v.object({
+      id: v.string(),
+      retryCount: v.number(),
+      data: v.object({ organizationId: v.string() }),
+    });
+    const claims = outputs.flatMap((output) => v.parse(v.array(claimSchema), JSON.parse(output)));
+    expect(claims).toHaveLength(3);
+    expect(claims.filter(({ data }) => data.organizationId === organizationId)).toHaveLength(2);
+    expect(claims.filter(({ data }) => data.organizationId === healthyId)).toHaveLength(1);
+    const healthy = claims.find(({ data }) => data.organizationId === healthyId);
+    if (!healthy) {
+      throw new Error('TEST_HEALTHY_CLAIM_MISSING');
+    }
+    await withTenantTransaction(worker, healthyScope, (transaction) =>
+      completeDeliveryJob(queue, transaction, 'apns', healthy),
+    );
+    const [next] = await fetchDeliveryJobs(secondWorker, secondQueue, 'apns');
+    expect(next?.data.organizationId).toBe(healthyId);
+    expect(
+      (
+        await fixture.query<{ count: number }>(
+          "SELECT count(*)::integer AS count FROM pgboss.job WHERE name='delivery-apns' AND state='active'",
+        )
+      ).rows[0]?.count,
+    ).toBe(3);
+    expect(await fetchDeliveryJobs(worker, queue, 'fcm')).toEqual([]);
+  });
+
   it('fails closed across tenants and denies runtime edits to operator limits', async () => {
     await runReplica(
       'api',
@@ -287,6 +351,9 @@ describe.skipIf(!testUrl)('distributed admission in disposable PostgreSQL', () =
     await expect(
       api.pool.query('UPDATE app.tenant_budgets SET request_limit=1000'),
     ).rejects.toMatchObject({ code: '42501' });
+    await expect(
+      worker.pool.query('UPDATE app.provider_budgets SET global_concurrency=1000'),
+    ).rejects.toMatchObject({ code: '42501' });
     await expect(worker.pool.query('DELETE FROM app.admission_reservations')).rejects.toMatchObject(
       { code: '42501' },
     );
@@ -303,5 +370,9 @@ describe.skipIf(!testUrl)('distributed admission in disposable PostgreSQL', () =
         (transaction) => reserveAdmission(transaction, lazyId, null, v7(), 1),
       ),
     ).toEqual({ status: 'accepted', replay: false });
+    await fixture.query("DELETE FROM app.provider_budgets WHERE provider='apns'");
+    await expect(fetchDeliveryJobs(worker, queue, 'apns')).rejects.toThrow(
+      'DELIVERY_PROVIDER_BUDGET_UNAVAILABLE',
+    );
   });
 });
