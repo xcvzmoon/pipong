@@ -10,6 +10,7 @@ export default defineConfig({
     './src/endpoints/schema.ts',
     './src/events-schema.ts',
     './src/limits-schema.ts',
+    './src/submission-schema.ts',
   ],
   out: './migrations/tenancy',
   migrations: {

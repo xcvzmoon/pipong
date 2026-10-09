@@ -22,7 +22,8 @@
     "@pipong/database": "workspace:*",
     "ipaddr.js": "catalog:",
     "valibot": "catalog:shared",
-    "web-push": "catalog:"
+    "web-push": "catalog:",
+    "uuid": "catalog:shared"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",

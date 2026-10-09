@@ -410,7 +410,7 @@ finish within the heartbeat/lease budget once consumers are implemented.
 Automatic deletion is disabled for finished provider jobs, including exhausted
 failures. Unfinished jobs and failed evidence remain until application retention
 and reconciliation are implemented. Operators should monitor queue storage;
-this increment does not provide notification submission or delivery status APIs.
+submission is available, while delivery status APIs remain later plan work.
 The PostgreSQL lifecycle suite exercises transactional insertion/completion,
 suppression, stale claims, crash recovery, retention, and provisioning denial.
 
@@ -430,3 +430,16 @@ RLS. Operator-owned limits are immutable to runtime accounts. Provider claims
 share a PostgreSQL lock per provider and use pg-boss organization groups for
 distributed tenant concurrency. See [distributed admission](../../ADMISSION.md)
 for transaction ownership, defaults, operator configuration, and verification.
+
+## Atomic submission
+
+`app.notifications`, `app.deliveries`, and `app.idempotency_records` use
+strict environment-scoped FORCE RLS and composite ownership constraints. Runtime
+accounts cannot update notification content or delivery snapshot bindings. Only
+the worker may update delivery state; API acceptance replaces an expired replay
+record while preserving the original notification and delivery history.
+
+Acceptance holds an environment/key advisory lock through commit, validates the
+fingerprint before replay accounting, resolves active generation bindings, and
+reserves quota before inserting application rows, events, and queue jobs.
+See [notification submission](../../NOTIFICATIONS.md) for the public contract.

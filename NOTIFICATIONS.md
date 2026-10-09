@@ -1,9 +1,14 @@
 # Notification request contract
 
-Phase 15 provides validation and payload encoding through `@pipong/service`.
-Notification submission is not exposed yet. Phase 19 will add the authorized,
-idempotent POST operation after queue, event, and admission primitives exist.
-Workers do not send push notifications yet.
+Submit with `POST /api/v1/organizations/{organizationId}/projects/{projectId}/environments/{environmentId}/notifications`.
+Use an authorized session or environment-bound service key with `notification:send`
+and a required `Idempotency-Key` header. Keys contain 1–200 ASCII letters, digits,
+periods, underscores, colons, or hyphens. JSON content type is required.
+
+Acceptance persists the notification, deduplicated endpoint-generation snapshots,
+admission reservation, queued events, and identifier-only jobs in one transaction.
+Workers do not send push notifications yet; provider consumers follow fenced
+attempts and provider adapter qualification.
 
 ## Request
 
@@ -27,10 +32,10 @@ Workers do not send push notifications yet.
 ```
 
 - Targets are UUIDs: at most 100 recipient IDs or 1,000 explicit endpoint IDs.
-  Acceptance will resolve active endpoints in the authorized environment, deduplicate
-  them, and enforce a maximum of 1,000 deliveries. Empty expansion is rejected.
-- The raw UTF-8 body is limited to 65,536 bytes. The future HTTP adapter must enforce
-  this while reading, before buffering. The parser also checks the buffered body.
+  Acceptance resolves active endpoints in the authorized environment, deduplicate
+  them, and enforces a maximum of 1,000 deliveries. Empty expansion is rejected.
+- The raw UTF-8 body is limited to 65,536 bytes. The HTTP adapter bounds each
+  streaming chunk before buffering and rejects invalid UTF-8.
 - Content requires an alert or nonempty data. Alert title/body are nonempty strings;
   data values are strings. Unpaired Unicode surrogates and unknown fields are rejected.
 - `expiresAt` is an ISO timestamp at least one second and at most 28 days after the
@@ -76,14 +81,53 @@ Helpers return `{ ok: true, value }` or `{ ok: false, problem }`. Problems conta
 RFC 9457 `type`, `title`, `status`, stable `code`, and the server-generated
 `requestId`. Schema failures include safe JSON pointers in `invalidParams`, limited
 to known top-level fields or the document root. They omit input values and validation
-messages. The HTTP adapter will return `application/problem+json`.
+messages. The HTTP adapter returns `application/problem+json`.
 
 Body overflow is 413 `NOTIFICATION_BODY_TOO_LARGE`. Other failures are 422:
 `NOTIFICATION_INVALID`, `NOTIFICATION_EXPIRY_INVALID`,
 `NOTIFICATION_PAYLOAD_TOO_LARGE`, `NOTIFICATION_NO_TARGETS`, or
 `NOTIFICATION_TARGET_LIMIT_EXCEEDED`.
 
-The phase-19 acceptance transaction must validate every resolved provider payload
-with persisted IDs before creating any jobs. It will also implement scope-bound
-idempotency fingerprints and retain immutable endpoint generations. This phase does
-not persist notifications, enforce quotas, or promise delivery.
+The HTTP adapter also rejects missing/invalid idempotency keys with 422
+`NOTIFICATION_IDEMPOTENCY_KEY_INVALID`, fingerprint changes with 409
+`idempotency_conflict`, and exhausted admission with 429 plus `Retry-After`.
+Persistence or queue failures return 503 and roll back the entire acceptance.
+
+## Acceptance and replay
+
+Success returns 202, `Location` pointing to the notification resource, and:
+
+```json
+{
+  "notificationId": "019a0000-0000-7000-8000-000000000001",
+  "acceptedAt": "2026-10-09T09:00:00.000Z",
+  "deliveryCount": 2
+}
+```
+
+The key is scoped to the organization/project/environment and retained for seven
+days from acceptance. Concurrent identical requests return the same committed
+body and Location. Fingerprints include normalized targets, content, expiry,
+overrides, and scope. Target duplicates/order, JSON property order, and explicit
+schema defaults do not change the fingerprint. Changed content or targeting with
+a live key returns 409; after the window expires, key reuse may create new work.
+
+Every replay checks live authority and request admission. It returns the original
+response even if endpoints change or notification expiry passes, without consuming
+new fanout/pending capacity. An expired key starts a new acceptance and must pass
+current expiry, target, payload, and capacity checks. Revocation, suspension, or
+organization disablement blocks replay.
+
+Targets resolve only active recipients, endpoints, and bound credential versions
+in the authorized environment. Missing, foreign, deleted, or inactive targets
+contribute no work. At least one target must remain. Every resolved payload passes
+its provider's final byte bound before any acceptance writes. Deliveries retain
+the original endpoint generation and credential binding.
+
+Apply migrations before deployment. Notification summary/delivery inspection,
+cancellation, and provider consumers remain later plan work; the Location resource
+is reserved for the summary API. A 202 confirms durable queuing, not device delivery.
+
+Run the built HTTP/PostgreSQL suite with `TEST_AUTH_DATABASE_URL` and
+`pnpm --filter pipong-server exec vitest run tests/submission.integration.test.ts`.
+Use a disposable PostgreSQL 18 cluster; tests create/drop databases and runtime roles.
