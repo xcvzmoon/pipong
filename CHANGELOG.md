@@ -1,5 +1,59 @@
 # Changelog
 
+## v0.0.5
+
+[compare changes](https://github.com/xcvzmoon/pipong/compare/v0.0.4...v0.0.5)
+
+### 🚀 Enhancements
+
+- **database:** Persist environment-scoped recipient identities ([b9b6f73](https://github.com/xcvzmoon/pipong/commit/b9b6f73))
+- **service:** Add scoped recipient identity operations ([0b8fc81](https://github.com/xcvzmoon/pipong/commit/0b8fc81))
+- **server:** Expose the scoped recipient HTTP lifecycle ([3905c8c](https://github.com/xcvzmoon/pipong/commit/3905c8c))
+- **config:** Require absolute credential keyring paths ([93eb8ef](https://github.com/xcvzmoon/pipong/commit/93eb8ef))
+- **service:** Encrypt secrets with authenticated tenant context ([837ecf5](https://github.com/xcvzmoon/pipong/commit/837ecf5))
+- **database:** Persist scoped immutable credential versions ([217ec6a](https://github.com/xcvzmoon/pipong/commit/217ec6a))
+- **service:** Manage encrypted provider credential lifecycles ([08c0655](https://github.com/xcvzmoon/pipong/commit/08c0655))
+- **server:** Expose scoped credential lifecycle HTTP operations ([fce8ce6](https://github.com/xcvzmoon/pipong/commit/fce8ce6))
+- **service:** Guard Web Push HTTPS connections ([b24a14d](https://github.com/xcvzmoon/pipong/commit/b24a14d))
+- **database:** Persist encrypted endpoint generations ([72d73e8](https://github.com/xcvzmoon/pipong/commit/72d73e8))
+- **service:** Expose generation-checked endpoint operations ([0c8144c](https://github.com/xcvzmoon/pipong/commit/0c8144c))
+- **notifications:** Validate requests and encode bounded provider payloads ([5888073](https://github.com/xcvzmoon/pipong/commit/5888073))
+- **notifications:** Validate requests and encode bounded provider payloads ([ce39d39](https://github.com/xcvzmoon/pipong/commit/ce39d39))
+- **queue:** Restrict supervision to worker processes ([e7c5581](https://github.com/xcvzmoon/pipong/commit/e7c5581))
+- **database:** Provision provider delivery queues ([3ad3806](https://github.com/xcvzmoon/pipong/commit/3ad3806))
+- **delivery:** Add transactional queue operations ([9859cc7](https://github.com/xcvzmoon/pipong/commit/9859cc7))
+- **worker:** Require provisioned delivery queues at startup ([5cc02d9](https://github.com/xcvzmoon/pipong/commit/5cc02d9))
+- **events:** Add commit-ordered delivery ledger ([90f5339](https://github.com/xcvzmoon/pipong/commit/90f5339))
+- **api:** Expose authorized delivery event replay ([99d1e88](https://github.com/xcvzmoon/pipong/commit/99d1e88))
+
+### 📖 Documentation
+
+- **recipients:** Document identity and deletion operations ([84ac756](https://github.com/xcvzmoon/pipong/commit/84ac756))
+- **plan:** Record recipient phase verification and next steps ([77d3c5d](https://github.com/xcvzmoon/pipong/commit/77d3c5d))
+- **credentials:** Document provider versions and key rotation ([7c844cf](https://github.com/xcvzmoon/pipong/commit/7c844cf))
+- **plan:** Record credential verification and next steps ([44804d3](https://github.com/xcvzmoon/pipong/commit/44804d3))
+- **agents:** Record spacing and worktree preferences ([0678c68](https://github.com/xcvzmoon/pipong/commit/0678c68))
+- **egress:** Explain operator destination policy ([3be4cb3](https://github.com/xcvzmoon/pipong/commit/3be4cb3))
+- **plan:** Record phase 13 verification and next step ([b94c38f](https://github.com/xcvzmoon/pipong/commit/b94c38f))
+- **endpoints:** Describe registration and disable contracts ([a2bca16](https://github.com/xcvzmoon/pipong/commit/a2bca16))
+- **plan:** Record phase 14 verification and next step ([1cc760a](https://github.com/xcvzmoon/pipong/commit/1cc760a))
+- **notifications:** Describe request fields and provider limits ([1370745](https://github.com/xcvzmoon/pipong/commit/1370745))
+- **plan:** Record phase 15 verification and queue next step ([b76ebf8](https://github.com/xcvzmoon/pipong/commit/b76ebf8))
+- **notifications:** Describe request fields and provider limits ([d291753](https://github.com/xcvzmoon/pipong/commit/d291753))
+- **plan:** Record phase 15 verification and queue next step ([859310b](https://github.com/xcvzmoon/pipong/commit/859310b))
+- **queue:** Describe delivery queue operations ([9c37462](https://github.com/xcvzmoon/pipong/commit/9c37462))
+- **plan:** Record phase 16 verification and events next step ([f7857d2](https://github.com/xcvzmoon/pipong/commit/f7857d2))
+- **events:** Describe replay and retention operations ([c309012](https://github.com/xcvzmoon/pipong/commit/c309012))
+- **plan:** Record phase 17 verification and admission next step ([db815c9](https://github.com/xcvzmoon/pipong/commit/db815c9))
+
+### 🏡 Chore
+
+- **skills:** Add create-pr-with-evidence-skill ([139a46b](https://github.com/xcvzmoon/pipong/commit/139a46b))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.4
 
 [compare changes](https://github.com/xcvzmoon/pipong/compare/v0.0.3...v0.0.4)
