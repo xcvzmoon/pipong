@@ -9,6 +9,7 @@ export default defineConfig({
     './src/credentials/schema.ts',
     './src/endpoints/schema.ts',
     './src/events-schema.ts',
+    './src/limits-schema.ts',
   ],
   out: './migrations/tenancy',
   migrations: {

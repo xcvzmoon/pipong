@@ -95,6 +95,9 @@ export { encodeProviderPayload } from './provider-payloads.ts';
 export type { DeliveryJob, QueueRuntime } from '@pipong/database/delivery-queue';
 export { startDeliveryQueue, completeDeliveryJob } from '@pipong/database/delivery-queue';
 export { deliveryJobSchema, enqueueDelivery } from './queue.ts';
+export { admitNotification, releaseNotificationCapacity } from './limits.ts';
+export type { AdmissionDecision, TenantBudget } from './limits.ts';
+export { fetchDeliveryJobs } from '@pipong/database/delivery-queue';
 
 export { recordDeliveryEvent, replayDeliveryEvents, deliveryEventInputSchema } from './events.ts';
 export type {
