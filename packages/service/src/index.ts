@@ -107,3 +107,6 @@ export type {
   EventPage,
   EventReplayResult,
 } from './events.ts';
+
+export { submitNotification, idempotencyKeySchema } from './submit-notification.ts';
+export type { SubmissionResult } from './submit-notification.ts';
