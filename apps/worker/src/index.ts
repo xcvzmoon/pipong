@@ -1,12 +1,13 @@
 import { loadMailConfig, startAuthMailWorker } from '@pipong/auth';
-import { startQueue, useWorkerDb } from '@pipong/database';
+import { useWorkerDb } from '@pipong/database';
+import { startDeliveryQueue } from '@pipong/database/delivery-queue';
 import { loadWorkerConfig } from '@pipong/shared';
 import { setInterval } from 'node:timers/promises';
 
 loadWorkerConfig();
 const mailConfig = loadMailConfig();
 const database = await useWorkerDb();
-const mailQueue = await startQueue(database, 'worker').catch(async (error: Error) => {
+const mailQueue = await startDeliveryQueue(database, 'worker').catch(async (error: Error) => {
   await database.close();
   throw error;
 });
