@@ -9,7 +9,7 @@ import { withTenantTransaction } from '@pipong/database/tenancy';
 import { v7 } from 'uuid';
 import * as v from 'valibot';
 import { credentialInputSchema } from '../credentials.ts';
-import { decideDeliveryRetry } from '../delivery-policy.ts';
+import { decideDeliveryRetry, expiredSendReservation } from '../delivery-policy.ts';
 import { endpointInputSchema } from '../endpoints.ts';
 import { notificationRequestSchema } from '../notification-contract.ts';
 import { encodeProviderPayload } from '../provider-payloads.ts';
@@ -63,6 +63,10 @@ export function createApnsRuntime(connection: ApnsConnection = connectApns): Apn
   async function send(reservation: ReservedSend, keyring: SecretKeyring): Promise<ApnsOutcome> {
     if (closed) {
       throw new Error('APNS_RUNTIME_CLOSED');
+    }
+    const expired = expiredSendReservation(reservation.sendUntil);
+    if (expired) {
+      return { outcome: expired, response: null };
     }
     const { job } = reservation.fence;
     if (job.provider !== 'apns') {
@@ -176,7 +180,12 @@ export function createApnsRuntime(connection: ApnsConnection = connectApns): Apn
       client = createApnsClient(binding, connection);
       clients.set(cacheKey, client);
     }
-    const result = await client.send(payload.value, target.token, job.deliveryId);
+    const result = await client.send(
+      payload.value,
+      target.token,
+      job.deliveryId,
+      reservation.sendUntil,
+    );
     if (result.kind === 'ambiguous') {
       return {
         outcome: {

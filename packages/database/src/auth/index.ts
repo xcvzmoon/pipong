@@ -7,3 +7,4 @@ export {
   readEnrollmentState,
   insertEnrollmentAudit,
 } from './enrollment.ts';
+export { withActiveOrganization } from './organization.ts';

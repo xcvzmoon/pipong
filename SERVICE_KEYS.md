@@ -110,8 +110,8 @@ Security management remains available in suspended environments.
 Expired and revoked metadata is retained; the auth adapter disables the plugin's
 automatic key deletion. Lifecycle audits record the human actor, session, scope,
 key ID, and replacement ID without credential material. Runtime privileges make
-grants immutable and audits append-only. Retention and tenant erasure are
-implemented in phase 26; this phase does not purge these records.
+grants immutable and audits append-only. The worker clears scoped key hashes and metadata during
+[erasure](./ERASURE.md) and removes key audits after 90 days.
 
 Native `/api/auth/api-key/*` operations remain disabled so they cannot bypass
 MFA, grant binding, or lifecycle audit policy.

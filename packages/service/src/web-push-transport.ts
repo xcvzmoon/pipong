@@ -27,6 +27,7 @@ export async function sendWebPushRequest(
   resolver?: DestinationResolver,
 ): Promise<WebPushResponse> {
   const controller = new AbortController();
+  const deadlineAt = Date.now() + policy.totalTimeoutMs;
   const deadlineError = new Error('EGRESS_DEADLINE: request deadline exceeded');
   const timer = setTimeout(() => {
     controller.abort(deadlineError);
@@ -43,6 +44,9 @@ export async function sendWebPushRequest(
         controller.signal.addEventListener('abort', abortListener, { once: true });
       }),
     ]);
+    if (Date.now() >= deadlineAt) {
+      throw deadlineError;
+    }
     const hostname = destination.url.hostname.replace(/^\[|\]$/g, '');
 
     return await new Promise<WebPushResponse>((resolve, reject) => {

@@ -5,16 +5,23 @@ import type { PgBoss } from 'pg-boss';
 import type { AuthMail } from './mail/payload.ts';
 import type { AuthenticationFailure, Principal } from './principal.ts';
 import type { ServiceKeyIssuer } from './service-keys.ts';
-import { createAuthClient } from '@pipong/database/auth';
+import { authTransactionQueue } from '@pipong/database';
+import { createAuthClient, withActiveOrganization } from '@pipong/database/auth';
 import { betterAuth } from 'better-auth/minimal';
 import { organization } from 'better-auth/plugins/organization';
 import { twoFactor } from 'better-auth/plugins/two-factor';
 import { v7 } from 'uuid';
+import * as v from 'valibot';
 import { createAuthAdapter } from './adapter.ts';
 import { enrollmentBefore, enrollmentAfter } from './assurance.ts';
-import { enqueueAuthMail } from './mail/queue.ts';
+import { authMailQueueName, enqueueAuthMail } from './mail/queue.ts';
 import { authenticateRequest } from './principal.ts';
 import { createServiceKeyIssuer, serviceKeyPlugin } from './service-keys.ts';
+
+const organizationRequestSchema = v.object({
+  organizationId: v.optional(v.pipe(v.string(), v.uuid())),
+  invitationId: v.optional(v.pipe(v.string(), v.uuid())),
+});
 
 export type HumanAuth = {
   handler: (request: Request) => Promise<Response>;
@@ -52,7 +59,56 @@ export function createAuth(database: DatabaseRuntime, config: ApiConfig, queue: 
   const origin = new URL(config.authBaseUrl).origin;
 
   return {
-    handler: auth.handler,
+    handler: async (request) => {
+      const path = new URL(request.url).pathname;
+      if (!path.startsWith('/api/auth/organization/') || path.endsWith('/list-user-invitations')) {
+        return auth.handler(request);
+      }
+      const url = new URL(request.url);
+      const parsed = v.safeParse(
+        organizationRequestSchema,
+        request.method === 'GET'
+          ? { invitationId: url.searchParams.get('id') ?? undefined }
+          : await request
+              .clone()
+              .json()
+              .catch(() => null),
+      );
+      if (!parsed.success) {
+        return organizationProblem(422, 'AUTH_ORGANIZATION_INPUT_INVALID');
+      }
+      const organizationId = path.endsWith('/invite-member')
+        ? (parsed.output.organizationId ?? null)
+        : null;
+      const invitationId = path.endsWith('/invite-member')
+        ? null
+        : (parsed.output.invitationId ?? null);
+      if (organizationId === null && invitationId === null) {
+        return organizationProblem(422, 'AUTH_ORGANIZATION_INPUT_INVALID');
+      }
+      const response = await withActiveOrganization(
+        createAuthClient(database),
+        organizationId,
+        invitationId,
+        async (transaction) => {
+          const engine = createAuthEngine(
+            transaction,
+            config,
+            async (mail) => {
+              const id = await queue.send(authMailQueueName, mail, {
+                db: authTransactionQueue(transaction),
+              });
+              if (!id) {
+                throw new Error('AUTH_MAIL_ENQUEUE_FAILED');
+              }
+            },
+            'http',
+          );
+          return engine.handler(request);
+        },
+      );
+      return response ?? organizationProblem(403, 'AUTH_ORGANIZATION_DISABLED');
+    },
     origin,
     authenticate: (request) => authenticateRequest(auth, origin, request),
     issueServiceKey: createServiceKeyIssuer(config),
@@ -211,4 +267,17 @@ function invitationUrl(config: ApiConfig, invitationId: string): string {
   const url = new URL('/api/auth/organization/get-invitation', config.authBaseUrl);
   url.searchParams.set('id', invitationId);
   return url.href;
+}
+
+function organizationProblem(
+  status: 403 | 422,
+  code: 'AUTH_ORGANIZATION_INPUT_INVALID' | 'AUTH_ORGANIZATION_DISABLED',
+): Response {
+  return Response.json(
+    { type: 'about:blank', title: status === 403 ? 'Forbidden' : 'Invalid input', status, code },
+    {
+      status,
+      headers: { 'content-type': 'application/problem+json', 'cache-control': 'no-store' },
+    },
+  );
 }

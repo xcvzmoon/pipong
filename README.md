@@ -42,7 +42,7 @@ pnpm server preview --port 3100
 
 Arguments after the script name are forwarded to that script. An unknown script fails rather than falling back to an executable.
 
-The independent Node.js worker lives in `apps/worker`. It processes queued authentication email, reconciles exhausted delivery jobs, and supervises the migrated APNs, FCM, and Web Push queues. Push delivery consumers are not enabled yet. See the internal [APNs](./APNS.md), [FCM](./FCM.md), and [Web Push](./WEB-PUSH.md) adapter notes. Run migrations before deploying the worker; see [provider queue operations](./packages/database/README.md#provider-delivery-queues).
+The independent Node.js worker lives in `apps/worker`. It processes queued authentication email, reconciles exhausted delivery jobs, runs bounded erasure and retention, and supervises the migrated APNs, FCM, and Web Push queues. Push delivery consumers are not enabled yet. See the internal [APNs](./APNS.md), [FCM](./FCM.md), and [Web Push](./WEB-PUSH.md) adapter notes. Run migrations before deploying the worker; see [provider queue operations](./packages/database/README.md#provider-delivery-queues).
 
 ```bash
 pnpm --filter pipong-worker build
@@ -58,13 +58,13 @@ The built entrypoint is `apps/worker/dist/index.mjs`. Deploy the whole `dist` di
 [Domain authorization](./AUTHORIZATION.md) describes role permissions, environment-bound service keys, recent MFA, and the transaction boundary used by `/api/v1` capabilities.
 
 [Projects and environments](./PROJECTS.md) describes scoped resource operations,
-pagination, suspension, and the deletion gate.
+pagination, suspension, and erasure requests.
 
 [Organization service keys](./SERVICE_KEYS.md) describes once-visible issuance,
 fixed environment grants, rotation overlap, revocation, and metadata retention.
 
 [Application recipients](./RECIPIENTS.md) describes environment-scoped identities,
-upsert/read/list operations, pagination, and bounded soft deletion.
+upsert/read/list operations, pagination, and erasure requests.
 
 [Provider credentials](./CREDENTIALS.md) describes encrypted immutable versions,
 activation, retirement, VAPID public keys, and encryption-key rotation.
@@ -77,6 +77,9 @@ payload limits, atomic submission, and seven-day idempotent replay.
 
 [Delivery recovery](./RECOVERY.md) describes retry bounds, pending cancellation,
 audited redrive, and exhausted-job reconciliation.
+
+[Erasure and retention](./ERASURE.md) describes lifecycle tombstones, the reserved-send
+exception, bounded cleanup, audit retention, and backup exclusions.
 
 [Notification status](./OBSERVATION.md) describes summary counts, delivery
 outcomes, redacted attempts, and pagination.

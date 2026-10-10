@@ -32,6 +32,7 @@ export type ApnsClient = {
     payload: Extract<ProviderPayload, { provider: 'apns' }>,
     token: string,
     id: string,
+    sendUntil: Date,
   ) => Promise<ApnsTransportResult>;
   close: () => void;
   busy: () => boolean;
@@ -85,7 +86,11 @@ export function createApnsClient(binding: ApnsBinding, connection: ApnsConnectio
     payload: Extract<ProviderPayload, { provider: 'apns' }>,
     token: string,
     id: string,
+    sendUntil: Date,
   ): Promise<ApnsTransportResult> {
+    if (sendUntil.getTime() <= Date.now()) {
+      return { kind: 'ambiguous', code: 'APNS_TRANSPORT_FAILED' };
+    }
     if (closed || active) {
       throw new Error('APNS_CLIENT_UNAVAILABLE');
     }
@@ -126,10 +131,13 @@ export function createApnsClient(binding: ApnsBinding, connection: ApnsConnectio
         let body = '';
         let bytes = 0;
         let settled = false;
-        const deadline = setTimeout(() => {
-          finish({ kind: 'ambiguous', code: 'APNS_TRANSPORT_FAILED' });
-          current.destroy();
-        }, 10_000);
+        const deadline = setTimeout(
+          () => {
+            finish({ kind: 'ambiguous', code: 'APNS_TRANSPORT_FAILED' });
+            current.destroy();
+          },
+          Math.min(10_000, Math.max(1, sendUntil.getTime() - Date.now())),
+        );
         function finish(result: ApnsTransportResult): void {
           if (settled) {
             return;

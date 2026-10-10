@@ -46,6 +46,7 @@ function reservation(
   };
   return {
     status: 'send',
+    sendUntil: new Date(Date.now() + 120_000),
     fence: {
       job: { ...scope, notificationId: deliveryId, deliveryId, provider: 'apns' },
       claim: { id: deliveryId, retryCount: 0 },
@@ -146,6 +147,21 @@ describe('APNs over local HTTP/2', () => {
       stream.respond({ ':status': 200, 'apns-id': apnsId });
       stream.end();
     };
+  });
+
+  it('refuses a paused reservation after its send deadline without opening a provider connection', async () => {
+    const expired = { ...reservation(), sendUntil: new Date(0) };
+    const runtime = createApnsRuntime(() => {
+      throw new Error('TEST_UNEXPECTED_CONNECTION');
+    });
+    try {
+      expect((await runtime.send(expired, keyring)).outcome).toMatchObject({
+        kind: 'transient',
+        code: 'DELIVERY_RESERVATION_EXPIRED',
+      });
+    } finally {
+      runtime.close();
+    }
   });
 
   it('rejects an untrusted TLS peer before sending', async () => {

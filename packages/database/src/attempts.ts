@@ -1,12 +1,13 @@
 import type { DeliveryJob, QueueRuntime } from './delivery-queue.ts';
 import type { TenantTransaction } from './tenancy/index.ts';
-import { and, count, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, sql } from 'drizzle-orm';
 import * as v from 'valibot';
 import { deliveryAttempts } from './attempts-schema.ts';
 import { scopeExists, scopeSuspended } from './authorization/index.ts';
 import { credentialVersions } from './credentials/schema.ts';
 import { completeDeliveryJob, insertDeliveryJob } from './delivery-queue.ts';
 import { endpointGenerations, endpoints } from './endpoints/schema.ts';
+import { erasureJobs } from './erasure-schema.ts';
 import { appendDeliveryEvent } from './events.ts';
 import { settleAdmission } from './limits.ts';
 import { recipients } from './recipients/schema.ts';
@@ -21,6 +22,7 @@ export type SendReservation =
       fence: AttemptFence;
       request: string;
       expiresAt: Date;
+      sendUntil: Date;
       encryptedTarget: string;
       encryptedSecret: string;
       appId: string;
@@ -171,6 +173,7 @@ export async function publishDeliveryState(
  * notification, delivery, claim. Cancellation must lock the notification and change
  * only queued/retry-wait deliveries. A committed reservation survives later disablement.
  * The caller must use a worker tenant transaction and commit before network I/O.
+ * Send snapshots expire after two minutes; adapters must honor sendUntil.
  * @param transaction - Worker transaction with the job's validated tenant context.
  * @param queue - Queue backed by the same database.
  * @param job - Validated identifier-only payload returned by fetch.
@@ -252,6 +255,7 @@ export async function reserveDeliveryAttempt(
     suspended ||
     recipient?.deletedAt !== null ||
     endpoint?.state !== 'active' ||
+    endpoint.installationId === null ||
     endpoint.generation !== delivery.generation
   ) {
     blockedState = 'canceled';
@@ -286,7 +290,7 @@ export async function reserveDeliveryAttempt(
         eq(endpointGenerations.credentialId, delivery.credentialId),
       ),
     );
-  if (!snapshot || !credential || !endpoint) {
+  if (!snapshot || !credential || !endpoint || endpoint.installationId === null) {
     throw new Error('DELIVERY_NOT_FOUND: immutable send snapshot is unavailable');
   }
   await transaction
@@ -319,6 +323,7 @@ export async function reserveDeliveryAttempt(
     fence: { job, claim, generation },
     request: notification.request,
     expiresAt: notification.expiresAt,
+    sendUntil: new Date(Math.min(notification.expiresAt.getTime(), now.getTime() + 120_000)),
     encryptedTarget: snapshot.encryptedTarget,
     encryptedSecret: credential.encryptedSecret,
     appId: endpoint.appId,
@@ -363,11 +368,28 @@ export async function settleDeliveryAttempt(
   }
   const now = await databaseTime(transaction);
   let state: typeof deliveries.$inferSelect.state;
-  if (outcome.kind === 'accepted') {
+  const [erasure] = await transaction
+    .select({ inFlightUntil: erasureJobs.inFlightUntil })
+    .from(erasureJobs)
+    .where(
+      and(
+        eq(erasureJobs.organizationId, job.organizationId),
+        sql`(${erasureJobs.kind} = 'organization'
+      OR (${erasureJobs.kind} = 'project' AND ${erasureJobs.projectId} = ${job.projectId}::uuid)
+      OR (${erasureJobs.kind} = 'environment' AND ${erasureJobs.environmentId} = ${job.environmentId}::uuid)
+      OR (${erasureJobs.kind} = 'recipient' AND EXISTS (SELECT 1 FROM app.deliveries affected JOIN app.endpoints endpoint ON endpoint.id=affected.endpoint_id WHERE affected.notification_id=${job.notificationId}::uuid AND endpoint.recipient_id=${erasureJobs.recipientId})))`,
+      ),
+    )
+    .orderBy(asc(erasureJobs.inFlightUntil))
+    .limit(1);
+  const abandoned = erasure !== undefined && erasure.inFlightUntil <= now;
+  if (abandoned) {
+    state = 'canceled';
+  } else if (outcome.kind === 'accepted') {
     state = 'provider_accepted';
   } else if (outcome.kind === 'permanent') {
     state = 'failed';
-  } else if (notification.canceledAt !== null) {
+  } else if (erasure || notification.canceledAt !== null) {
     state = 'canceled';
   } else {
     const decision = retryPolicy(
@@ -393,9 +415,9 @@ export async function settleDeliveryAttempt(
     .update(deliveryAttempts)
     .set({
       finishedAt: now,
-      outcome: outcome.kind,
-      code: outcome.code,
-      providerResponse: outcome.providerResponse,
+      outcome: abandoned ? 'ambiguous' : outcome.kind,
+      code: abandoned ? 'DELIVERY_ERASURE_ABANDONED' : outcome.code,
+      providerResponse: abandoned ? null : outcome.providerResponse,
     })
     .where(
       and(

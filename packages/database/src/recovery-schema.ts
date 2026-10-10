@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { check, foreignKey, pgPolicy, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import {
+  check,
+  index,
+  foreignKey,
+  pgPolicy,
+  text,
+  timestamp,
+  unique,
+  uuid,
+} from 'drizzle-orm/pg-core';
 import { TIMESTAMP_CONFIG } from './helpers/index.ts';
 import { appSchema } from './schema.ts';
 import { deliveries } from './submission-schema.ts';
@@ -45,6 +54,17 @@ export const deliveryRedrives = appSchema.table(
         deliveries.id,
       ],
       name: 'delivery_redrives_delivery_ownership_fk',
+    }),
+    index('delivery_redrives_retention_idx').on(table.createdAt),
+    pgPolicy('delivery_redrives_retention_discovery', {
+      for: 'select',
+      to: ['pipong_migrator'],
+      using: sql`true`,
+    }),
+    pgPolicy('delivery_redrives_worker_retention', {
+      for: 'all',
+      to: ['pipong_worker'],
+      using: recoveryPredicate,
     }),
     pgPolicy('delivery_redrives_scope', {
       for: 'all',

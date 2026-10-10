@@ -24,8 +24,9 @@ Both collections support the same operations:
 - `GET` a resource URL to read it.
 - `PATCH` a resource URL to rename it.
 - `POST` a resource URL followed by `/suspend` to suspend it.
-- `DELETE` a resource URL returns `409 RESOURCE_DELETION_GATED`. Bounded erasure is
-  phase 26 work; this endpoint removes nothing.
+- `DELETE` a resource URL returns a `202` erasure receipt, tombstones the target,
+  and queues bounded cleanup. Reserved sends have a two-minute settlement window.
+  See [erasure and retention](./ERASURE.md) for progress checks and retained data.
 
 Creation and rename accept only a JSON object with a `name` field. The raw name
 must contain one to 100 Unicode characters, including at least one non-whitespace

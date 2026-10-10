@@ -44,7 +44,8 @@ stream lock so pruning cannot remove rows between its watermark check and page
 read. Runtime accounts cannot update event history; the API cannot delete it
 or advance retention watermarks.
 
-Automatic retention scheduling belongs to the later lifecycle work. Submission,
+The worker prunes expired events on startup and every minute, at most 100 events
+per environment batch. Submission,
 attempt settlement, cancellation, and recovery append events atomically with
 their state changes. Push delivery consumers remain disabled.
 

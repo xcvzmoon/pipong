@@ -40,6 +40,7 @@ function reservation(kind: 'fid' | 'registration-token'): ReservedSend {
   };
   return {
     status: 'send',
+    sendUntil: new Date(Date.now() + 120_000),
     fence: {
       job: { ...scope, notificationId: deliveryId, deliveryId, provider: 'fcm' },
       claim: { id: deliveryId, retryCount: 0 },
@@ -117,6 +118,26 @@ describe('FCM HTTP v1', () => {
       response.writeHead(200, { 'content-type': 'application/json' });
       response.end(JSON.stringify({ name: 'projects/target-project/messages/123' }));
     };
+  });
+
+  it('refuses a paused reservation after its send deadline before OAuth or provider I/O', async () => {
+    const expired = { ...reservation('fid'), sendUntil: new Date(0) };
+    const runtime = createFcmRuntime(
+      fetch,
+      () => {
+        throw new Error('TEST_UNEXPECTED_AUTH');
+      },
+      origin,
+    );
+    try {
+      expect((await runtime.send(expired, keyring)).outcome).toMatchObject({
+        kind: 'transient',
+        code: 'DELIVERY_RESERVATION_EXPIRED',
+      });
+      expect(received).toHaveLength(0);
+    } finally {
+      runtime.close();
+    }
   });
 
   it('sends FID and registration targets to the explicit target project with refreshed bearer tokens', async () => {

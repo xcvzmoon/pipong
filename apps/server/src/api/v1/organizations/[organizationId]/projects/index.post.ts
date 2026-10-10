@@ -57,7 +57,7 @@ defineRouteMeta({
         },
       },
       '409': {
-        description: 'Scoped name conflict, suspended parent, or deletion gated',
+        description: 'Scoped name conflict or suspended parent',
         content: {
           'application/problem+json': {
             schema: {

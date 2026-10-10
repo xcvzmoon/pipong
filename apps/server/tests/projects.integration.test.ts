@@ -170,8 +170,9 @@ describe.skipIf(!testUrl)('project and environment HTTP operations with real Pos
   }, 60_000);
 
   beforeEach(async () => {
+    await fixture.database.query('UPDATE auth.organizations SET disabled_at=NULL,deleted_at=NULL');
     await fixture.database.query(
-      'DELETE FROM app.environments; DELETE FROM app.projects; DELETE FROM auth.members; DELETE FROM auth.mfa_assurances; DELETE FROM auth.rate_limits',
+      'DELETE FROM app.erasure_jobs; DELETE FROM app.environments; DELETE FROM app.projects; DELETE FROM auth.members; DELETE FROM auth.mfa_assurances; DELETE FROM auth.rate_limits',
     );
     await fixture.database.query(
       "INSERT INTO auth.members (id,organization_id,user_id,role) VALUES ($1,$2,$1,'owner'),($3,$4,$1,'owner')",
@@ -484,7 +485,7 @@ describe.skipIf(!testUrl)('project and environment HTTP operations with real Pos
     // oxlint-enable eslint/no-await-in-loop
   });
 
-  it('serializes duplicate names and suspension, keeps siblings independent, and gates destructive deletion', async () => {
+  it('serializes duplicate names and suspension, keeps siblings independent, and requests bounded erasure', async () => {
     const responses = await Promise.all([
       request(projectsPath, 'POST', JSON.stringify({ name: 'Concurrent' })),
       request(projectsPath, 'POST', JSON.stringify({ name: 'Concurrent' })),
@@ -593,11 +594,7 @@ describe.skipIf(!testUrl)('project and environment HTTP operations with real Pos
         )
       ).status,
     ).toBe(200);
-    await denied(
-      await request(`${environmentsPath}/${environmentId}`, 'DELETE'),
-      409,
-      'RESOURCE_DELETION_GATED',
-    );
+    expect((await request(`${environmentsPath}/${environmentId}`, 'DELETE')).status).toBe(202);
     const blocker = new Client({ connectionString: fixture.environment.API_DATABASE_URL });
     await blocker.connect();
     let suspension: Promise<Response> | undefined;
@@ -652,11 +649,7 @@ describe.skipIf(!testUrl)('project and environment HTTP operations with real Pos
       409,
       'AUTH_SCOPE_SUSPENDED',
     );
-    await denied(
-      await request(`${projectsPath}/${projectId}`, 'DELETE'),
-      409,
-      'RESOURCE_DELETION_GATED',
-    );
+    expect((await request(`${projectsPath}/${projectId}`, 'DELETE')).status).toBe(202);
     expect(
       (await project(await request(`${projectsPath}/${siblingProjectId}`))).suspendedAt,
     ).toBeNull();
@@ -665,5 +658,85 @@ describe.skipIf(!testUrl)('project and environment HTTP operations with real Pos
       [projectId],
     );
     expect(counts.rows[0]?.count).toBe('2');
+  });
+  it('requires an owner with recent MFA for organization erasure and denies native bypasses and later writes', async () => {
+    const path = `/api/v1/organizations/${organizationId}`;
+    await fixture.database.query("UPDATE auth.members SET role='admin' WHERE organization_id=$1", [
+      organizationId,
+    ]);
+    await denied(await request(path, 'DELETE'), 403, 'AUTH_PERMISSION_DENIED');
+    await fixture.database.query("UPDATE auth.members SET role='owner' WHERE organization_id=$1;", [
+      organizationId,
+    ]);
+    await fixture.database.query('DELETE FROM auth.mfa_assurances');
+    await denied(await request(path, 'DELETE'), 403, 'AUTH_RECENT_MFA_REQUIRED');
+    await fixture.database.query(
+      'INSERT INTO auth.mfa_assurances(session_id,verified_at) SELECT id,now() FROM auth.sessions WHERE user_id=$1',
+      [userId],
+    );
+    const nativeDelete = await request(
+      '/api/auth/organization/delete',
+      'POST',
+      JSON.stringify({ organizationId }),
+    );
+    expect(nativeDelete.status).toBe(403);
+    const response = await request(path, 'DELETE');
+    expect(response.status).toBe(202);
+    const receipt = v.parse(
+      v.strictObject({
+        erasureId: idSchema,
+        requestedAt: timestampSchema,
+        inFlightUntil: timestampSchema,
+      }),
+      await response.json(),
+    );
+    expect(Date.parse(receipt.inFlightUntil) - Date.parse(receipt.requestedAt)).toBeLessThanOrEqual(
+      120_001,
+    );
+    const contract = v.parse(
+      contractSchema,
+      await (await fetch(`${fixture.baseUrl}/_openapi.json`)).json(),
+    );
+    const operation = v.parse(
+      v.object({
+        operationId: v.literal('deleteOrganization'),
+        responses: v.object({
+          '202': v.object({
+            content: v.object({ 'application/json': v.object({ schema: v.looseObject({}) }) }),
+          }),
+        }),
+      }),
+      contract.paths['/api/v1/organizations/{organizationId}']?.delete,
+    );
+    expect(
+      ajv.validate(operation.responses['202'].content['application/json'].schema, receipt),
+      JSON.stringify(ajv.errors),
+    ).toBe(true);
+    await denied(await request(projectsPath), 403, 'AUTH_ORGANIZATION_DISABLED');
+    await denied(
+      await request(projectsPath, 'POST', JSON.stringify({ name: 'After erasure' })),
+      403,
+      'AUTH_ORGANIZATION_DISABLED',
+    );
+    const invitation = await request(
+      '/api/auth/organization/invite-member',
+      'POST',
+      JSON.stringify({ organizationId, email: 'invitee@example.com', role: 'member' }),
+    );
+    expect(invitation.status).toBe(403);
+    expect(v.parse(v.object({ code: v.string() }), await invitation.json()).code).toBe(
+      'AUTH_ORGANIZATION_DISABLED',
+    );
+    expect((await request(`/api/v1/organizations/${otherOrganizationId}/projects`)).status).toBe(
+      200,
+    );
+    expect(
+      (
+        await fixture.database.query(
+          'SELECT actor_id,target_id FROM app.erasure_jobs WHERE id=$1',
+          [receipt.erasureId],
+        )
+      ).rows,
+    ).toEqual([{ actor_id: userId, target_id: organizationId }]);
   });
 });

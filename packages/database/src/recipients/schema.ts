@@ -23,7 +23,7 @@ export const recipients = appSchema.table(
     organizationId: uuid('organization_id').notNull(),
     projectId: uuid('project_id').notNull(),
     environmentId: uuid('environment_id').notNull(),
-    externalId: text('external_id').notNull(),
+    externalId: text('external_id'),
     ...generateTimestamps(),
   },
   (table) => [
@@ -40,6 +40,10 @@ export const recipients = appSchema.table(
       table.id,
     ),
     check(
+      'recipients_erased_identity_valid',
+      sql`${table.externalId} IS NOT NULL OR ${table.deletedAt} IS NOT NULL`,
+    ),
+    check(
       'recipients_external_id_valid',
       sql`char_length(${table.externalId}) BETWEEN 1 AND 200 AND ${table.externalId} !~ '[[:cntrl:]]' AND ${table.externalId} ~ '[^[:space:]]'`,
     ),
@@ -47,6 +51,12 @@ export const recipients = appSchema.table(
       columns: [table.organizationId, table.projectId, table.environmentId],
       foreignColumns: [environments.organizationId, environments.projectId, environments.id],
       name: 'recipients_environment_ownership_fk',
+    }),
+    pgPolicy('recipients_erasure', {
+      for: 'all',
+      to: ['pipong_migrator'],
+      using: recipientPredicate,
+      withCheck: recipientPredicate,
     }),
     pgPolicy('recipients_scope', {
       for: 'all',

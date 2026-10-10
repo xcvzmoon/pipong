@@ -42,6 +42,7 @@ function reservation(endpoint: string, keys = vapid): ReservedSend {
   };
   return {
     status: 'send',
+    sendUntil: new Date(Date.now() + 120_000),
     fence: {
       job: { ...scope, notificationId: deliveryId, deliveryId, provider: 'web-push' },
       claim: { id: deliveryId, retryCount: 0 },
@@ -129,6 +130,18 @@ describe('bound Web Push delivery', () => {
     received.length = 0;
     status = 201;
     retryAfter = '120';
+  });
+
+  it('refuses a paused reservation after its send deadline before DNS or provider I/O', async () => {
+    const expired = { ...reservation(`${origin}/send`), sendUntil: new Date(0) };
+    const runtime = createWebPushRuntime('mailto:operator@example.com', policy, () => {
+      throw new Error('TEST_UNEXPECTED_DNS');
+    });
+    expect((await runtime.send(expired, keyring)).outcome).toMatchObject({
+      kind: 'transient',
+      code: 'DELIVERY_RESERVATION_EXPIRED',
+    });
+    expect(received).toHaveLength(0);
   });
 
   it('encrypts once and binds VAPID audience including the port and the reserved key version', async () => {

@@ -31,7 +31,7 @@ export const endpoints = appSchema.table(
     projectId: uuid('project_id').notNull(),
     environmentId: uuid('environment_id').notNull(),
     recipientId: uuid('recipient_id').notNull(),
-    installationId: text('installation_id').notNull(),
+    installationId: text('installation_id'),
     provider: text('provider', { enum: ['apns', 'fcm', 'web-push'] }).notNull(),
     appId: text('app_id').notNull(),
     generation: integer('generation').notNull(),
@@ -69,6 +69,10 @@ export const endpoints = appSchema.table(
         table.targetHash,
       )
       .where(sql`${table.state} = 'active'`),
+    check(
+      'endpoints_erased_installation_valid',
+      sql`${table.installationId} IS NOT NULL OR ${table.state} = 'disabled'`,
+    ),
     check('endpoints_generation_valid', sql`${table.generation} > 0`),
     check('endpoints_provider_valid', sql`${table.provider} IN ('apns', 'fcm', 'web-push')`),
     check(
@@ -94,6 +98,12 @@ export const endpoints = appSchema.table(
         credentialVersions.id,
       ],
       name: 'endpoints_credential_ownership_fk',
+    }),
+    pgPolicy('endpoints_erasure', {
+      for: 'all',
+      to: ['pipong_migrator'],
+      using: endpointPredicate,
+      withCheck: endpointPredicate,
     }),
     pgPolicy('endpoints_scope', {
       for: 'all',
@@ -143,6 +153,12 @@ export const endpointGenerations = appSchema.table(
         credentialVersions.id,
       ],
       name: 'endpoint_generations_credential_ownership_fk',
+    }),
+    pgPolicy('endpoint_generations_erasure', {
+      for: 'all',
+      to: ['pipong_migrator'],
+      using: endpointPredicate,
+      withCheck: endpointPredicate,
     }),
     pgPolicy('endpoint_generations_scope', {
       for: 'all',

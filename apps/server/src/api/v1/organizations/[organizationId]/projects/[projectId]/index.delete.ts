@@ -1,4 +1,4 @@
-import { projectPathSchema } from '@pipong/service';
+import { eraseScope, projectPathSchema } from '@pipong/service';
 import { defineHandler, defineRouteMeta } from 'nitro';
 import * as v from 'valibot';
 import { withAuthorizedRequest } from '~/utils/authorize.ts';
@@ -34,6 +34,23 @@ defineRouteMeta({
       },
     ],
     responses: {
+      '202': {
+        description: 'Erasure accepted',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'object',
+              required: ['erasureId', 'requestedAt', 'inFlightUntil'],
+              additionalProperties: false,
+              properties: {
+                erasureId: { type: 'string', format: 'uuid' },
+                requestedAt: { type: 'string', format: 'date-time' },
+                inFlightUntil: { type: 'string', format: 'date-time' },
+              },
+            },
+          },
+        },
+      },
       '401': {
         description: 'Invalid credentials',
         content: {
@@ -65,7 +82,7 @@ defineRouteMeta({
         },
       },
       '409': {
-        description: 'Scoped name conflict, suspended parent, or deletion gated',
+        description: 'Scope suspended',
         content: {
           'application/problem+json': {
             schema: {
@@ -95,7 +112,8 @@ defineRouteMeta({
         },
       },
     },
-    description: 'Deletion is gated until bounded erasure is implemented. No records are removed.',
+    description:
+      'Tombstones the scope and requests bounded data erasure. Reserved sends may finish within two minutes.',
   },
 });
 
@@ -112,10 +130,21 @@ export default defineHandler(async (event) => {
     event,
     'project:manage',
     { kind: 'project', organizationId, projectId },
-    (_transaction) => {
-      return Promise.resolve(
-        problemResponse(409, 'RESOURCE_DELETION_GATED', event.context.requestId ?? 'unavailable'),
+    async (transaction) => {
+      const principal = event.context.principal;
+      if (principal?.kind !== 'human') {
+        return problemResponse(
+          403,
+          'AUTH_PERMISSION_DENIED',
+          event.context.requestId ?? 'unavailable',
+        );
+      }
+      const receipt = await eraseScope(
+        transaction,
+        { kind: 'project', organizationId, projectId },
+        principal.userId,
       );
+      return Response.json(receipt, { status: 202 });
     },
   );
 });
