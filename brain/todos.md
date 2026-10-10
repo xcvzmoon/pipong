@@ -4,6 +4,6 @@
 
 ## Product
 
-1. [ ] Implement the scoped self-hosted notification service; phases 01–19 integrated; phase 20 fenced attempts implemented and verified on feat/fenced-delivery-attempts (awaiting review and merge); next integration is phase 21 native APNs [[plans/01-notification-service/overview]]
+1. [ ] Implement the scoped self-hosted notification service; phases 01–20 integrated; phase 21 native APNs implemented and verified on feat/native-apns-delivery (awaiting PR review and merge; device qualification open); next integration is phase 22 FCM HTTP v1 [[plans/01-notification-service/overview]]
 
 Completed tasks: [[archive/todos]]
