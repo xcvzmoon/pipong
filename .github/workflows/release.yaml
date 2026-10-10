@@ -50,6 +50,15 @@ jobs:
             exit 1
           fi
 
+      - name: Install PostgreSQL 18 restore tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18
+          echo "/usr/lib/postgresql/18/bin" >> "$GITHUB_PATH"
+
       - name: Run integration gates
         env:
           CI_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/postgres
