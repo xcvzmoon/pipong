@@ -248,10 +248,11 @@ describe('APNs over local HTTP/2', () => {
     }
   });
 
-  it('honors 5xx retry floor and longer Retry-After without retrying the transport', async () => {
-    const runtime = createApnsRuntime(connection);
-    try {
-      for (const delay of ['1', '1800', new Date(baseline + 1800_000).toUTCString()]) {
+  it.each(['1', '1800', new Date(baseline + 1800_000).toUTCString()])(
+    'honors 5xx retry floor and Retry-After %s without retrying the transport',
+    async (delay) => {
+      const runtime = createApnsRuntime(connection);
+      try {
         handler = (stream) => {
           stream.respond({ ':status': 503, 'retry-after': delay });
           stream.end('{"reason":"ServiceUnavailable"}');
@@ -263,12 +264,12 @@ describe('APNs over local HTTP/2', () => {
             baseline + (delay === '1' ? 900_000 : 1799_000),
           );
         }
+        expect(requests).toBe(1);
+      } finally {
+        runtime.close();
       }
-      expect(requests).toBe(3);
-    } finally {
-      runtime.close();
-    }
-  });
+    },
+  );
 
   it('bounds malformed responses and preserves ambiguous failures', async () => {
     const runtime = createApnsRuntime(connection);
