@@ -58,7 +58,8 @@ metadata and escaping, must fit 4,096 bytes.
 
 FCM supports Android priority `NORMAL` (default) or `HIGH` and a nonempty collapse
 key of at most 64 Unicode characters. Target identity comes from the endpoint and
-uses either `fid` or `token`. The encoder enforces a conservative 4,096-byte bound
+uses `fid` for Firebase Installation IDs or the deprecated `token` field for
+registration identifiers. The encoder enforces a conservative 4,096-byte bound
 on the serialized message, including target, configuration, and metadata, rather
 than estimating only content keys and values. The outer `message` envelope is
 excluded from this bound. See the [FCM HTTP v1 Message reference](https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages).

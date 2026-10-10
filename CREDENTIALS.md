@@ -17,7 +17,7 @@ All paths below start with `/api/v1/organizations/{organizationId}/projects/{pro
 Create requests require JSON, reject extra fields, and are limited to 32 KiB. Supply `provider`, `appId`, and a typed `secret`:
 
 - `apns`: `appId` is the APNs topic. The secret contains `teamId`, `keyId`, `environment` (`production` or `sandbox`), and a PEM P-256 `privateKey`. Team and key IDs contain ten uppercase letters or digits.
-- `fcm`: `appId` is the target Firebase project. The secret contains the service account's `projectId`, `clientEmail`, and PEM RSA `privateKey` of at least 2048 bits. Cross-project sending still requires target-project IAM permission when the FCM adapter ships.
+- `fcm`: `appId` is the target Firebase project. The secret contains the service account's `projectId`, `clientEmail`, and PEM RSA `privateKey` of at least 2048 bits. Cross-project sending requires target-project IAM permission. The internal HTTP v1 adapter uses per-version OAuth; provider consumers remain disabled. See [FCM delivery](./FCM.md).
 - `web-push`: `appId` identifies the application. The secret contains a 43-character base64url P-256 private scalar in `privateKey`. The service derives the public key from it.
 
 Responses never contain private keys or ciphertext. Metadata includes the version UUID, ownership IDs, provider, application ID, nullable VAPID public key, state, creation time, and nullable retirement time. The UUID is the immutable version identifier. Pagination defaults to 50, allows 1–100, and binds cursors to the environment and credential collection.

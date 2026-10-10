@@ -50,7 +50,8 @@ FCM discriminates `target.kind` as `fid` or `registration-token`, with the ident
 in `target.value`. The credential's target application must match `appId`. A service-account project may differ; the delivery adapter must verify target-project IAM permissions. FID input follows the
 [Firebase SDK's identifier pattern](https://github.com/firebase/firebase-js-sdk/blob/main/packages/installations/src/helpers/generate-fid.ts).
 FCM's [current message contract](https://firebase.google.com/docs/reference/fcm/rest/v1/projects.messages)
-accepts FIDs and registration tokens.
+supports FIDs and retains registration tokens in its deprecated `token` field. New
+client integrations should register FIDs.
 
 ```json
 {

@@ -1,5 +1,5 @@
 import type { DatabaseRuntime } from '@pipong/database';
-import type { AttemptFence, SendReservation } from '@pipong/database/attempts';
+import type { AttemptFence, ProviderOutcome, SendReservation } from '@pipong/database/attempts';
 import type { DeliveryJob, QueueRuntime } from '@pipong/database/delivery-queue';
 import {
   fetchDeliveryJobs,
@@ -18,6 +18,7 @@ import * as v from 'valibot';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reserveDelivery, settleDelivery } from '../src/delivery.ts';
 import { settleApnsDelivery } from '../src/providers/apns.ts';
+import { settleFcmDelivery } from '../src/providers/fcm.ts';
 
 const testUrl = process.env.TEST_DELIVERY_DATABASE_URL;
 const runCommand = promisify(execFile);
@@ -314,6 +315,95 @@ describe.skipIf(!testUrl)('fenced delivery attempts in disposable PostgreSQL', (
     },
   );
 
+  it.each(['current', 'refreshed', 'lost-claim', 'contradictory-receipt'] as const)(
+    'invalidates only the attempted FCM generation for %s registrations',
+    async (scenario) => {
+      const fcmJob: DeliveryJob = { ...job, provider: 'fcm' };
+      await fixture.query(
+        "UPDATE app.credential_versions SET provider='fcm',app_id='target-project' WHERE id=$1",
+        [credentialId],
+      );
+      await fixture.query(
+        "UPDATE app.endpoints SET provider='fcm',app_id='target-project',target_hash='fcm-hash' WHERE id=$1",
+        [endpointId],
+      );
+      await fixture.query("UPDATE app.deliveries SET provider='fcm' WHERE id=$1", [deliveryId]);
+      await fixture.query('UPDATE pgboss.job SET name=$2,data=$3::jsonb WHERE id=$1', [
+        jobId,
+        'delivery-fcm',
+        JSON.stringify(fcmJob),
+      ]);
+      const [claimed] = await fetchDeliveryJobs(worker, queue, 'fcm');
+      if (!claimed) {
+        throw new Error('TEST_CLAIM_MISSING');
+      }
+      const reserved = await reserveDelivery(worker, queue, fcmJob, {
+        id: claimed.id,
+        retryCount: claimed.retryCount,
+      });
+      if (reserved.status !== 'send') {
+        throw new Error('TEST_RESERVATION_MISSING');
+      }
+      if (scenario === 'refreshed') {
+        await fixture.query(
+          "INSERT INTO app.endpoint_generations (endpoint_id,generation,credential_id,encrypted_target,organization_id,project_id,environment_id,registered_at) VALUES ($1,2,$2,'target',$3,$4,$5,now())",
+          [endpointId, credentialId, organizationId, projectId, environmentId],
+        );
+        await fixture.query(
+          'UPDATE app.endpoints SET generation=2,registered_at=clock_timestamp() WHERE id=$1',
+          [endpointId],
+        );
+      }
+      const outcome: ProviderOutcome =
+        scenario === 'contradictory-receipt'
+          ? {
+              kind: 'ambiguous',
+              code: 'FCM_RESPONSE_INVALID',
+              retryAt: new Date(Date.now() + 10_000),
+              successorId: v7(),
+            }
+          : { kind: 'permanent', code: 'UNREGISTERED' };
+      const result = {
+        outcome,
+        response: {
+          status: scenario === 'contradictory-receipt' ? 200 : 404,
+          name:
+            scenario === 'contradictory-receipt' ? 'projects/target-project/messages/123' : null,
+          errorPresent: true,
+          errorStatus: 'NOT_FOUND',
+          errorCode: 'UNREGISTERED',
+          quotaReason: null,
+          retryAfter: null,
+        },
+      } as const;
+      if (scenario === 'lost-claim') {
+        await recover();
+        await expect(settleFcmDelivery(worker, queue, reserved, result)).rejects.toThrow(
+          'DELIVERY_QUEUE_CLAIM_LOST',
+        );
+        expect((await fixture.query('SELECT state FROM app.endpoints')).rows).toEqual([
+          { state: 'active' },
+        ]);
+        expect(
+          (await fixture.query('SELECT provider_response FROM app.delivery_attempts')).rows,
+        ).toEqual([{ provider_response: null }]);
+        return;
+      }
+      expect(await settleFcmDelivery(worker, queue, reserved, result)).toBe(
+        scenario === 'contradictory-receipt' ? 'retry_wait' : 'failed',
+      );
+      expect((await fixture.query('SELECT state FROM app.endpoints')).rows).toEqual([
+        { state: scenario === 'current' ? 'disabled' : 'active' },
+      ]);
+      expect(
+        (await fixture.query('SELECT provider_response FROM app.delivery_attempts')).rows,
+      ).toEqual([{ provider_response: JSON.stringify(result.response) }]);
+      expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+        { pending: scenario === 'contradictory-receipt' ? 1 : 0 },
+      ]);
+    },
+  );
+
   it('reserves one attempt for competing workers and commits before local network I/O', async () => {
     const claims = await Promise.all([
       fetchDeliveryJobs(worker, queue, 'apns'),
@@ -466,6 +556,59 @@ describe.skipIf(!testUrl)('fenced delivery attempts in disposable PostgreSQL', (
   });
 
   /* eslint-enable no-await-in-loop */
+
+  it('persists expiry reached during FCM OAuth as expired and releases admission', async () => {
+    await fixture.query("UPDATE app.credential_versions SET provider='fcm',app_id='app'");
+    await fixture.query("UPDATE app.endpoints SET provider='fcm',app_id='app'");
+    await fixture.query("UPDATE app.deliveries SET provider='fcm'");
+    const fcmJob: DeliveryJob = { ...job, provider: 'fcm' };
+    jobId = v7();
+    await withTenantTransaction(worker, scope, (transaction) =>
+      insertDeliveryJob(queue, transaction, jobId, fcmJob),
+    );
+    const [fcmClaim] = await fetchDeliveryJobs(worker, queue, 'fcm');
+    if (!fcmClaim) {
+      throw new Error('TEST_CLAIM_MISSING');
+    }
+    const reservation = await reserveDelivery(worker, queue, fcmJob, {
+      id: fcmClaim.id,
+      retryCount: fcmClaim.retryCount,
+    });
+    if (reservation.status !== 'send') {
+      throw new Error('TEST_SEND_RESERVATION_MISSING');
+    }
+    await fixture.query(
+      "UPDATE app.notifications SET expires_at=clock_timestamp()-interval '1 second' WHERE id=$1",
+      [notificationId],
+    );
+    const state = await settleFcmDelivery(worker, queue, reservation, {
+      outcome: {
+        kind: 'transient',
+        code: 'NOTIFICATION_EXPIRED',
+        retryAt: new Date(Date.now() - 1000),
+        successorId: v7(),
+      },
+      response: null,
+    });
+    expect(state).toBe('expired');
+    expect((await fixture.query('SELECT state FROM app.deliveries')).rows).toEqual([
+      { state: 'expired' },
+    ]);
+    expect(
+      (await fixture.query('SELECT state FROM app.delivery_events')).rows.at(-1),
+    ).toMatchObject({
+      state: 'expired',
+    });
+    expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+      { pending: 0 },
+    ]);
+    expect(
+      (await fixture.query("SELECT state FROM pgboss.job WHERE name='delivery-fcm'")).rows,
+    ).toEqual([{ state: 'completed' }]);
+    expect((await fixture.query('SELECT outcome,code FROM app.delivery_attempts')).rows).toEqual([
+      { outcome: 'transient', code: 'NOTIFICATION_EXPIRED' },
+    ]);
+  });
 
   it('atomically schedules retry successors, expires unsendable work and enforces tenant/role boundaries', async () => {
     const claimed = await claim();

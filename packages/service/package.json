@@ -20,18 +20,20 @@
   "dependencies": {
     "@pipong/auth": "workspace:*",
     "@pipong/database": "workspace:*",
+    "google-auth-library": "catalog:",
+    "gaxios": "catalog:",
     "ipaddr.js": "catalog:",
+    "uuid": "catalog:shared",
     "valibot": "catalog:shared",
-    "web-push": "catalog:",
-    "uuid": "catalog:shared"
+    "web-push": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",
+    "@types/pg": "catalog:database",
     "@types/web-push": "catalog:",
+    "pg": "catalog:database",
     "tsdown": "catalog:shared",
     "typescript": "catalog:shared",
-    "vitest": "catalog:shared",
-    "pg": "catalog:database",
-    "@types/pg": "catalog:database"
+    "vitest": "catalog:shared"
   }
 }
