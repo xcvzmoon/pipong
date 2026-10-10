@@ -1,5 +1,126 @@
 # Changelog
 
+## v0.0.6
+
+[compare changes](https://github.com/xcvzmoon/pipong/compare/v0.0.5...v0.0.6)
+
+### 🚀 Enhancements
+
+- **admission:** Reserve tenant request and delivery budgets ([544cce2](https://github.com/xcvzmoon/pipong/commit/544cce2))
+- **queue:** Cap provider claims across worker replicas ([e289336](https://github.com/xcvzmoon/pipong/commit/e289336))
+- **database:** Persist immutable notification acceptance snapshots ([4e3bf97](https://github.com/xcvzmoon/pipong/commit/4e3bf97))
+- **service:** Accept notifications atomically with idempotent replay ([512675c](https://github.com/xcvzmoon/pipong/commit/512675c))
+- **api:** Expose authorized notification submission with admission ([3021a7d](https://github.com/xcvzmoon/pipong/commit/3021a7d))
+- **database:** Persist and settle fenced delivery attempts ([c3c6a2b](https://github.com/xcvzmoon/pipong/commit/c3c6a2b))
+- **service:** Expose fenced delivery execution for workers ([d847403](https://github.com/xcvzmoon/pipong/commit/d847403))
+- **delivery:** Persist provider receipts during fenced settlement ([f70514b](https://github.com/xcvzmoon/pipong/commit/f70514b))
+- **apns:** Send bound HTTP/2 pushes with fenced settlement ([99facb7](https://github.com/xcvzmoon/pipong/commit/99facb7))
+- **fcm:** Add credential-scoped OAuth refresh client ([fea81cc](https://github.com/xcvzmoon/pipong/commit/fea81cc))
+- **fcm:** Send and settle fenced HTTP v1 deliveries ([8f8c2ad](https://github.com/xcvzmoon/pipong/commit/8f8c2ad))
+- **web-push:** Send and settle version-bound deliveries ([9d4d5ff](https://github.com/xcvzmoon/pipong/commit/9d4d5ff))
+- **delivery:** Bound retries and close recovered attempt history ([e877f04](https://github.com/xcvzmoon/pipong/commit/e877f04))
+- **database:** Persist immutable delivery redrive audits ([a7f1bfb](https://github.com/xcvzmoon/pipong/commit/a7f1bfb))
+- **notifications:** Cancel pending deliveries atomically ([149bf04](https://github.com/xcvzmoon/pipong/commit/149bf04))
+- **deliveries:** Redrive terminal work with audited lineage ([8dd4eca](https://github.com/xcvzmoon/pipong/commit/8dd4eca))
+- **worker:** Reconcile exhausted delivery recovery jobs ([9facdc0](https://github.com/xcvzmoon/pipong/commit/9facdc0))
+- **database:** Allow tenant-scoped API reads of delivery attempts ([7b6d0a9](https://github.com/xcvzmoon/pipong/commit/7b6d0a9))
+- **observation:** Expose notification summaries and delivery outcomes ([b4b0d3e](https://github.com/xcvzmoon/pipong/commit/b4b0d3e))
+- **events:** Stream durable delivery updates with bounded readers ([3a98d43](https://github.com/xcvzmoon/pipong/commit/3a98d43))
+- **database:** Persist scoped erasure jobs and resumable cleanup ([ff98211](https://github.com/xcvzmoon/pipong/commit/ff98211))
+- **retention:** Prune expired payloads and audit records in bounded batches ([42b19bc](https://github.com/xcvzmoon/pipong/commit/42b19bc))
+- **erasure:** Expose authorized deletion and run resumable worker cleanup ([b81b90e](https://github.com/xcvzmoon/pipong/commit/b81b90e))
+- **database:** Persist operator observability state ([72f2d74](https://github.com/xcvzmoon/pipong/commit/72f2d74))
+- **service:** Audit privileged human transactions ([b7d61bb](https://github.com/xcvzmoon/pipong/commit/b7d61bb))
+- **service:** Expose bounded OpenTelemetry diagnostics ([4960873](https://github.com/xcvzmoon/pipong/commit/4960873))
+- **delivery:** Log committed attempt correlations ([5fd6303](https://github.com/xcvzmoon/pipong/commit/5fd6303))
+- **worker:** Maintain independent consumer health leases ([1a6fae6](https://github.com/xcvzmoon/pipong/commit/1a6fae6))
+- **server:** Add protected operator health and metrics ([7288ab6](https://github.com/xcvzmoon/pipong/commit/7288ab6))
+- **deploy:** Package self-hosted runtime images ([fc73995](https://github.com/xcvzmoon/pipong/commit/fc73995))
+- **deploy:** Add versioned Compose installation ([42f4961](https://github.com/xcvzmoon/pipong/commit/42f4961))
+- **release:** Publish versioned Docker images ([7e74c59](https://github.com/xcvzmoon/pipong/commit/7e74c59))
+
+### 🩹 Fixes
+
+- **tests:** Skip cleanup for signal-terminated processes ([f5d3543](https://github.com/xcvzmoon/pipong/commit/f5d3543))
+- **events:** Bound SQL and lock waits for authorized reads ([cec3549](https://github.com/xcvzmoon/pipong/commit/cec3549))
+- **auth:** Serialize invitation writes with organization lifecycle ([97817ed](https://github.com/xcvzmoon/pipong/commit/97817ed))
+- **delivery:** Reject expired reservation snapshots before provider sends ([d57ae03](https://github.com/xcvzmoon/pipong/commit/d57ae03))
+- **database:** Redact SQL and parameters from query logs ([7936321](https://github.com/xcvzmoon/pipong/commit/7936321))
+- **format:** Exclude generated changelog ([bac6030](https://github.com/xcvzmoon/pipong/commit/bac6030))
+- **ci:** Use string keys for PostgreSQL service ports ([ed5e8b1](https://github.com/xcvzmoon/pipong/commit/ed5e8b1))
+- **ci:** Install PostgreSQL 18 restore tools for server tests ([2e558bd](https://github.com/xcvzmoon/pipong/commit/2e558bd))
+
+### 💅 Refactors
+
+- **queue:** Own delivery payload validation in database package ([32ea69c](https://github.com/xcvzmoon/pipong/commit/32ea69c))
+
+### 📖 Documentation
+
+- **admission:** Document capacity accounting and operator limits ([928d324](https://github.com/xcvzmoon/pipong/commit/928d324))
+- **plan:** Record phase 18 verification and submission next step ([cdc072f](https://github.com/xcvzmoon/pipong/commit/cdc072f))
+- **submission:** Describe acceptance and seven-day replay ([e088549](https://github.com/xcvzmoon/pipong/commit/e088549))
+- **plan:** Record phase 19 verification and fenced attempts next ([81c03ab](https://github.com/xcvzmoon/pipong/commit/81c03ab))
+- **delivery:** Explain reservation and settlement guarantees ([7d46f19](https://github.com/xcvzmoon/pipong/commit/7d46f19))
+- **plan:** Record phase 19 merge ([0d728f7](https://github.com/xcvzmoon/pipong/commit/0d728f7))
+- **plan:** Record phase 20 verification and APNs next ([1c25e71](https://github.com/xcvzmoon/pipong/commit/1c25e71))
+- **apns:** Explain transport limits and provider qualification ([9797995](https://github.com/xcvzmoon/pipong/commit/9797995))
+- **plan:** Record APNs verification and FCM next ([0bc9a02](https://github.com/xcvzmoon/pipong/commit/0bc9a02))
+- **fcm:** Document delivery behavior and qualification gates ([f5d7973](https://github.com/xcvzmoon/pipong/commit/f5d7973))
+- **plan:** Record audited FCM phase completion ([de0d584](https://github.com/xcvzmoon/pipong/commit/de0d584))
+- **web-push:** Describe delivery and browser qualification ([fbea844](https://github.com/xcvzmoon/pipong/commit/fbea844))
+- **plan:** Record Web Push verification and next phase ([f52c546](https://github.com/xcvzmoon/pipong/commit/f52c546))
+- **recovery:** Describe cancellation, redrive, and retry operations ([1223840](https://github.com/xcvzmoon/pipong/commit/1223840))
+- **plan:** Record recovery verification and next phase ([6bfafcd](https://github.com/xcvzmoon/pipong/commit/6bfafcd))
+- **observation:** Explain status counts and redacted outcomes ([5f845e5](https://github.com/xcvzmoon/pipong/commit/5f845e5))
+- **events:** Describe streaming replay and connection lifecycle ([97a8e88](https://github.com/xcvzmoon/pipong/commit/97a8e88))
+- **plan:** Record observation audit and phase 26 handoff ([e85009c](https://github.com/xcvzmoon/pipong/commit/e85009c))
+- **erasure:** Document cleanup progress and retained data ([62d1a22](https://github.com/xcvzmoon/pipong/commit/62d1a22))
+- **projects:** Describe asynchronous scope deletion ([9718e63](https://github.com/xcvzmoon/pipong/commit/9718e63))
+- **recipients:** Explain identity erasure and reenrollment ([6711a58](https://github.com/xcvzmoon/pipong/commit/6711a58))
+- **auth:** Describe erasure grant revocation and account retention ([d8befbd](https://github.com/xcvzmoon/pipong/commit/d8befbd))
+- **events:** Describe bounded worker replay retention ([2dc5470](https://github.com/xcvzmoon/pipong/commit/2dc5470))
+- **plan:** Record phase 26 verification and observability handoff ([a52198b](https://github.com/xcvzmoon/pipong/commit/a52198b))
+- **observability:** Document operator diagnostics and alerts ([c9de47c](https://github.com/xcvzmoon/pipong/commit/c9de47c))
+- **erasure:** Describe privileged audit retention ([9beb473](https://github.com/xcvzmoon/pipong/commit/9beb473))
+- **plan:** Record phase 27 verification and installation handoff ([f1e6aaf](https://github.com/xcvzmoon/pipong/commit/f1e6aaf))
+- **deploy:** Document self-hosted installation ([59560ff](https://github.com/xcvzmoon/pipong/commit/59560ff))
+- **plan:** Record phase 28 installation evidence ([f610f56](https://github.com/xcvzmoon/pipong/commit/f610f56))
+- **ci:** Explain integration and image verification gates ([ef08048](https://github.com/xcvzmoon/pipong/commit/ef08048))
+- **plan:** Record phase 29 verification evidence ([8a470eb](https://github.com/xcvzmoon/pipong/commit/8a470eb))
+- **ci:** Describe parallel integration gate isolation ([312cc58](https://github.com/xcvzmoon/pipong/commit/312cc58))
+- **operations:** Document restore and credential incident procedures ([e0507b5](https://github.com/xcvzmoon/pipong/commit/e0507b5))
+- **release:** Distinguish exercised evidence from open qualification gates ([554afe7](https://github.com/xcvzmoon/pipong/commit/554afe7))
+- **plan:** Record partial phase 30 qualification ([0126691](https://github.com/xcvzmoon/pipong/commit/0126691))
+- **operations:** Explain runtime and image recovery drills ([2e00341](https://github.com/xcvzmoon/pipong/commit/2e00341))
+- **release:** Record measured recovery evidence and open gates ([4742822](https://github.com/xcvzmoon/pipong/commit/4742822))
+- **plan:** Record partial runtime recovery qualification ([14ff4ae](https://github.com/xcvzmoon/pipong/commit/14ff4ae))
+
+### 🏡 Chore
+
+- **branch:** Sync observability with main ([afa32ae](https://github.com/xcvzmoon/pipong/commit/afa32ae))
+- **skills:** Vendor genbumppush release guidance ([1e3b042](https://github.com/xcvzmoon/pipong/commit/1e3b042))
+
+### ✅ Tests
+
+- **apns:** Parameterize retry hint cases to remove lint warning ([9ce71a0](https://github.com/xcvzmoon/pipong/commit/9ce71a0))
+- **server:** Fail empty test selections ([a730226](https://github.com/xcvzmoon/pipong/commit/a730226))
+- **database:** Preserve tenant data through schema upgrades ([f234cbf](https://github.com/xcvzmoon/pipong/commit/f234cbf))
+- **service:** Rehearse database and credential key restoration ([5206a78](https://github.com/xcvzmoon/pipong/commit/5206a78))
+- **server:** Rehearse API and worker backup recovery ([d46500c](https://github.com/xcvzmoon/pipong/commit/d46500c))
+- **ci:** Rehearse clean-volume image restoration ([54866f5](https://github.com/xcvzmoon/pipong/commit/54866f5))
+
+### 🤖 CI
+
+- Require PostgreSQL-backed integration gates ([c90b0e2](https://github.com/xcvzmoon/pipong/commit/c90b0e2))
+- Verify versioned images in a TLS installation ([9060eb4](https://github.com/xcvzmoon/pipong/commit/9060eb4))
+- **release:** Publish images only after integration verification ([0b4be8f](https://github.com/xcvzmoon/pipong/commit/0b4be8f))
+- Run integration suites with isolated PostgreSQL services ([ae0ac42](https://github.com/xcvzmoon/pipong/commit/ae0ac42))
+- Install PostgreSQL 18 tools for restore qualification ([952f1d3](https://github.com/xcvzmoon/pipong/commit/952f1d3))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.5
 
 [compare changes](https://github.com/xcvzmoon/pipong/compare/v0.0.4...v0.0.5)
