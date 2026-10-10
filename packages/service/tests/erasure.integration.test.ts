@@ -228,7 +228,7 @@ describe.skipIf(!testUrl)('bounded erasure in disposable PostgreSQL', () => {
         credentialId: v.string(),
         publicKey: v.nullable(v.string()),
       }),
-      JSON.parse(result.stdout),
+      JSON.parse(result.stdout.trim().split('\n').at(-1) ?? ''),
     );
   }
   async function requestErasure(
