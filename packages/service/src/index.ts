@@ -119,3 +119,6 @@ export type {
   SendReservation,
   ProviderOutcome,
 } from '@pipong/database/attempts';
+
+export { createApnsRuntime, settleApnsDelivery } from './providers/apns.ts';
+export type { ApnsRuntime, ApnsOutcome } from './providers/apns.ts';
