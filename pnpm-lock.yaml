@@ -266,7 +266,7 @@ catalogs:
       specifier: 3.0.1
       version: 3.0.1
     nitro:
-      specifier: ^3.0.260903-beta
+      specifier: 3.0.260903-beta
       version: 3.0.260903-beta
   shared:
     '@types/node':
