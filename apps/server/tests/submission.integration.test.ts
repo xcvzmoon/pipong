@@ -148,6 +148,7 @@ describe.skipIf(!testUrl)('atomic idempotent submission through built HTTP', () 
     expect(ajv.getSchema('pipong#/components/schemas/NotificationRequest')).toBeTypeOf('function');
     for (const [resource, identifier, operation, status] of [
       ['notifications', 'notificationId', 'cancelNotification', '200'],
+      ['deliveries', 'deliveryId', 'redriveDelivery', '202'],
     ] as const) {
       const recoveryPath = `/api/v1/organizations/{organizationId}/projects/{projectId}/environments/{environmentId}/${resource}/{${identifier}}/${status === '200' ? 'cancel' : 'redrive'}`;
       const recoveryOperation = v.parse(
@@ -483,5 +484,93 @@ describe.skipIf(!testUrl)('atomic idempotent submission through built HTTP', () 
     expect((await fixture.database.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
       { pending: 0 },
     ]);
+  });
+
+  it('redrives a terminal delivery with recent MFA, fresh IDs, and bounded input', async () => {
+    const original = await accepted(await request());
+    const delivery = (await fixture.database.query<{ id: string }>('SELECT id FROM app.deliveries'))
+      .rows[0];
+    expect(delivery).toBeDefined();
+    const deliveryId = v.parse(v.string(), delivery?.id);
+    const redrivePath = `${path.replace('/notifications', '/deliveries')}/${deliveryId}/redrive`;
+    const input = JSON.stringify({
+      expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      reason: 'Provider outage resolved',
+    });
+    await fixture.database.query(
+      'DELETE FROM auth.mfa_assurances; UPDATE auth.users SET two_factor_enabled=true',
+    );
+    await denied(await request('redrive', input, redrivePath), 403, 'AUTH_RECENT_MFA_REQUIRED');
+    await fixture.database.query(
+      'INSERT INTO auth.mfa_assurances (session_id,verified_at) SELECT id,now() FROM auth.sessions WHERE user_id=$1 ON CONFLICT DO NOTHING',
+      [userId],
+    );
+    await denied(await request('redrive', '{}', redrivePath), 422, 'DELIVERY_REDRIVE_INVALID');
+    await denied(
+      await request('redrive', input, redrivePath),
+      409,
+      'DELIVERY_REDRIVE_NOT_TERMINAL',
+    );
+    await denied(
+      await request(
+        'redrive',
+        input.replace('Provider outage resolved', 'x'.repeat(501)),
+        redrivePath,
+      ),
+      422,
+      'DELIVERY_REDRIVE_INVALID',
+    );
+    await denied(
+      await request('redrive', ' '.repeat(4097), redrivePath),
+      413,
+      'RESOURCE_BODY_TOO_LARGE',
+    );
+    expect(
+      (await request('cancel', '{}', `${path}/${original.notificationId}/cancel`)).status,
+    ).toBe(200);
+    await denied(
+      await request(
+        'redrive',
+        JSON.stringify({ expiresAt: new Date(Date.now() - 1000).toISOString(), reason: 'Retry' }),
+        redrivePath,
+      ),
+      409,
+      'DELIVERY_REDRIVE_EXPIRY_INVALID',
+    );
+    await denied(
+      await request('redrive', input, redrivePath.replace(environmentId, siblingId)),
+      404,
+      'DELIVERY_NOT_FOUND',
+    );
+    const response = await request('redrive', input, redrivePath);
+    expect(response.status).toBe(202);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    const redriven = v.parse(
+      v.strictObject({
+        notificationId: v.pipe(v.string(), v.uuid()),
+        deliveryId: v.pipe(v.string(), v.uuid()),
+        sourceDeliveryId: v.pipe(v.string(), v.uuid()),
+      }),
+      await response.json(),
+    );
+    expect(ajv.validate('redriveDelivery', redriven), JSON.stringify(ajv.errors)).toBe(true);
+    expect(redriven.notificationId).not.toBe(original.notificationId);
+    expect(redriven.deliveryId).not.toBe(deliveryId);
+    expect(redriven.sourceDeliveryId).toBe(deliveryId);
+    expect(
+      (await fixture.database.query('SELECT actor_id,reason FROM app.delivery_redrives')).rows,
+    ).toEqual([{ actor_id: userId, reason: 'Provider outage resolved' }]);
+    await denied(await request('redrive', input, redrivePath), 409, 'DELIVERY_ALREADY_REDRIVEN');
+    expect(
+      (await fixture.database.query('SELECT state FROM app.deliveries ORDER BY id')).rows,
+    ).toEqual([{ state: 'canceled' }, { state: 'queued' }]);
+    expect(
+      (
+        await fixture.database.query(
+          'SELECT source_delivery_id FROM app.delivery_redrives WHERE delivery_id=$1',
+          [redriven.deliveryId],
+        )
+      ).rows,
+    ).toEqual([{ source_delivery_id: deliveryId }]);
   });
 });

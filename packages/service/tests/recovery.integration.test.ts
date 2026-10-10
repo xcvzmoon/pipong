@@ -14,7 +14,7 @@ import { Client } from 'pg';
 import { v7 } from 'uuid';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reserveDelivery, settleDelivery } from '../src/delivery.ts';
-import { cancelNotification } from '../src/recovery.ts';
+import { cancelNotification, redriveDelivery } from '../src/recovery.ts';
 
 const testUrl = process.env.TEST_DELIVERY_DATABASE_URL;
 const runCommand = promisify(execFile);
@@ -223,6 +223,68 @@ describe.skipIf(!testUrl)('delivery recovery in disposable PostgreSQL', () => {
     ]);
   });
 
+  it('redrives terminal work with new identities and a single immutable audit link', async () => {
+    const reserved = await reserveDelivery(worker, queue, job, await claim());
+    if (reserved.status !== 'send') {
+      throw new Error('TEST_RESERVATION_MISSING');
+    }
+    await settleDelivery(worker, queue, reserved.fence, { kind: 'permanent', code: 'TEST_FAILED' });
+    const expiresAt = new Date(Date.now() + 3_600_000);
+    const result = await withTenantTransaction(api, scope, (transaction) =>
+      redriveDelivery(
+        transaction,
+        apiQueue,
+        scope,
+        deliveryId,
+        expiresAt,
+        'operator',
+        'Retry after credential repair',
+      ),
+    );
+    if (!result.ok) {
+      throw new Error('TEST_REDRIVE_FAILED');
+    }
+    expect(result.value.sourceDeliveryId).toBe(deliveryId);
+    expect(result.value.deliveryId).not.toBe(deliveryId);
+    expect(result.value.notificationId).not.toBe(notificationId);
+    expect(
+      (await fixture.query('SELECT state FROM app.deliveries WHERE id=$1', [deliveryId])).rows,
+    ).toEqual([{ state: 'failed' }]);
+    expect(
+      (
+        await fixture.query(
+          'SELECT source_delivery_id,delivery_id,actor_id,reason FROM app.delivery_redrives',
+        )
+      ).rows,
+    ).toEqual([
+      {
+        source_delivery_id: deliveryId,
+        delivery_id: result.value.deliveryId,
+        actor_id: 'operator',
+        reason: 'Retry after credential repair',
+      },
+    ]);
+    const duplicate = await withTenantTransaction(api, scope, (transaction) =>
+      redriveDelivery(
+        transaction,
+        apiQueue,
+        scope,
+        deliveryId,
+        expiresAt,
+        'operator',
+        'Second retry',
+      ),
+    );
+    expect(duplicate).toMatchObject({ ok: false, code: 'DELIVERY_ALREADY_REDRIVEN' });
+    expect(
+      (await fixture.query('SELECT delivery_id FROM app.delivery_attempts')).rows,
+    ).toHaveLength(1);
+    expect((await fixture.query('SELECT id FROM app.deliveries')).rows).toHaveLength(2);
+    expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+      { pending: 1 },
+    ]);
+  });
+
   it('counts crash recovery generations toward the eight-send cap', async () => {
     await fixture.query('UPDATE app.deliveries SET attempt_generation=7 WHERE id=$1', [deliveryId]);
     const reserved = await reserveDelivery(worker, queue, job, await claim());
@@ -268,6 +330,63 @@ describe.skipIf(!testUrl)('delivery recovery in disposable PostgreSQL', () => {
     ).toEqual([{ outcome: 'ambiguous', code: 'DELIVERY_RECOVERY_TERMINAL', finished: true }]);
     expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
       { pending: 0 },
+    ]);
+  });
+  it('rejects nonterminal, inactive, and invalid-expiry redrives without admitting new work', async () => {
+    const expiresAt = new Date(Date.now() + 3_600_000);
+    expect(
+      await withTenantTransaction(api, scope, (transaction) =>
+        redriveDelivery(transaction, apiQueue, scope, deliveryId, expiresAt, 'operator', 'Retry'),
+      ),
+    ).toMatchObject({ ok: false, code: 'DELIVERY_REDRIVE_NOT_TERMINAL' });
+    await withTenantTransaction(api, scope, (transaction) =>
+      cancelNotification(transaction, scope, notificationId),
+    );
+    expect(
+      await withTenantTransaction(api, scope, (transaction) =>
+        redriveDelivery(transaction, apiQueue, scope, deliveryId, new Date(0), 'operator', 'Retry'),
+      ),
+    ).toMatchObject({ ok: false, code: 'DELIVERY_REDRIVE_EXPIRY_INVALID' });
+    await fixture.query(
+      "UPDATE app.endpoints SET state='disabled',disabled_at=clock_timestamp() WHERE id=$1",
+      [endpointId],
+    );
+    expect(
+      await withTenantTransaction(api, scope, (transaction) =>
+        redriveDelivery(transaction, apiQueue, scope, deliveryId, expiresAt, 'operator', 'Retry'),
+      ),
+    ).toMatchObject({ ok: false, code: 'DELIVERY_REDRIVE_ENDPOINT_INACTIVE' });
+    expect((await fixture.query('SELECT id FROM app.deliveries')).rows).toHaveLength(1);
+    expect(
+      (await fixture.query('SELECT source_delivery_id FROM app.delivery_redrives')).rows,
+    ).toHaveLength(0);
+    expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+      { pending: 0 },
+    ]);
+  });
+
+  it('hides cancellation and redrive identifiers outside their environment', async () => {
+    const foreignScope = { ...scope, environmentId: v7() };
+    expect(
+      await withTenantTransaction(api, foreignScope, (transaction) =>
+        cancelNotification(transaction, foreignScope, notificationId),
+      ),
+    ).toMatchObject({ ok: false, status: 404 });
+    expect(
+      await withTenantTransaction(api, foreignScope, (transaction) =>
+        redriveDelivery(
+          transaction,
+          apiQueue,
+          foreignScope,
+          deliveryId,
+          new Date(Date.now() + 3_600_000),
+          'operator',
+          'Retry',
+        ),
+      ),
+    ).toMatchObject({ ok: false, status: 404 });
+    expect((await fixture.query('SELECT state FROM app.deliveries')).rows).toEqual([
+      { state: 'queued' },
     ]);
   });
 });

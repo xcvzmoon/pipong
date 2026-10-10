@@ -230,7 +230,8 @@ export function withAuthorizedTransaction<Result>(
         action === 'project:manage' ? 'update' : 'share',
         action === 'environment:manage' ||
           action === 'credential:manage' ||
-          action === 'endpoint:write'
+          action === 'endpoint:write' ||
+          action === 'delivery:redrive'
           ? 'update'
           : 'share',
       ))
