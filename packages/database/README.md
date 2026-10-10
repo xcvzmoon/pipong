@@ -484,3 +484,17 @@ consumers remain disabled pending the remaining integration and qualification ga
 Run the worker race/local HTTP fixture suite with `TEST_DELIVERY_DATABASE_URL`
 and `pnpm service test tests/attempts.integration.test.ts`. Use a disposable
 PostgreSQL 18 cluster; the suite creates and drops databases and runtime roles.
+
+## Erasure and retention
+
+`@pipong/database/erasure` owns durable erasure requests and bounded worker progress.
+`@pipong/database/retention` owns 30-day payload/attempt retention, seven-day replay
+retention, and 90-day audits. Service policy and HTTP adapters consume these
+repositories; apps do not issue cleanup SQL. Migration grants permit worker-only
+cleanup while keeping authentication access behind scoped security-definer functions.
+
+Nullable recipient identities, installation IDs, and project/environment names are
+allowed only on deleted or disabled records. Other ownership constraints and FORCE
+RLS remain in place. Cleanup retains technical tombstones and seven-day idempotency
+responses. See [erasure and retention](../../ERASURE.md) for lifecycle ordering,
+operator checks, and backup exclusions.
