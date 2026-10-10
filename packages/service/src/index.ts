@@ -138,6 +138,14 @@ export type { RetryDecision } from '@pipong/database/attempts';
 export { cancelNotification, redriveDelivery, reconcileDeliveryRecovery } from './recovery.ts';
 export type { RecoveryResult } from './recovery.ts';
 
+export { createEventStreamRuntime } from './event-stream.ts';
+export type {
+  EventStreamRuntime,
+  StreamMessage,
+  StreamSubscription,
+  StreamOpenResult,
+} from './event-stream.ts';
+
 export type {
   NotificationSummary,
   ObservationPage,

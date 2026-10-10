@@ -121,6 +121,8 @@ export async function startAuthFixture(
     const environment = {
       ...process.env,
       NODE_ENV: 'test',
+      CI: '',
+      TEST: '',
       PORT: String(port),
       HOST: '127.0.0.1',
       AUTH_BASE_URL: baseUrl,
