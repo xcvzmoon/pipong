@@ -124,3 +124,11 @@ export { createApnsRuntime, settleApnsDelivery } from './providers/apns.ts';
 export type { ApnsRuntime, ApnsOutcome } from './providers/apns.ts';
 export { createFcmRuntime, settleFcmDelivery } from './providers/fcm.ts';
 export type { FcmBinding, FcmRuntime, FcmOutcome, FcmResponse } from './providers/fcm.ts';
+
+export { createWebPushRuntime, settleWebPushDelivery } from './providers/web-push.ts';
+export type {
+  WebPushBinding,
+  WebPushReceipt,
+  WebPushRuntime,
+  WebPushOutcome,
+} from './providers/web-push.ts';
