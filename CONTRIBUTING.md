@@ -87,7 +87,7 @@ docs: update deployment guide
 
 ## Releases
 
-Maintainers run `pnpm release` to generate a changelog, bump the version, create a tag, push the changes, and create a GitHub release through genbumppush. This command changes repository state and requires push access and GitHub authentication; it is not a verification command.
+Maintainers run `pnpm release` to generate a changelog, bump the version, create a tag, and push the changes through genbumppush. This command changes repository state and requires Git push access; it is not a verification command. Local Docker images are not required. The pushed tag starts the release workflow, which publishes verified images and creates the GitHub release using `ops/genbumppush.config.ts`.
 
 The release workflow runs on `v*` tags. It verifies that the tag matches `package.json`, runs the same integration and image installation gates as CI, publishes the verified images to GHCR, then creates or synchronizes the GitHub release using `GITHUB_TOKEN`. Pipong is a private package and is not published to npm.
 

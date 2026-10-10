@@ -76,10 +76,10 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
-          pnpm exec genbumppush --retry-docker "$RELEASE_TAG" --yes
+          pnpm exec genbumppush --config ops/genbumppush.config.ts --retry-docker "$RELEASE_TAG" --yes
 
       - name: Create or sync release
         env:
           GENBUMPPUSH_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: pnpm exec genbumppush --retry-github "$RELEASE_TAG" --yes
+        run: pnpm exec genbumppush --config ops/genbumppush.config.ts --retry-github "$RELEASE_TAG" --yes
