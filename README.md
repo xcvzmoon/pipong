@@ -160,3 +160,6 @@ The tested runtime matrix is Node 24, pnpm 12.6.0, PostgreSQL 18, and Debian
 Bookworm images. Dependency versions come from the committed lockfile; CI uses
 that lockfile rather than resolving new versions. Production qualification and
 framework pinning remain release gates.
+
+Release qualification is tracked in [release evidence](docs/release-evidence.md).
+Recovery and incident procedures are in [operations](docs/operations.md).
