@@ -1,6 +1,5 @@
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { EnhancedQueryLogger } from 'drizzle-query-logger';
 import { Pool } from 'pg';
 import { env } from './env.ts';
 
@@ -130,7 +129,11 @@ async function defineDb(role: DbRole): Promise<DatabaseRuntime> {
   return {
     db: drizzle({
       client: pool,
-      logger: config.useQueryLogger && new EnhancedQueryLogger(),
+      logger: config.useQueryLogger && {
+        logQuery() {
+          console.info(JSON.stringify({ event: 'database_query' }));
+        },
+      },
     }),
     pool,
     close: () => pool.end(),

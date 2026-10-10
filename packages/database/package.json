@@ -72,11 +72,10 @@
     "@pipong/shared": "workspace:*",
     "@xcvzlabs/env": "catalog:shared",
     "drizzle-orm": "catalog:database",
-    "drizzle-query-logger": "catalog:shared",
     "pg": "catalog:database",
+    "pg-boss": "catalog:mail",
     "uuid": "catalog:shared",
-    "valibot": "catalog:shared",
-    "pg-boss": "catalog:mail"
+    "valibot": "catalog:shared"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",

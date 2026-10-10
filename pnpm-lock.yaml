@@ -260,9 +260,6 @@ catalogs:
     '@xcvzlabs/env':
       specifier: ^0.1.2
       version: 0.1.2
-    drizzle-query-logger:
-      specifier: ^1.1.2
-      version: 1.1.2
     tsdown:
       specifier: ^0.23.0
       version: 0.23.0
@@ -463,9 +460,6 @@ importers:
       drizzle-orm:
         specifier: catalog:database
         version: 1.0.0-rc.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.5)
-      drizzle-query-logger:
-        specifier: catalog:shared
-        version: 1.1.2(drizzle-orm@1.0.0-rc.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.5))(typescript@7.0.2)
       pg:
         specifier: catalog:database
         version: 8.23.1
@@ -1419,9 +1413,6 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@sqltools/formatter@1.2.5':
-    resolution: {integrity: sha512-Uy0+khmZqUrUGm5dmMqVlnvufZRSK0FbYzVgp0UMstm+F5+W2/jnEEQyc9vo1ZR/E5ZI/B1WjjoTqBqwJL6Krw==}
-
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
 
@@ -2145,12 +2136,6 @@ packages:
         optional: true
       zod:
         optional: true
-
-  drizzle-query-logger@1.1.2:
-    resolution: {integrity: sha512-/VyJOlC5BDnENuhdQws1CfKwBEUK6qycpsZiCmDfEjVc3P/x7vpyY5C9wz/hDkPu/GHAiQPz2OTnpv8/AFEItA==}
-    peerDependencies:
-      drizzle-orm: '>=0.44.3 <1.0.0'
-      typescript: ^5
 
   dts-resolver@3.0.0:
     resolution: {integrity: sha512-1T1f+z+4tl9XD+m+0HBgWoL/nm0bOIffyWaUuUSBlFg/86IWvfx+wjNaO/ybU0AJzG9/Mi5hBUgGV6zCmWEN7Q==}
@@ -3821,8 +3806,6 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@sqltools/formatter@1.2.5': {}
-
   '@standard-schema/spec@1.1.0': {}
 
   '@types/chai@5.2.3':
@@ -4266,12 +4249,6 @@ snapshots:
       pg: 8.23.1
       valibot: 1.5.0(typescript@7.0.2)
       zod: 4.6.5
-
-  drizzle-query-logger@1.1.2(drizzle-orm@1.0.0-rc.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.5))(typescript@7.0.2):
-    dependencies:
-      '@sqltools/formatter': 1.2.5
-      drizzle-orm: 1.0.0-rc.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)(valibot@1.5.0(typescript@7.0.2))(zod@4.6.5)
-      typescript: 7.0.2
 
   dts-resolver@3.0.0: {}
 

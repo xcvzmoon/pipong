@@ -614,9 +614,15 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     }
   });
 
-  it('logs queries through the selected client flag', async () => {
+  it('logs query activity without SQL or parameter values', async () => {
     vi.stubEnv('API_DATABASE_USE_QUERY_LOGGER', 'true');
-    expect(await runClient('api', 'await runtime.db.execute(sql`SELECT 42`);')).toContain('42');
+    const output = await runClient(
+      'api',
+      'await runtime.db.execute(sql`SELECT ${"secret-query-value"}::text`);',
+    );
+    expect(output).toContain('database_query');
+    expect(output).not.toContain('secret-query-value');
+    expect(output).not.toContain('SELECT');
     vi.stubEnv('API_DATABASE_USE_QUERY_LOGGER', 'false');
     expect(await runClient('api', 'await runtime.db.execute(sql`SELECT 42`);')).toBe('');
   }, 15000);
