@@ -92,6 +92,13 @@ binding, receipt settlement, and outstanding device qualification.
 
 ## Deploying
 
+Use the [self-hosted installation guide](./INSTALLATION.md) for Docker artifacts,
+PostgreSQL TLS, isolated secrets, one-shot migrations, operator bootstrap, and
+SSE reverse-proxy configuration.
+
+Docker publication uses genbumppush to match image versions to Git release tags.
+See [release image tags](./INSTALLATION.md#release-image-tags) for build and release commands.
+
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.
 
 ```bash
