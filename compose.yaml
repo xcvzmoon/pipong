@@ -1,0 +1,146 @@
+services:
+  database:
+    image: ghcr.io/xcvzmoon/pipong-database:${PIPONG_VERSION:?Set PIPONG_VERSION to the release version}
+    build:
+      context: .
+      target: database
+    environment:
+      POSTGRES_DB: pipong
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/admin-password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    volumes:
+      - database:/var/lib/postgresql
+    secrets:
+      - admin-password
+      - api-password
+      - worker-password
+      - migrator-password
+      - database-cert
+      - database-key
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U postgres -d pipong && psql -U postgres -d pipong -qAt -c "SELECT 1 / (count(*) = 3)::int FROM pg_roles WHERE rolname IN (''pipong_api'', ''pipong_worker'', ''pipong_migrator'')" > /dev/null',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+  migrate:
+    image: ghcr.io/xcvzmoon/pipong-migrate:${PIPONG_VERSION}
+    build:
+      context: .
+      target: migrate
+    profiles: [tools]
+    depends_on:
+      database:
+        condition: service_healthy
+    secrets:
+      - source: migration-env
+        target: migration.env
+      - database-ca
+  operator:
+    image: ghcr.io/xcvzmoon/pipong-server:${PIPONG_VERSION}
+    build:
+      context: .
+      target: server
+    profiles: [tools]
+    command: ['node', '--env-file=/run/secrets/api.env', 'operator/operator.mjs']
+    stdin_open: true
+    depends_on:
+      database:
+        condition: service_healthy
+    secrets:
+      - source: api-env
+        target: api.env
+      - source: credential-keyring
+        target: credential-keyring.json
+      - database-ca
+  api:
+    image: ghcr.io/xcvzmoon/pipong-server:${PIPONG_VERSION}
+    build:
+      context: .
+      target: server
+    environment:
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: '3000'
+      NITRO_SHUTDOWN_TIMEOUT: '30000'
+    ports: ['127.0.0.1:3000:3000']
+    depends_on:
+      database:
+        condition: service_healthy
+    secrets:
+      - source: api-env
+        target: api.env
+      - source: credential-keyring
+        target: credential-keyring.json
+      - database-ca
+      - diagnostics-token
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 60s
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/health/live', {headers: {authorization: 'Bearer ' + require('node:fs').readFileSync('/run/secrets/diagnostics-token', 'utf8').trim()}}).then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+  worker:
+    image: ghcr.io/xcvzmoon/pipong-worker:${PIPONG_VERSION}
+    build:
+      context: .
+      target: worker
+    depends_on:
+      database:
+        condition: service_healthy
+    secrets:
+      - source: worker-env
+        target: worker.env
+      - source: credential-keyring
+        target: credential-keyring.json
+      - database-ca
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    stop_grace_period: 90s
+    restart: unless-stopped
+
+volumes:
+  database:
+
+secrets:
+  admin-password:
+    file: ${PIPONG_SECRETS_DIR:?Set PIPONG_SECRETS_DIR}/admin-password
+  api-password:
+    file: ${PIPONG_SECRETS_DIR}/api-password
+  worker-password:
+    file: ${PIPONG_SECRETS_DIR}/worker-password
+  migrator-password:
+    file: ${PIPONG_SECRETS_DIR}/migrator-password
+  database-cert:
+    file: ${PIPONG_SECRETS_DIR}/database.crt
+  database-key:
+    file: ${PIPONG_SECRETS_DIR}/database.key
+  database-ca:
+    file: ${PIPONG_SECRETS_DIR}/database-ca.crt
+  credential-keyring:
+    file: ${PIPONG_SECRETS_DIR}/credential-keyring.json
+  api-env:
+    file: ${PIPONG_SECRETS_DIR}/api.env
+  worker-env:
+    file: ${PIPONG_SECRETS_DIR}/worker.env
+  migration-env:
+    file: ${PIPONG_SECRETS_DIR}/migration.env
+  diagnostics-token:
+    file: ${PIPONG_SECRETS_DIR}/diagnostics-token

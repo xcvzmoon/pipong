@@ -16,6 +16,7 @@
     "test:watch": "pnpm --recursive --parallel --if-present run test:watch",
     "test:verbose": "pnpm --recursive --if-present run test:verbose",
     "release": "genbumppush --yes",
+    "release:build": "sh ops/build-release.sh",
     "server": "pnpm --filter pipong-server --fail-if-no-match run",
     "worker": "pnpm --filter pipong-worker --fail-if-no-match run",
     "auth": "pnpm --filter @pipong/auth --fail-if-no-match run",
