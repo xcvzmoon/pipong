@@ -122,7 +122,8 @@ telemetry, privileged audits, and alert setup.
 
 ## Integration and release gates
 
-CI and tagged releases run the same gates after installing the frozen lockfile:
+CI and tagged releases cover the same gates after installing the frozen lockfile.
+Run them locally with:
 
 ```sh
 CI_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres sh ops/check-ci.sh
@@ -134,7 +135,11 @@ The database URL must point to a disposable PostgreSQL 18 cluster with trust
 authentication and an administrator named `postgres`. Tests create and remove
 fixed deployment roles. The gate sets all four integration fixture URLs and runs
 packages and test files sequentially, so suites cannot race over those roles.
-It checks formatting, lint, types, migration history, both deployable builds,
+CI runs database, service, and server tests in parallel jobs with separate
+PostgreSQL services; test files within each job remain sequential. Static checks,
+auth tests, and image verification run in a separate job. The final `CI` job
+requires all jobs to pass. Tagged releases use the sequential gate shown above.
+The gate checks formatting, lint, types, migration history, both deployable builds,
 and the real PostgreSQL/protocol/HTTP suites. An empty server test run fails.
 The schema tests cover clean installation and upgrading an earlier tenant schema
 while preserving existing data.
