@@ -76,6 +76,24 @@ describe('runtime configuration', () => {
     ).toBe('https://example.com/contact');
   });
 
+  it('requires explicit push enablement and a VAPID contact', () => {
+    const base = { CREDENTIAL_KEYRING_REF: '/run/secrets/credential-keyring.json' };
+    expect(parseWorkerConfig(base).pushDeliveryEnabled).toBe(false);
+    expect(() => parseWorkerConfig({ ...base, PUSH_DELIVERY_ENABLED: 'yes' })).toThrow(
+      expect.objectContaining({ code: 'WORKER_CONFIG_INVALID' }),
+    );
+    expect(() => parseWorkerConfig({ ...base, PUSH_DELIVERY_ENABLED: 'true' })).toThrow(
+      expect.objectContaining({ code: 'WORKER_CONFIG_INVALID' }),
+    );
+    expect(
+      parseWorkerConfig({
+        ...base,
+        PUSH_DELIVERY_ENABLED: 'true',
+        WEB_PUSH_SUBJECT: 'mailto:ops@example.com',
+      }).pushDeliveryEnabled,
+    ).toBe(true);
+  });
+
   it('applies environment overrides and keeps errors redacted', () => {
     const apiConfig = parseApiConfig({
       ...validApiEnvironment,
