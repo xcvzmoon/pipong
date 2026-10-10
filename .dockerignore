@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+**/.output
+**/.nitro
+**/.env
+**/.env.*
+!**/.env.example
+.git
+.agents
+.codex
+.worktrees
+.secrets
+brain
+.data
+.cache
+**/*.log
