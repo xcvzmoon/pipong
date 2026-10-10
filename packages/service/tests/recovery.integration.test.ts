@@ -14,7 +14,7 @@ import { Client } from 'pg';
 import { v7 } from 'uuid';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reserveDelivery, settleDelivery } from '../src/delivery.ts';
-import { cancelNotification, redriveDelivery } from '../src/recovery.ts';
+import { cancelNotification, redriveDelivery, reconcileDeliveryRecovery } from '../src/recovery.ts';
 
 const testUrl = process.env.TEST_DELIVERY_DATABASE_URL;
 const runCommand = promisify(execFile);
@@ -285,6 +285,35 @@ describe.skipIf(!testUrl)('delivery recovery in disposable PostgreSQL', () => {
     ]);
   });
 
+  it('reconciles exhausted crash work once without a successor send', async () => {
+    const reserved = await reserveDelivery(worker, queue, job, await claim());
+    if (reserved.status !== 'send') {
+      throw new Error('TEST_RESERVATION_MISSING');
+    }
+    await fixture.query(
+      "UPDATE pgboss.job SET state='failed',completed_on=clock_timestamp() WHERE id=$1",
+      [jobId],
+    );
+    expect(await reconcileDeliveryRecovery(worker)).toBe(1);
+    expect(await reconcileDeliveryRecovery(worker)).toBe(0);
+    expect((await fixture.query('SELECT state FROM app.deliveries')).rows).toEqual([
+      { state: 'failed' },
+    ]);
+    expect((await fixture.query('SELECT outcome,code FROM app.delivery_attempts')).rows).toEqual([
+      { outcome: 'ambiguous', code: 'DELIVERY_RECOVERY_EXHAUSTED' },
+    ]);
+    expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+      { pending: 0 },
+    ]);
+    expect((await fixture.query('SELECT id FROM pgboss.job')).rows).toHaveLength(1);
+    expect(
+      (
+        await fixture.query('SELECT delivery_id FROM app.delivery_events WHERE delivery_id=$1', [
+          deliveryId,
+        ])
+      ).rows,
+    ).toHaveLength(2);
+  });
   it('counts crash recovery generations toward the eight-send cap', async () => {
     await fixture.query('UPDATE app.deliveries SET attempt_generation=7 WHERE id=$1', [deliveryId]);
     const reserved = await reserveDelivery(worker, queue, job, await claim());

@@ -1,3 +1,4 @@
+import type { DatabaseRuntime } from '@pipong/database';
 import type { QueueRuntime } from '@pipong/database/delivery-queue';
 import type { EnvironmentScope } from '@pipong/database/recipients';
 import type { RecoveryResult } from '@pipong/database/recovery';
@@ -6,7 +7,10 @@ import {
   cancelPendingNotification,
   lockRedriveSource,
   persistDeliveryRedrive,
+  reconcileFailedDelivery,
+  readFailedDeliveryJobs,
 } from '@pipong/database/recovery';
+import { withTenantTransaction } from '@pipong/database/tenancy';
 import * as v from 'valibot';
 import { notificationLimits, notificationRequestSchema } from './notification-contract.ts';
 
@@ -103,4 +107,38 @@ export async function redriveDelivery(
     actorId,
     reason,
   );
+}
+
+/**
+ * Reconciles a bounded batch of exhausted queue jobs into visible terminal outcomes.
+ * Call periodically from a worker. It performs no provider I/O and is safe across workers.
+ * @param database - Worker database runtime with access to retained failed queue jobs.
+ * @returns Count of deliveries resolved; repeated scans preserve settled outcomes.
+ * @throws {Error} Invalid retained job payloads and database failures propagate without fabricated success.
+ * @example
+ * ```ts
+ * const reconciled = await reconcileDeliveryRecovery(database);
+ * ```
+ */
+export async function reconcileDeliveryRecovery(database: DatabaseRuntime): Promise<number> {
+  const rows = await readFailedDeliveryJobs(database);
+  let reconciled = 0;
+  // oxlint-disable eslint/no-await-in-loop -- Each job owns a separate tenant transaction; batches are bounded.
+  for (const { id, data } of rows) {
+    const changed = await withTenantTransaction(
+      database,
+      {
+        kind: 'environment',
+        organizationId: data.organizationId,
+        projectId: data.projectId,
+        environmentId: data.environmentId,
+      },
+      (transaction) => reconcileFailedDelivery(transaction, data, id),
+    );
+    if (changed) {
+      reconciled += 1;
+    }
+  }
+  // oxlint-enable eslint/no-await-in-loop
+  return reconciled;
 }

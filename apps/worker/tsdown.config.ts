@@ -8,7 +8,8 @@ export default defineConfig({
   deps: {
     alwaysBundle: [
       '@pipong/auth',
-      '@pipong/database',
+      /^@pipong\/database(?:\/|$)/,
+      '@pipong/service',
       '@pipong/shared',
       '@xcvzlabs/env',
       'valibot',

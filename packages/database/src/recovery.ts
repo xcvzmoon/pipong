@@ -1,12 +1,15 @@
 import type { SQL } from 'drizzle-orm';
+import type { DatabaseRuntime } from './clients.ts';
 import type { DeliveryJob, QueueRuntime } from './delivery-queue.ts';
 import type { EnvironmentScope } from './recipients/index.ts';
 import type { SubmissionTarget } from './submission.ts';
 import type { TenantTransaction } from './tenancy/index.ts';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { v7 } from 'uuid';
+import * as v from 'valibot';
+import { deliveryAttempts } from './attempts-schema.ts';
 import { publishDeliveryState } from './attempts.ts';
-import { insertDeliveryJob } from './delivery-queue.ts';
+import { deliveryJobSchema, insertDeliveryJob } from './delivery-queue.ts';
 import { appendDeliveryEvent } from './events.ts';
 import { reserveAdmission } from './limits.ts';
 import { deliveryRedrives } from './recovery-schema.ts';
@@ -241,4 +244,102 @@ export async function persistDeliveryRedrive(
     provider: target.provider,
   });
   return { ok: true, value: { notificationId, deliveryId, sourceDeliveryId: source.delivery.id } };
+}
+
+/**
+ * Resolves an exhausted infrastructure job under notification/delivery/job lock order.
+ * Unfinished sends are recorded as ambiguous, never as provider success.
+ * @param transaction - Worker transaction with the job tenant context.
+ * @param job - Validated identifier-only failed job payload.
+ * @param jobId - Failed pg-boss job UUID.
+ * @returns Whether this transaction resolved nonterminal work.
+ * @throws {Error} Database failures roll back state, attempt, event, and quota writes.
+ * @example
+ * ```ts
+ * const changed = await reconcileFailedDelivery(transaction, job, jobId);
+ * ```
+ */
+export async function reconcileFailedDelivery(
+  transaction: TenantTransaction,
+  job: DeliveryJob,
+  jobId: string,
+): Promise<boolean> {
+  const scope = { kind: 'environment', ...job } as const;
+  const [notification] = await transaction
+    .select()
+    .from(notifications)
+    .where(notificationScope(scope, job.notificationId))
+    .for('update');
+  const [delivery] = await transaction
+    .select()
+    .from(deliveries)
+    .where(
+      and(
+        eq(deliveries.id, job.deliveryId),
+        eq(deliveries.notificationId, job.notificationId),
+        eq(deliveries.provider, job.provider),
+      ),
+    )
+    .for('update');
+  const claim = await transaction.execute(
+    sql`SELECT id FROM pgboss.job WHERE id=${jobId}::uuid AND name=${'delivery-' + job.provider} AND state='failed' AND data=${JSON.stringify(job)}::jsonb FOR UPDATE`,
+  );
+  if (!notification || !delivery || claim.rows.length !== 1) {
+    return false;
+  }
+  await transaction.execute(
+    sql`UPDATE pgboss.job SET keep_until=clock_timestamp()+interval '28 days' WHERE id=${jobId}::uuid AND name=${'delivery-' + job.provider}`,
+  );
+  if (!['queued', 'sending', 'retry_wait'].includes(delivery.state)) {
+    return false;
+  }
+  const active = await transaction.execute(
+    sql`SELECT id FROM pgboss.job WHERE name=${'delivery-' + job.provider} AND data->>'deliveryId'=${job.deliveryId} AND state IN ('created','retry','active') LIMIT 1`,
+  );
+  if (active.rows.length > 0) {
+    return false;
+  }
+  const [clock] = await transaction
+    .select({ now: sql`clock_timestamp()`.mapWith(notifications.acceptedAt) })
+    .from(sql`(SELECT 1) AS clock`);
+  if (!clock) {
+    throw new Error('DELIVERY_CLOCK_UNAVAILABLE');
+  }
+  const now = clock.now;
+  const state =
+    notification.expiresAt <= now
+      ? 'expired'
+      : notification.canceledAt !== null
+        ? 'canceled'
+        : 'failed';
+  await transaction
+    .update(deliveryAttempts)
+    .set({ finishedAt: now, outcome: 'ambiguous', code: 'DELIVERY_RECOVERY_EXHAUSTED' })
+    .where(and(eq(deliveryAttempts.deliveryId, delivery.id), isNull(deliveryAttempts.finishedAt)));
+  await transaction.update(deliveries).set({ state }).where(eq(deliveries.id, delivery.id));
+  await publishDeliveryState(transaction, job, state);
+  return true;
+}
+
+/**
+ * Reads a bounded batch of retained exhausted jobs and validates their identifiers.
+ * @param database - Worker runtime with queue read access.
+ * @returns At most 100 identifier-only jobs awaiting reconciliation.
+ * @throws {Error} Validation and database failures propagate.
+ * @example
+ * ```ts
+ * const jobs = await readFailedDeliveryJobs(database);
+ * ```
+ */
+export async function readFailedDeliveryJobs(
+  database: DatabaseRuntime,
+): Promise<{ id: string; data: DeliveryJob }[]> {
+  const result = await database.pool.query(`SELECT job.id, job.data FROM pgboss.job AS job
+    WHERE job.name IN ('delivery-apns','delivery-fcm','delivery-web-push') AND job.state='failed'
+      AND job.keep_until='infinity'::timestamptz
+    ORDER BY job.created_on, job.id LIMIT 100`);
+  return v.parse(
+    v.array(v.object({ id: v.pipe(v.string(), v.uuid()), data: deliveryJobSchema })),
+    result.rows,
+  );
 }
