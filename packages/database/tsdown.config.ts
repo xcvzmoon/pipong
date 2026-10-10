@@ -3,6 +3,8 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   entry: [
     'src/index.ts',
+    'src/audit.ts',
+    'src/telemetry.ts',
     'src/delivery-queue.ts',
     'src/events.ts',
     'src/limits.ts',

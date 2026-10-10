@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./attempts": "./src/attempts.ts",
+    "./audit": "./src/audit.ts",
     "./auth": "./src/auth/index.ts",
     "./authorization": "./src/authorization/index.ts",
     "./credentials": "./src/credentials/index.ts",
@@ -22,6 +23,7 @@
     "./retention": "./src/retention.ts",
     "./service-keys": "./src/service-keys/index.ts",
     "./submission": "./src/submission.ts",
+    "./telemetry": "./src/telemetry.ts",
     "./tenancy": "./src/tenancy/index.ts",
     "./package.json": "./package.json"
   },
@@ -29,6 +31,7 @@
     "exports": {
       ".": "./dist/index.mjs",
       "./attempts": "./dist/attempts.mjs",
+      "./audit": "./dist/audit.mjs",
       "./auth": "./dist/auth/index.mjs",
       "./authorization": "./dist/authorization/index.mjs",
       "./credentials": "./dist/credentials/index.mjs",
@@ -46,6 +49,7 @@
       "./retention": "./dist/retention.mjs",
       "./service-keys": "./dist/service-keys/index.mjs",
       "./submission": "./dist/submission.mjs",
+      "./telemetry": "./dist/telemetry.mjs",
       "./tenancy": "./dist/tenancy/index.mjs",
       "./package.json": "./package.json"
     }
