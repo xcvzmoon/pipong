@@ -1,23 +1,15 @@
 import type { DeliveryJob, QueueRuntime } from '@pipong/database/delivery-queue';
 import type { TenantTransaction } from '@pipong/database/tenancy';
-import { insertDeliveryJob } from '@pipong/database/delivery-queue';
+import { deliveryJobSchema, insertDeliveryJob } from '@pipong/database/delivery-queue';
 import * as v from 'valibot';
 
-const idSchema = v.pipe(v.string(), v.uuid());
+export { deliveryJobSchema } from '@pipong/database/delivery-queue';
+
 const jobIdSchema = v.pipe(
-  idSchema,
+  v.string(),
+  v.uuid(),
   v.check((id) => id[14] === '7'),
 );
-
-/** Identifier-only delivery payload; rejects secrets, provider bodies, and extra fields. */
-export const deliveryJobSchema = v.strictObject({
-  organizationId: idSchema,
-  projectId: idSchema,
-  environmentId: idSchema,
-  notificationId: idSchema,
-  deliveryId: idSchema,
-  provider: v.picklist(['apns', 'fcm', 'web-push']),
-});
 
 /**
  * Validates and enqueues a persisted delivery in its application transaction.

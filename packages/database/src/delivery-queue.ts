@@ -17,6 +17,16 @@ export type DeliveryJob = {
   provider: 'apns' | 'fcm' | 'web-push';
 };
 
+/** Validates identifier-only queue payloads, rejecting secrets and extra fields. */
+export const deliveryJobSchema = v.strictObject({
+  organizationId: v.pipe(v.string(), v.uuid()),
+  projectId: v.pipe(v.string(), v.uuid()),
+  environmentId: v.pipe(v.string(), v.uuid()),
+  notificationId: v.pipe(v.string(), v.uuid()),
+  deliveryId: v.pipe(v.string(), v.uuid()),
+  provider: v.picklist(['apns', 'fcm', 'web-push']),
+});
+
 /** Queue handle owned by one process; stop it before closing its database runtime. */
 export type QueueRuntime = PgBoss;
 
