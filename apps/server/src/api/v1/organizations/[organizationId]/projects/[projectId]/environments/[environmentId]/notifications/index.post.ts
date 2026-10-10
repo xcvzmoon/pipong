@@ -1,4 +1,9 @@
-import { environmentPathSchema, idempotencyKeySchema, submitNotification } from '@pipong/service';
+import {
+  environmentPathSchema,
+  idempotencyKeySchema,
+  submitNotification,
+  writeTelemetry,
+} from '@pipong/service';
 import { defineHandler, defineRouteMeta } from 'nitro';
 import * as v from 'valibot';
 import { mailQueue } from '~/utils/auth.ts';
@@ -330,30 +335,41 @@ export default defineHandler(async (event) => {
     return input;
   }
   const scope = { kind: 'environment', ...path.output } as const;
-  return withAuthorizedRequest(event, 'notification:send', scope, async (transaction) => {
-    const result = await submitNotification(
-      transaction,
-      mailQueue,
-      scope,
-      event.context.principal?.kind === 'service-key' ? event.context.principal.keyId : null,
-      await credentialKeyring(),
-      key.output,
-      input,
-      requestId,
-    );
-    if (!result.ok) {
-      if ('problem' in result) {
-        return problemResponse(result.problem.status, result.problem.code, requestId);
+  let acceptedId: string | undefined;
+  const response = await withAuthorizedRequest(
+    event,
+    'notification:send',
+    scope,
+    async (transaction) => {
+      const result = await submitNotification(
+        transaction,
+        mailQueue,
+        scope,
+        event.context.principal?.kind === 'service-key' ? event.context.principal.keyId : null,
+        await credentialKeyring(),
+        key.output,
+        input,
+        requestId,
+      );
+      if (!result.ok) {
+        if ('problem' in result) {
+          return problemResponse(result.problem.status, result.problem.code, requestId);
+        }
+        const problem = problemResponse(result.status, result.code, requestId);
+        if (result.status === 429) {
+          problem.headers.set('retry-after', String(result.retryAfter));
+        }
+        return problem;
       }
-      const response = problemResponse(result.status, result.code, requestId);
-      if (result.status === 429) {
-        response.headers.set('retry-after', String(result.retryAfter));
-      }
-      return response;
-    }
-    return Response.json(result.value, {
-      status: 202,
-      headers: { location: `${event.url.pathname}/${result.value.notificationId}` },
-    });
-  });
+      acceptedId = result.value.notificationId;
+      return Response.json(result.value, {
+        status: 202,
+        headers: { location: `${event.url.pathname}/${result.value.notificationId}` },
+      });
+    },
+  );
+  if (response.status === 202 && acceptedId) {
+    writeTelemetry({ event: 'notification_accepted', requestId, notificationId: acceptedId });
+  }
+  return response;
 });

@@ -153,6 +153,22 @@ describe.skipIf(!testUrl)('authoritative notification observation through built 
     await fixture?.close();
   }, 30_000);
 
+  it('counts persisted provider authentication codes in diagnostics', async () => {
+    for (const code of ['FCM_AUTH_FAILED', 'WEB_PUSH_HTTP_401', 'WEB_PUSH_HTTP_403']) {
+      // oxlint-disable eslint/no-await-in-loop -- Each diagnostic read must observe the preceding committed outcome.
+      await fixture.database.query('UPDATE app.delivery_attempts SET code=$1', [code]);
+      const result = await fixture.database.query(
+        'SELECT app.runtime_diagnostics() AS diagnostics',
+      );
+      const diagnostics = v.parse(
+        v.object({ diagnostics: v.object({ credentialFailures: v.number() }) }),
+        result.rows[0],
+      );
+      expect(diagnostics.diagnostics.credentialFailures).toBe(1);
+      // oxlint-enable eslint/no-await-in-loop
+    }
+  });
+
   it('returns one-snapshot notification counts and scope-bound cursor pages', async () => {
     const list = await request(`${basePath}/notifications?limit=1`);
     expect(list.status).toBe(200);
