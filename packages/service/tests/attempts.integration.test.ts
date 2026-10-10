@@ -19,6 +19,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { reserveDelivery, settleDelivery } from '../src/delivery.ts';
 import { settleApnsDelivery } from '../src/providers/apns.ts';
 import { settleFcmDelivery } from '../src/providers/fcm.ts';
+import { settleWebPushDelivery } from '../src/providers/web-push.ts';
 
 const testUrl = process.env.TEST_DELIVERY_DATABASE_URL;
 const runCommand = promisify(execFile);
@@ -400,6 +401,80 @@ describe.skipIf(!testUrl)('fenced delivery attempts in disposable PostgreSQL', (
       ).toEqual([{ provider_response: JSON.stringify(result.response) }]);
       expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
         { pending: scenario === 'contradictory-receipt' ? 1 : 0 },
+      ]);
+    },
+  );
+
+  it.each(['current', 'not-found', 'refreshed', 'lost-claim', 'auth-failure'] as const)(
+    'invalidates only the attempted Web Push generation for %s registrations',
+    async (scenario) => {
+      const pushJob: DeliveryJob = { ...job, provider: 'web-push' };
+      await fixture.query(
+        "UPDATE app.credential_versions SET provider='web-push',app_id='target-project' WHERE id=$1",
+        [credentialId],
+      );
+      await fixture.query(
+        "UPDATE app.endpoints SET provider='web-push',app_id='target-project',target_hash='web-push-hash' WHERE id=$1",
+        [endpointId],
+      );
+      await fixture.query("UPDATE app.deliveries SET provider='web-push' WHERE id=$1", [
+        deliveryId,
+      ]);
+      await fixture.query('UPDATE pgboss.job SET name=$2,data=$3::jsonb WHERE id=$1', [
+        jobId,
+        'delivery-web-push',
+        JSON.stringify(pushJob),
+      ]);
+      const [claimed] = await fetchDeliveryJobs(worker, queue, 'web-push');
+      if (!claimed) {
+        throw new Error('TEST_CLAIM_MISSING');
+      }
+      const reserved = await reserveDelivery(worker, queue, pushJob, {
+        id: claimed.id,
+        retryCount: claimed.retryCount,
+      });
+      if (reserved.status !== 'send') {
+        throw new Error('TEST_RESERVATION_MISSING');
+      }
+      if (scenario === 'refreshed') {
+        await fixture.query(
+          "INSERT INTO app.endpoint_generations (endpoint_id,generation,credential_id,encrypted_target,organization_id,project_id,environment_id,registered_at) VALUES ($1,2,$2,'target',$3,$4,$5,now())",
+          [endpointId, credentialId, organizationId, projectId, environmentId],
+        );
+        await fixture.query(
+          'UPDATE app.endpoints SET generation=2,registered_at=clock_timestamp() WHERE id=$1',
+          [endpointId],
+        );
+      }
+      const result = {
+        outcome: { kind: 'permanent', code: 'WEB_PUSH_SUBSCRIPTION_FAILED' },
+        response: {
+          status: scenario === 'auth-failure' ? 403 : scenario === 'not-found' ? 404 : 410,
+          retryAfter: null,
+        },
+      } as const;
+      if (scenario === 'lost-claim') {
+        await recover();
+        await expect(settleWebPushDelivery(worker, queue, reserved, result)).rejects.toThrow(
+          'DELIVERY_QUEUE_CLAIM_LOST',
+        );
+        expect((await fixture.query('SELECT state FROM app.endpoints')).rows).toEqual([
+          { state: 'active' },
+        ]);
+        expect(
+          (await fixture.query('SELECT provider_response FROM app.delivery_attempts')).rows,
+        ).toEqual([{ provider_response: null }]);
+        return;
+      }
+      expect(await settleWebPushDelivery(worker, queue, reserved, result)).toBe('failed');
+      expect((await fixture.query('SELECT state FROM app.endpoints')).rows).toEqual([
+        { state: scenario === 'current' || scenario === 'not-found' ? 'disabled' : 'active' },
+      ]);
+      expect(
+        (await fixture.query('SELECT provider_response FROM app.delivery_attempts')).rows,
+      ).toEqual([{ provider_response: JSON.stringify(result.response) }]);
+      expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+        { pending: 0 },
       ]);
     },
   );
