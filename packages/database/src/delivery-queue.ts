@@ -108,7 +108,7 @@ export async function insertDeliveryJob(
  * All delivery consumers must use this boundary. It serializes claim selection per
  * provider, counts active pg-boss claims, and commits before network I/O. A tenant's
  * group cap leaves provider capacity for other tenants. Limits are operator-owned.
- * This bounds active claims; phase 20 must fence stale attempts and bound network deadlines.
+ * Claims use one-second statement and 250 ms lock timeouts. Send reservations fence stale attempts and bound network deadlines.
  * @param database - Worker runtime owning the claim transaction.
  * @param queue - Started queue using this same database.
  * @param provider - Provider queue to claim from.
@@ -125,6 +125,9 @@ export function fetchDeliveryJobs(
   provider: DeliveryJob['provider'],
 ): Promise<Job<DeliveryJob>[]> {
   return database.db.transaction(async (transaction) => {
+    await transaction.execute(
+      sql`SELECT set_config('statement_timeout', '1000', true), set_config('lock_timeout', '250', true)`,
+    );
     await transaction.execute(
       sql`SELECT pg_advisory_xact_lock(hashtextextended(${'pipong.delivery.' + provider}, 0))`,
     );

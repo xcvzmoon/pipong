@@ -1,8 +1,8 @@
 # FCM delivery
 
-FCM HTTP v1 is implemented as an internal worker capability. Provider queue
-consumers remain disabled until the remaining provider and recovery phases are
-qualified. The adapter uses each delivery's pinned credential version and sends
+FCM HTTP v1 is implemented as an internal worker capability. Provider consumers
+default to disabled; set `PUSH_DELIVERY_ENABLED=true` and `WEB_PUSH_SUBJECT`
+to exercise them for qualification. The adapter uses each delivery's pinned credential version and sends
 to the target project in that credential's `appId`.
 
 The credential service account's `projectId` may differ from the target project.

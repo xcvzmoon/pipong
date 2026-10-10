@@ -1,7 +1,8 @@
 # Web Push delivery
 
-Web Push is an internal worker capability. Provider queue consumers remain
-disabled until the recovery policy is integrated. The sender takes the validated
+Web Push is an internal worker capability. Provider consumers default to disabled;
+set `PUSH_DELIVERY_ENABLED=true` and `WEB_PUSH_SUBJECT` to exercise them for
+qualification. The sender takes the validated
 `WEB_PUSH_SUBJECT` contact URI and the operator-owned egress policy. It uses
 `web-push` request generation with `aes128gcm`, followed by the guarded HTTPS
 transport described in [egress operations](./EGRESS.md).

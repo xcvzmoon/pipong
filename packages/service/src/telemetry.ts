@@ -30,7 +30,8 @@ export type TelemetryEvent = {
     | 'recovery_scan_failed'
     | 'retention_scan_failed'
     | 'erasure_scan_failed'
-    | 'worker_heartbeat_failed';
+    | 'worker_heartbeat_failed'
+    | 'delivery_consumer_failed';
   requestId?: string;
   notificationId?: string;
   deliveryId?: string;
@@ -68,6 +69,7 @@ const telemetryEventSchema = v.strictObject({
     'retention_scan_failed',
     'erasure_scan_failed',
     'worker_heartbeat_failed',
+    'delivery_consumer_failed',
   ]),
   requestId: correlationSchema,
   notificationId: correlationSchema,

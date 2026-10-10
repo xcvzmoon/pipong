@@ -16,14 +16,16 @@ export type ApiConfig = {
 };
 
 /**
- * Validated worker provider settings; optional providers remain undefined when unset.
+ * Validated worker settings; push consumers require explicit operator enablement.
  */
 export type WorkerConfig = {
   credentialKeyringRef: string;
   apnsEnvironment: 'production' | 'sandbox';
   fcmProjectId: string | undefined;
-  webPushSubject: string | undefined;
-};
+} & (
+  | { pushDeliveryEnabled: false; webPushSubject: string | undefined }
+  | { pushDeliveryEnabled: true; webPushSubject: string }
+);
 
 /**
  * Stable error codes for API and worker configuration failures.
@@ -127,7 +129,7 @@ export function parseApiConfig(source: EnvironmentSource): ApiConfig {
  * Validates and normalizes worker settings without opening external connections.
  *
  * @param source - Environment values to parse; unrelated keys are ignored.
- * @returns Validated settings with APNS defaulting to production and an absolute keyring file path. This parser does not read the file.
+ * @returns Validated settings with APNS defaulting to production and an absolute keyring file path. Push delivery defaults to disabled; enabling it requires WEB_PUSH_SUBJECT. This parser does not read the file.
  * @throws {ConfigError} WORKER_CONFIG_INVALID when required values are missing or invalid.
  *
  * @example
@@ -145,17 +147,24 @@ export function parseWorkerConfig(source: EnvironmentSource): WorkerConfig {
       schema: {
         CREDENTIAL_KEYRING_REF: keyringPathSchema,
         APNS_ENVIRONMENT: v.optional(v.picklist(['production', 'sandbox']), 'production'),
+        PUSH_DELIVERY_ENABLED: v.optional(v.picklist(['true', 'false']), 'false'),
         FCM_PROJECT_ID: v.optional(v.pipe(v.string(), v.trim(), v.nonEmpty())),
         WEB_PUSH_SUBJECT: v.optional(webPushSubjectSchema),
       },
     }),
   );
-  return {
+  const settings = {
     credentialKeyringRef: values.CREDENTIAL_KEYRING_REF,
     apnsEnvironment: values.APNS_ENVIRONMENT,
     fcmProjectId: values.FCM_PROJECT_ID,
-    webPushSubject: values.WEB_PUSH_SUBJECT,
   };
+  if (values.PUSH_DELIVERY_ENABLED === 'true') {
+    if (!values.WEB_PUSH_SUBJECT) {
+      throw new ConfigError('WORKER_CONFIG_INVALID', ['WEB_PUSH_SUBJECT']);
+    }
+    return { ...settings, pushDeliveryEnabled: true, webPushSubject: values.WEB_PUSH_SUBJECT };
+  }
+  return { ...settings, pushDeliveryEnabled: false, webPushSubject: values.WEB_PUSH_SUBJECT };
 }
 
 const mailtoSubjectSchema = v.pipe(

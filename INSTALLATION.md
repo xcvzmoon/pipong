@@ -2,10 +2,10 @@
 
 This installation packages the Node 24 API, worker, local enrollment operator,
 and a one-shot Drizzle migration job. PostgreSQL 18 is the only required database.
-Push delivery consumers remain disabled pending release qualification. Submission,
-status, SSE, authentication mail, and maintenance are available; notifications
-will not reach devices in this increment. Full readiness returns 503 for missing
-push consumer leases. See [release gates](brain/plans/01-notification-service/phase-30-release.md).
+Push delivery defaults to disabled pending release qualification. Submission,
+status, SSE, authentication mail, and maintenance are available. To exercise push
+delivery, set `PUSH_DELIVERY_ENABLED=true` and `WEB_PUSH_SUBJECT` in `worker.env`.
+Full readiness returns 503 when required consumer leases are missing. See [release gates](brain/plans/01-notification-service/phase-30-release.md).
 
 ## Prepare secrets
 
@@ -139,7 +139,7 @@ only be reachable through that proxy. Buffering and compression must remain off
 for SSE. Verify events arrive individually over public HTTPS, reconnect with the
 last cursor, and verify revoked credentials close the stream. See [events](EVENTS.md).
 
-The Compose healthcheck uses liveness so the current disabled consumers do not
+The Compose healthcheck uses liveness so disabled push consumers do not
 cause a restart loop. Route production traffic according to protected readiness
 once qualified push consumers are enabled. See [observability](OBSERVABILITY.md).
 
@@ -177,30 +177,26 @@ execution. It runs as UID 1000 and exits after applying the three migration sets
 
 ## Release image tags
 
-genbumppush publishes the server, worker, migration, and database images to
+The tag-triggered release workflow builds and verifies the server, worker,
+migration, and database images, then publishes them to
 `ghcr.io/xcvzmoon/pipong-{server,worker,migrate,database}`. Each receives both the
-SemVer tag (`0.0.6`, for example) and the Git release tag (`v0.0.6`). Both tags
-come from genbumppush's release plan. Compose uses `PIPONG_VERSION` for every
-image, including the operator's server image.
+SemVer tag (`0.0.6`, for example) and the Git release tag (`v0.0.6`). Compose uses
+`PIPONG_VERSION` for every image, including the operator's server image.
 
-From a clean, committed checkout, preview the next version, build its source
-images, then release:
+From a clean, committed checkout, preview the next version, then release:
 
 ```sh
 pnpm release --dry-run
-export PIPONG_VERSION=<new version shown by the dry run, without v>
-pnpm release:build
 pnpm release
 ```
 
-genbumppush does not build images. Its source references include `{{version}}`,
-so an image built for another version cannot satisfy the release preflight.
-Rebuild after any source change. Authenticate Docker to GHCR with an account
-allowed to publish these packages; inject release credentials through the
-environment or authenticated CLI. The release command pushes the Git commit/tag,
-publishes the Docker tags, and creates the GitHub release.
+The release command updates the version and changelog, creates the release commit
+and tag, and pushes them. The pushed tag starts CI, which runs the release gates,
+builds and verifies the images, publishes them to GHCR, and creates the GitHub
+release. Local Docker images and registry credentials are not required to cut a
+release.
 
-If Docker publication fails after Git was pushed, keep the built version-specific
-source images and run `pnpm release --retry-docker v<version>` after fixing registry
-access. A retry republishes all four images without creating another version.
-`CHANGELOG.md` remains excluded from formatting.
+CI uses `ops/genbumppush.config.ts` for Docker publication and GitHub release
+creation. If publication fails, fix the failure and rerun the release workflow for
+the same tag. It rebuilds and verifies the images before publishing them again,
+without creating another version. `CHANGELOG.md` remains excluded from formatting.

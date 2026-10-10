@@ -1,7 +1,7 @@
 # Release operations
 
 Use the pinned images and secret mounts in [installation](../INSTALLATION.md).
-Push consumers remain disabled. Do not route production notification traffic
+Push consumers default to disabled. Do not route production notification traffic
 until the gates in [release evidence](release-evidence.md) pass.
 
 ## Backup and restore
@@ -29,7 +29,9 @@ Rehearse recovery on an isolated host with outbound provider access blocked:
 4. Mount the matching keyring and authentication secret. Run the pinned migration
    image. A missing key must fail closed; a new random key cannot decrypt a backup.
 5. Reconcile erasure requests made after the recovery point before exposing data.
-   Check revoked keys and disabled tenants against the incident record.
+   Check revoked keys and disabled tenants against the incident record. While all
+   old and restored workers are stopped, clear `app.worker_heartbeats` so restored
+   leases cannot report stopped consumers as ready.
 6. Verify enrollment/session access, tenant denial under runtime roles, credential
    decryption, submission idempotency, queue state, status, and event replay.
    Inspect in-flight attempts before resuming workers. A restored queue can
@@ -48,8 +50,12 @@ TEST_DELIVERY_DATABASE_URL=<disposable trust-authenticated cluster> \
 It creates and drops databases and fixed runtime roles. Use a dedicated cluster
 and run stateful suites sequentially.
 
-The built runtime rehearsal also restores sessions, revoked service keys,
+The built runtime rehearsal also restores sessions, service keys,
 notification idempotency, queued jobs, exhausted attempt history, and event replay.
+It replays post-snapshot revocation and erasure records before starting services
+and clears snapshot-era worker heartbeats. A real enabled worker crashes during
+an active TLS Web Push send; after restoration, pg-boss supervision reclaims the
+lease and the worker records an ambiguous attempt followed by provider acceptance.
 It restarts the real worker between erasure batches and checks that restored
 recipient identities are erased. Build both apps first, then run:
 
@@ -67,10 +73,19 @@ Run it with the four local release images and `PIPONG_VERSION` set as described
 in the installation gate. Both rehearsals deliberately add a post-backup write
 and verify that it is absent after recovery.
 
-These drills cover the current runtime with push consumers disabled. They do not
-qualify provider dispatch, WAL recovery, production RPO/RTO, or reconciliation of
-revocations and erasure requests made after the snapshot. Those incident records
-must be applied before reopening ingress.
+The image drill uses disabled push consumers. The built-runtime drill exercises
+active sends against a controlled TLS provider, rather than a physical device.
+Run the separate PostgreSQL 18 WAL rehearsal with:
+
+```sh
+PIPONG_WAL_PORT=55442 sh ops/check-wal-recovery.sh
+```
+
+It verifies a physical base-backup manifest, restores a named WAL target, and
+checks that post-backup markers survive while a later committed marker is
+excluded. It creates and removes its own trust-authenticated local cluster.
+These local drills do not establish production RPO/RTO or live-device delivery.
+Apply post-snapshot incident records before reopening ingress.
 
 ## Compromised credentials
 

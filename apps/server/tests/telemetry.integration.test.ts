@@ -174,6 +174,44 @@ describe.skipIf(!testUrl)('protected health, metrics, and audit through built HT
     ).toBe('0');
   }, 50000);
 
+  it('starts enabled push consumers and removes their leases on graceful shutdown', async () => {
+    const worker = spawn(process.execPath, ['apps/worker/dist/index.mjs'], {
+      cwd: root,
+      env: {
+        ...fixture.environment,
+        AUTH_MAIL_FROM: 'auth@example.com',
+        SMTP_HOST: '127.0.0.1',
+        SMTP_PORT: '2525',
+        SMTP_SECURITY: 'local',
+        PUSH_DELIVERY_ENABLED: 'true',
+        WEB_PUSH_SUBJECT: 'mailto:ops@example.com',
+      },
+      stdio: 'ignore',
+    });
+    try {
+      await expect
+        .poll(async () => (await request('/health/ready')).status, { timeout: 10000 })
+        .toBe(200);
+      const leases = await fixture.database.query(
+        'SELECT consumers_ready AS consumers FROM app.worker_heartbeats WHERE id <> $1 AND expires_at > clock_timestamp()',
+        [workerId],
+      );
+      expect(leases.rows).toEqual([{ consumers: ['auth-email', 'apns', 'fcm', 'web-push'] }]);
+    } finally {
+      await stopProcess(worker);
+    }
+    expect(worker.exitCode).toBe(0);
+    expect(worker.signalCode).toBeNull();
+    expect(
+      (
+        await fixture.database.query('SELECT id FROM app.worker_heartbeats WHERE id <> $1', [
+          workerId,
+        ])
+      ).rows,
+    ).toHaveLength(0);
+    expect((await request('/health/ready')).status).toBe(503);
+  }, 20000);
+
   it('reports database/schema failure without exposing infrastructure errors', async () => {
     await fixture.database.query(
       'REVOKE EXECUTE ON FUNCTION app.runtime_diagnostics() FROM pipong_api',

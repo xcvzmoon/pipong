@@ -178,3 +178,6 @@ export {
   loadDiagnosticsToken,
   diagnosticsAuthorized,
 } from './telemetry.ts';
+
+export { runDeliveryConsumer } from './delivery-consumer.ts';
+export type { DeliveryConsumer } from './delivery-consumer.ts';

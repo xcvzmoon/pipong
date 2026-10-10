@@ -1,7 +1,7 @@
 # APNs delivery
 
-APNs is an internal worker capability. Provider queue consumers remain disabled until
-all provider adapters are integrated. The public submission, credential, and endpoint
+APNs is an internal worker capability. Set `PUSH_DELIVERY_ENABLED=true` and
+`WEB_PUSH_SUBJECT` to start the provider consumers for qualification. The public submission, credential, and endpoint
 APIs already bind each delivery to an immutable credential and endpoint generation.
 
 `createApnsRuntime()` decrypts a committed send reservation, checks its topic and
