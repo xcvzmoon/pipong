@@ -11,7 +11,7 @@ import { v7 } from 'uuid';
 import * as v from 'valibot';
 import webpush from 'web-push';
 import { credentialInputSchema } from '../credentials.ts';
-import { decideDeliveryRetry } from '../delivery-policy.ts';
+import { decideDeliveryRetry, expiredSendReservation } from '../delivery-policy.ts';
 import { endpointInputSchema } from '../endpoints.ts';
 import { notificationRequestSchema } from '../notification-contract.ts';
 import { encodeProviderPayload } from '../provider-payloads.ts';
@@ -72,6 +72,10 @@ export function createWebPushRuntime(
   resolver?: DestinationResolver,
 ): WebPushRuntime {
   async function send(reservation: ReservedSend, keyring: SecretKeyring): Promise<WebPushOutcome> {
+    const expired = expiredSendReservation(reservation.sendUntil);
+    if (expired) {
+      return { outcome: expired, response: null };
+    }
     const { job } = reservation.fence;
     if (job.provider !== 'web-push') {
       throw new Error('WEB_PUSH_BINDING_INVALID');
@@ -183,7 +187,21 @@ export function createWebPushRuntime(
       throw new Error('WEB_PUSH_BINDING_INVALID');
     }
     try {
-      const result = await sendWebPushRequest(details, policy, resolver);
+      const expiredBeforeSend = expiredSendReservation(reservation.sendUntil);
+      if (expiredBeforeSend) {
+        return { outcome: expiredBeforeSend, response: null };
+      }
+      const result = await sendWebPushRequest(
+        details,
+        {
+          ...policy,
+          totalTimeoutMs: Math.min(
+            policy.totalTimeoutMs,
+            reservation.sendUntil.getTime() - Date.now(),
+          ),
+        },
+        resolver,
+      );
       const response: WebPushReceipt = {
         status: result.statusCode,
         retryAfter: result.headers['retry-after'] ?? null,

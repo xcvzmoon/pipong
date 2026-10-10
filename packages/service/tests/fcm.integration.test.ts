@@ -120,6 +120,26 @@ describe('FCM HTTP v1', () => {
     };
   });
 
+  it('refuses a paused reservation after its send deadline before OAuth or provider I/O', async () => {
+    const expired = { ...reservation('fid'), sendUntil: new Date(0) };
+    const runtime = createFcmRuntime(
+      fetch,
+      () => {
+        throw new Error('TEST_UNEXPECTED_AUTH');
+      },
+      origin,
+    );
+    try {
+      expect((await runtime.send(expired, keyring)).outcome).toMatchObject({
+        kind: 'transient',
+        code: 'DELIVERY_RESERVATION_EXPIRED',
+      });
+      expect(received).toHaveLength(0);
+    } finally {
+      runtime.close();
+    }
+  });
+
   it('sends FID and registration targets to the explicit target project with refreshed bearer tokens', async () => {
     let tokenVersion = 0;
     const authAccounts: string[] = [];

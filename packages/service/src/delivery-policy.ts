@@ -1,6 +1,7 @@
-import type { RetryDecision } from '@pipong/database/attempts';
+import type { ProviderOutcome, RetryDecision } from '@pipong/database/attempts';
 import type { DeliveryJob } from '@pipong/database/delivery-queue';
 import { deliveryAttemptLimit } from '@pipong/database/attempts';
+import { v7 } from 'uuid';
 
 /**
  * Chooses a bounded successor using provider delay floors and additive jitter.
@@ -34,4 +35,17 @@ export function decideDeliveryRetry(
   const jitter = Math.floor(Math.random() * backoff * 0.2);
   const retryAt = new Date(Math.max(requestedAt.getTime(), now.getTime() + backoff) + jitter);
   return retryAt >= expiresAt ? { state: 'expired' } : { state: 'retry_wait', retryAt };
+}
+
+export function expiredSendReservation(deadline: Date): ProviderOutcome | undefined {
+  const now = Date.now();
+  if (deadline.getTime() > now) {
+    return undefined;
+  }
+  return {
+    kind: 'transient',
+    code: 'DELIVERY_RESERVATION_EXPIRED',
+    retryAt: new Date(now + 10_000),
+    successorId: v7(),
+  };
 }

@@ -9,7 +9,7 @@ import { withTenantTransaction } from '@pipong/database/tenancy';
 import { v7 } from 'uuid';
 import * as v from 'valibot';
 import { credentialInputSchema } from '../credentials.ts';
-import { decideDeliveryRetry } from '../delivery-policy.ts';
+import { decideDeliveryRetry, expiredSendReservation } from '../delivery-policy.ts';
 import { endpointInputSchema } from '../endpoints.ts';
 import { notificationRequestSchema } from '../notification-contract.ts';
 import { encodeProviderPayload } from '../provider-payloads.ts';
@@ -185,6 +185,10 @@ export function createFcmRuntime(
     if (closed) {
       throw new Error('FCM_RUNTIME_CLOSED');
     }
+    const expiredReservation = expiredSendReservation(reservation.sendUntil);
+    if (expiredReservation) {
+      return { outcome: expiredReservation, response: null };
+    }
     const { job } = reservation.fence;
     if (job.provider !== 'fcm') {
       throw new Error('FCM_BINDING_INVALID');
@@ -296,9 +300,12 @@ export function createFcmRuntime(
     authUsers.set(auth, (authUsers.get(auth) ?? 0) + 1);
     const controller = new AbortController();
     activeRequests.add(controller);
-    const deadline = setTimeout(() => {
-      controller.abort();
-    }, deadlineMs);
+    const deadline = setTimeout(
+      () => {
+        controller.abort();
+      },
+      Math.min(deadlineMs, Math.max(1, reservation.sendUntil.getTime() - Date.now())),
+    );
     try {
       let accessToken: string;
       try {
@@ -371,6 +378,10 @@ export function createFcmRuntime(
           },
           response: null,
         };
+      }
+      const expiredBeforeSend = expiredSendReservation(reservation.sendUntil);
+      if (expiredBeforeSend) {
+        return { outcome: expiredBeforeSend, response: null };
       }
       const sendTime = Date.now();
       const freshPayload = encodeProviderPayload(
