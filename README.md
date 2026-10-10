@@ -109,3 +109,6 @@ Read the [contribution guidelines](./CONTRIBUTING.md) and [Code of Conduct](./CO
 ## License
 
 [MIT](./LICENSE.md)
+
+See [OBSERVABILITY.md](OBSERVABILITY.md) for protected health/metrics, redacted
+telemetry, privileged audits, and alert setup.

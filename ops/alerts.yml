@@ -1,0 +1,57 @@
+groups:
+  - name: pipong
+    rules:
+      - alert: PipongDiagnosticsUnavailable
+        expr: up{job="pipong"} == 0
+        for: 1m
+        annotations:
+          summary: Pipong diagnostic scraping has failed
+      - alert: PipongDatabaseUnavailable
+        expr: max(pipong_database_available{role="api"}) == 0
+        for: 1m
+        annotations:
+          summary: Pipong cannot query its diagnostic schema
+      - alert: PipongConsumerUnavailable
+        expr: max by (consumer) (pipong_consumer_available) == 0
+        for: 2m
+        annotations:
+          summary: A required Pipong consumer has no fresh worker lease
+      - alert: PipongQueueAge
+        expr: max by (queue) (pipong_queue_oldest_seconds) > 300
+        for: 5m
+        annotations:
+          summary: Pipong work has waited more than five minutes
+      - alert: PipongExhaustedJobs
+        expr: max by (queue) (pipong_queue_jobs{state="failed"}) > 0
+        for: 5m
+        annotations:
+          summary: Inspect exhausted Pipong jobs and recovery state
+      - alert: PipongAmbiguousDelivery
+        expr: max(pipong_recovery_work{kind="ambiguous"}) > 0
+        for: 5m
+        annotations:
+          summary: Inspect ambiguous sends before any redrive
+      - alert: PipongCredentialFailures
+        expr: max(pipong_recovery_work{kind="credential_failure_last_hour"}) > 0
+        for: 2m
+        annotations:
+          summary: Validate provider credentials and permissions
+      - alert: PipongPoolPressure
+        expr: pipong_pool_connections{state="waiting"} > 0
+        for: 2m
+        annotations:
+          summary: Requests are waiting for PostgreSQL connections
+      - alert: PipongSlowSSE
+        expr: increase(pipong_sse_slow_disconnects[5m]) > 5
+        annotations:
+          summary: Multiple SSE clients exceeded buffer or write bounds
+      - alert: PipongBackupOverdue
+        expr: time() - max(pipong_backup_last_success_timestamp_seconds) > 900
+        for: 5m
+        annotations:
+          summary: Backup success is older than the provisional fifteen-minute RPO
+      - alert: PipongBackupSignalMissing
+        expr: absent(pipong_backup_last_success_timestamp_seconds)
+        for: 15m
+        annotations:
+          summary: The external backup agent is not reporting success timestamps
