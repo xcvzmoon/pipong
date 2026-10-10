@@ -332,6 +332,39 @@ describe.skipIf(!testUrl)('distributed admission in disposable PostgreSQL', () =
     expect(await fetchDeliveryJobs(worker, queue, 'fcm')).toEqual([]);
   });
 
+  it('counts active claims without scanning retained history, including ungrouped claims', async () => {
+    await fixture.query(`INSERT INTO pgboss.job (name,id,data,state,group_id,completed_on)
+      SELECT 'delivery-apns',uuidv7(),'{}'::jsonb,'completed','history',clock_timestamp()
+      FROM generate_series(1,50000)`);
+    await fixture.query(`INSERT INTO pgboss.job (name,id,data,state,group_id)
+      VALUES ('delivery-apns',uuidv7(),'{}'::jsonb,'active',NULL),
+        ('delivery-apns',uuidv7(),'{}'::jsonb,'active','first'),
+        ('delivery-apns',uuidv7(),'{}'::jsonb,'active','second'),
+        ('delivery-apns',uuidv7(),'{}'::jsonb,'created','next')`);
+    await fixture.query('ANALYZE pgboss.job_common');
+    const result = await worker.pool.query<{ 'QUERY PLAN': unknown }>(
+      "EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) SELECT count(*)::integer AS active FROM pgboss.job WHERE name = $1 AND state = 'active'",
+      ['delivery-apns'],
+    );
+    const [plan] = v.parse(
+      v.array(
+        v.looseObject({
+          Plan: v.looseObject({
+            'Shared Hit Blocks': v.number(),
+            'Shared Read Blocks': v.number(),
+          }),
+        }),
+      ),
+      result.rows[0]?.['QUERY PLAN'],
+    );
+    expect(plan).toBeDefined();
+    expect(
+      (plan?.Plan['Shared Hit Blocks'] ?? Infinity) +
+        (plan?.Plan['Shared Read Blocks'] ?? Infinity),
+    ).toBeLessThan(100);
+    expect(await fetchDeliveryJobs(worker, queue, 'apns')).toEqual([]);
+  });
+
   it('fails closed across tenants and denies runtime edits to operator limits', async () => {
     await runReplica(
       'api',
