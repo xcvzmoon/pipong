@@ -24,8 +24,8 @@ No payload, recipient identity, endpoint target, or provider response is include
 Malformed, wrong-environment, and future cursors return 422
 `event_cursor_invalid`. When pruning removes history after your cursor, replay
 returns 410 `event_cursor_expired`. Resynchronize delivery status before
-resuming at the retained watermark. Status queries and SSE streams arrive in
-later plan phases.
+resuming at the retained watermark. [Status queries](./OBSERVATION.md) expose
+the committed notification and delivery state.
 
 ## Transaction and retention rules
 

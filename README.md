@@ -78,6 +78,9 @@ payload limits, atomic submission, and seven-day idempotent replay.
 [Delivery recovery](./RECOVERY.md) describes retry bounds, pending cancellation,
 audited redrive, and exhausted-job reconciliation.
 
+[Notification status](./OBSERVATION.md) describes summary counts, delivery
+outcomes, redacted attempts, and pagination.
+
 [Delivery event replay](./EVENTS.md) describes ordered events, scoped cursors,
 and retention watermarks.
 
