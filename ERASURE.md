@@ -68,11 +68,11 @@ lifecycle tombstones remain. Idempotency fingerprints and acceptance responses
 remain for the original seven-day replay window. Human accounts and their sessions
 can belong to other organizations and remain usable there.
 
-| Retained data                                   | Worker policy                                   |
-| ----------------------------------------------- | ----------------------------------------------- |
-| Notification bodies and settled attempt details | 30 days; unresolved sends are preserved         |
-| Replay events and idempotency responses         | Seven days; event watermarks advance atomically |
-| Erasure, enrollment, key, and redrive audits    | 90 days; active erasure jobs remain             |
+| Retained data                                            | Worker policy                                   |
+| -------------------------------------------------------- | ----------------------------------------------- |
+| Notification bodies and settled attempt details          | 30 days; unresolved sends are preserved         |
+| Replay events and idempotency responses                  | Seven days; event watermarks advance atomically |
+| Erasure, enrollment, key, redrive, and privileged audits | 90 days; active erasure jobs remain             |
 
 Retention deletes at most 100 rows per table per environment batch. Redrive audit
 reasons remain for the audit window. Database backups, WAL, exported records, and
