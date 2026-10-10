@@ -1,7 +1,10 @@
 import type { ChildProcess } from 'node:child_process';
 import { decryptSecret, encryptSecret, loadSecretKeyring } from '@pipong/service';
 import { execFile, spawn } from 'node:child_process';
-import { copyFile, mkdtemp, rm } from 'node:fs/promises';
+import { createECDH } from 'node:crypto';
+import { once } from 'node:events';
+import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:https';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -66,7 +69,7 @@ async function streamEvent(response: Response): Promise<v.InferOutput<typeof eve
 describe.skipIf(!testUrl)(
   'built API and worker recovery from separate database/key backups',
   () => {
-    it('restores sessions, revoked keys, replay, pending work and exhausted attempts, then resumes erasure', async () => {
+    it('reconciles post-snapshot revocation and erasure before restoring sessions, replay and work', async () => {
       const directory = await mkdtemp(join(tmpdir(), 'pipong-runtime-restore-'));
       const databaseName = `pipong_runtime_restored_${process.pid}`;
       const fixture = await startAuthFixture(testUrl ?? '').catch(async (error: Error) => {
@@ -86,20 +89,87 @@ describe.skipIf(!testUrl)(
       let worker: ChildProcess | undefined;
       let databaseCreated = false;
       let apiLogs = '';
+      const vapid = createECDH('prime256v1');
+      vapid.generateKeys();
+      const receiver = createECDH('prime256v1');
+      receiver.generateKeys();
+      const publicKey = vapid.getPublicKey().toString('base64url');
+      const provider = createServer();
+      let providerRequests = 0;
+      let holdProvider = true;
+      provider.on('request', (request, response) => {
+        request.resume();
+        request.on('end', () => {
+          providerRequests += 1;
+          if (!holdProvider) {
+            response.writeHead(201);
+            response.end();
+          }
+        });
+      });
       try {
         await admin.connect();
+        await runCommand('openssl', [
+          'req',
+          '-x509',
+          '-newkey',
+          'rsa:2048',
+          '-nodes',
+          '-days',
+          '1',
+          '-subj',
+          '/CN=127.0.0.1',
+          '-addext',
+          'subjectAltName=IP:127.0.0.1',
+          '-keyout',
+          join(directory, 'provider.key'),
+          '-out',
+          join(directory, 'provider.crt'),
+        ]);
+        const certificate = await readFile(join(directory, 'provider.crt'), 'utf8');
+        provider.setSecureContext({
+          key: await readFile(join(directory, 'provider.key')),
+          cert: certificate,
+        });
+        provider.listen(0, '127.0.0.1');
+        await once(provider, 'listening');
+        const providerPort = v.parse(v.object({ port: v.number() }), provider.address()).port;
+        const providerOrigin = `https://127.0.0.1:${providerPort}`;
+        const policyPath = join(directory, 'egress.json');
+        await writeFile(
+          policyPath,
+          JSON.stringify({
+            privateOrigins: [{ origin: providerOrigin, cidrs: ['127.0.0.1/32'], ca: certificate }],
+            totalTimeoutMs: 60000,
+            idleTimeoutMs: 60000,
+          }),
+        );
+        const pushEnvironment = {
+          ...fixture.environment,
+          PUSH_DELIVERY_ENABLED: 'true',
+          WEB_PUSH_SUBJECT: 'mailto:operator@example.com',
+          WEB_PUSH_EGRESS_POLICY_REF: policyPath,
+          AUTH_MAIL_FROM: 'auth@example.com',
+          SMTP_HOST: '127.0.0.1',
+          SMTP_PORT: '1',
+          SMTP_SECURITY: 'local',
+        };
         const keyPath = v.parse(v.string(), fixture.environment.CREDENTIAL_KEYRING_REF);
         const keyring = await loadSecretKeyring(keyPath);
         const credentialContext = {
           ...scope,
           resourceId: credentialId,
           purpose: 'credential',
-          binding: 'fcm:test-project',
+          binding: JSON.stringify(['web-push', 'test-project', publicKey]),
         } as const;
         const encryptedCredential = encryptSecret(
           keyring,
           credentialContext,
-          'restore-private-key',
+          JSON.stringify({
+            provider: 'web-push',
+            appId: 'test-project',
+            secret: { privateKey: vapid.getPrivateKey().toString('base64url') },
+          }),
         );
         const encryptedTarget = encryptSecret(
           keyring,
@@ -107,9 +177,21 @@ describe.skipIf(!testUrl)(
             ...scope,
             resourceId: endpointId,
             purpose: 'endpoint',
-            binding: JSON.stringify([recipientId, 'fcm', 'test-project', 'phone', 1, credentialId]),
+            binding: JSON.stringify([
+              recipientId,
+              'web-push',
+              'test-project',
+              'phone',
+              1,
+              credentialId,
+            ]),
           },
-          JSON.stringify({ kind: 'registration-token', value: 'restore-token' }),
+          JSON.stringify({
+            endpoint: `${providerOrigin}/send`,
+            p256dh: receiver.getPublicKey().toString('base64url'),
+            auth: Buffer.alloc(16, 4).toString('base64url'),
+            applicationServerKey: publicKey,
+          }),
         );
         await fixture.database.query(
           "INSERT INTO auth.organizations (id,name,slug) VALUES ($1,'Restore','restore')",
@@ -136,12 +218,12 @@ describe.skipIf(!testUrl)(
           [organizationId, projectId, erasedEnvironmentId],
         );
         await fixture.database.query(
-          "INSERT INTO app.credential_versions (id,organization_id,project_id,environment_id,provider,app_id,encrypted_secret,state) VALUES ($1,$2,$3,$4,'fcm','test-project',$5,'active')",
-          [credentialId, organizationId, projectId, environmentId, encryptedCredential],
+          "INSERT INTO app.credential_versions (id,organization_id,project_id,environment_id,provider,app_id,encrypted_secret,state,public_key) VALUES ($1,$2,$3,$4,'web-push','test-project',$5,'active',$6)",
+          [credentialId, organizationId, projectId, environmentId, encryptedCredential, publicKey],
         );
         await fixture.database.query('BEGIN');
         await fixture.database.query(
-          "INSERT INTO app.endpoints (id,organization_id,project_id,environment_id,recipient_id,installation_id,provider,app_id,generation,credential_id,target_hash) VALUES ($1,$2,$3,$4,$5,'phone','fcm','test-project',1,$6,'restore-hash')",
+          "INSERT INTO app.endpoints (id,organization_id,project_id,environment_id,recipient_id,installation_id,provider,app_id,generation,credential_id,target_hash) VALUES ($1,$2,$3,$4,$5,'phone','web-push','test-project',1,$6,'restore-hash')",
           [endpointId, organizationId, projectId, environmentId, recipientId, credentialId],
         );
         await fixture.database.query(
@@ -211,24 +293,17 @@ describe.skipIf(!testUrl)(
           `${path}/service-keys`,
           'POST',
           JSON.stringify({
-            name: 'Revoked before backup',
+            name: 'Revoked after backup',
             actions: ['notification:read'],
             expiresIn: 3600,
           }),
         );
         expect(issued.status).toBe(201);
-        const revokedKey = v.parse(v.object({ key: v.string() }), await issued.json()).key;
-        await fixture.database.query('UPDATE auth.api_keys SET enabled=false');
-        const erasure = await request(path.replace(environmentId, erasedEnvironmentId), 'DELETE');
-        expect(erasure.status).toBe(202);
-        const erasureId = v.parse(
-          v.object({ erasureId: v.string() }),
-          await erasure.json(),
-        ).erasureId;
-        await fixture.database.query(
-          "UPDATE app.erasure_jobs SET in_flight_until=clock_timestamp()-interval '1 second' WHERE id=$1",
-          [erasureId],
+        const issuedKey = v.parse(
+          v.object({ key: v.string(), metadata: v.object({ id: v.string() }) }),
+          await issued.json(),
         );
+        const revokedKey = issuedKey.key;
         await fixture.database.query(
           "UPDATE app.deliveries SET state='sending',attempt_generation=1 WHERE notification_id=$1",
           [crashed.notificationId],
@@ -242,6 +317,24 @@ describe.skipIf(!testUrl)(
           "UPDATE pgboss.job SET state='failed',completed_on=clock_timestamp() WHERE data->>'notificationId'=$1",
           [crashed.notificationId],
         );
+        worker = startWorker(pushEnvironment);
+        await expect.poll(() => providerRequests, { timeout: 10000 }).toBe(1);
+        expect(
+          (
+            await fixture.database.query(
+              'SELECT state FROM app.deliveries WHERE notification_id=$1',
+              [acceptance.notificationId],
+            )
+          ).rows,
+        ).toEqual([{ state: 'sending' }]);
+        expect(
+          (
+            await fixture.database.query(
+              "SELECT state FROM pgboss.job WHERE data->>'notificationId'=$1",
+              [acceptance.notificationId],
+            )
+          ).rows,
+        ).toEqual([{ state: 'active' }]);
         const snapshotStarted = Date.now();
         const dumpPath = join(directory, 'database.dump');
         await runCommand('pg_dump', [
@@ -253,6 +346,25 @@ describe.skipIf(!testUrl)(
         ]);
         const backupKeyPath = join(directory, 'keyring.json');
         await copyFile(keyPath, backupKeyPath);
+        expect(
+          (await request(`${path}/service-keys/${issuedKey.metadata.id}/revoke`, 'POST')).status,
+        ).toBe(200);
+        const erasure = await request(path.replace(environmentId, erasedEnvironmentId), 'DELETE');
+        expect(erasure.status).toBe(202);
+        const erasureId = v.parse(
+          v.object({ erasureId: v.string() }),
+          await erasure.json(),
+        ).erasureId;
+        await fixture.database.query(
+          "UPDATE app.erasure_jobs SET in_flight_until=clock_timestamp()-interval '1 second' WHERE id=$1",
+          [erasureId],
+        );
+        const incidentLedgerPath = join(directory, 'incident-ledger.json');
+        await writeFile(
+          incidentLedgerPath,
+          JSON.stringify({ revokedKeyId: issuedKey.metadata.id, erasureId }),
+          { mode: 0o600 },
+        );
         const afterSnapshot = await request(
           `${path}/notifications`,
           'POST',
@@ -262,6 +374,12 @@ describe.skipIf(!testUrl)(
         expect(afterSnapshot.status).toBe(202);
         const lost = v.parse(acceptanceSchema, await afterSnapshot.json());
         const incidentAt = Date.now();
+        const workerExited = once(worker, 'exit');
+        worker.kill('SIGKILL');
+        await workerExited;
+        worker = undefined;
+        holdProvider = false;
+        provider.closeAllConnections();
         await fixture.stopServer();
         await rm(keyPath);
         const recoveryStarted = performance.now();
@@ -285,6 +403,43 @@ describe.skipIf(!testUrl)(
           },
         });
         await restored.connect();
+        expect(
+          (
+            await restored.query('SELECT enabled FROM auth.api_keys WHERE id=$1', [
+              issuedKey.metadata.id,
+            ])
+          ).rows,
+        ).toEqual([{ enabled: true }]);
+        expect(
+          (
+            await restored.query('SELECT deleted_at FROM app.environments WHERE id=$1', [
+              erasedEnvironmentId,
+            ])
+          ).rows,
+        ).toEqual([{ deleted_at: null }]);
+        const incidentLedger = v.parse(
+          v.object({ revokedKeyId: v.string(), erasureId: v.string() }),
+          JSON.parse(await readFile(incidentLedgerPath, 'utf8')),
+        );
+        await restored.query('BEGIN');
+        try {
+          await restored.query('UPDATE auth.api_keys SET enabled=false WHERE id=$1', [
+            incidentLedger.revokedKeyId,
+          ]);
+          await restored.query(
+            'UPDATE app.environments SET suspended_at=clock_timestamp(),deleted_at=clock_timestamp() WHERE id=$1',
+            [erasedEnvironmentId],
+          );
+          await restored.query(
+            "INSERT INTO app.erasure_jobs (id,organization_id,project_id,environment_id,target_id,kind,actor_id,in_flight_until) VALUES ($1,$2,$3,$4,$4,'environment',$5,clock_timestamp()-interval '1 second')",
+            [incidentLedger.erasureId, organizationId, projectId, erasedEnvironmentId, userId],
+          );
+          await restored.query('COMMIT');
+        } catch (error) {
+          await restored.query('ROLLBACK');
+          throw error;
+        }
+        await restored.query('DELETE FROM app.worker_heartbeats');
         const credential = await restored.query<{ encrypted_secret: string }>(
           'SELECT encrypted_secret FROM app.credential_versions WHERE id=$1',
           [credentialId],
@@ -295,7 +450,13 @@ describe.skipIf(!testUrl)(
             credentialContext,
             v.parse(v.string(), credential.rows[0]?.encrypted_secret),
           ),
-        ).toBe('restore-private-key');
+        ).toBe(
+          JSON.stringify({
+            provider: 'web-push',
+            appId: 'test-project',
+            secret: { privateKey: vapid.getPrivateKey().toString('base64url') },
+          }),
+        );
         expect(
           (
             await restored.query('SELECT id FROM app.notifications WHERE id=$1', [
@@ -306,12 +467,12 @@ describe.skipIf(!testUrl)(
         expect(
           (
             await restored.query(
-              "SELECT state FROM pgboss.job WHERE name='delivery-fcm' ORDER BY created_on",
+              "SELECT state FROM pgboss.job WHERE name='delivery-web-push' ORDER BY created_on",
             )
           ).rows,
-        ).toEqual([{ state: 'created' }, { state: 'failed' }]);
+        ).toEqual([{ state: 'active' }, { state: 'failed' }]);
         const environment = {
-          ...fixture.environment,
+          ...pushEnvironment,
           API_DATABASE_URL: databaseUrl(databaseName, 'pipong_api'),
           WORKER_DATABASE_URL: databaseUrl(databaseName, 'pipong_worker'),
           CREDENTIAL_KEYRING_REF: backupKeyPath,
@@ -367,6 +528,12 @@ describe.skipIf(!testUrl)(
           signal: AbortSignal.timeout(10_000),
         });
         expect((await streamEvent(stream)).notificationId).toBe(crashed.notificationId);
+        await restored.query(
+          "UPDATE pgboss.job SET started_on=clock_timestamp()-interval '10 minutes' WHERE state='active'",
+        );
+        await restored.query(
+          "UPDATE pgboss.queue SET maintain_on=clock_timestamp()-interval '10 minutes',monitor_claim_on=clock_timestamp()-interval '10 minutes',monitor_on=clock_timestamp()-interval '10 minutes' WHERE name='delivery-web-push'",
+        );
         worker = startWorker(environment);
         await expect
           .poll(
@@ -454,33 +621,74 @@ describe.skipIf(!testUrl)(
           )
           .toBe('failed');
         expect(
-          (await restored.query('SELECT outcome,code FROM app.delivery_attempts')).rows,
+          (
+            await restored.query(
+              'SELECT outcome,code FROM app.delivery_attempts WHERE delivery_id IN (SELECT id FROM app.deliveries WHERE notification_id=$1)',
+              [crashed.notificationId],
+            )
+          ).rows,
         ).toEqual([{ outcome: 'ambiguous', code: 'DELIVERY_RECOVERY_EXHAUSTED' }]);
+        await expect
+          .poll(
+            async () =>
+              (
+                await restored.query<{ state: string }>(
+                  'SELECT state FROM app.deliveries WHERE notification_id=$1',
+                  [acceptance.notificationId],
+                )
+              ).rows[0]?.state,
+            { timeout: 90000 },
+          )
+          .toBe('provider_accepted');
+        expect(providerRequests).toBe(2);
+        expect(
+          (
+            await restored.query(
+              'SELECT outcome,code FROM app.delivery_attempts WHERE delivery_id IN (SELECT id FROM app.deliveries WHERE notification_id=$1) ORDER BY generation',
+              [acceptance.notificationId],
+            )
+          ).rows,
+        ).toEqual([
+          { outcome: 'ambiguous', code: 'DELIVERY_CRASH_RECOVERED' },
+          { outcome: 'accepted', code: 'WEB_PUSH_ACCEPTED' },
+        ]);
         const status = await request(`${path}/notifications/${acceptance.notificationId}`);
         expect(status.status).toBe(200);
         expect(
           v.parse(v.object({ counts: v.object({ pending: v.number() }) }), await status.json())
             .counts.pending,
-        ).toBe(1);
+        ).toBe(0);
         expect((await restored.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
-          { pending: 1 },
+          { pending: 0 },
         ]);
         expect(
           (
             await restored.query(
-              "SELECT state FROM pgboss.job WHERE name='delivery-fcm' ORDER BY created_on",
+              "SELECT state FROM pgboss.job WHERE name='delivery-web-push' ORDER BY created_on",
             )
           ).rows,
-        ).toEqual([{ state: 'created' }, { state: 'failed' }]);
+        ).toEqual([{ state: 'completed' }, { state: 'failed' }]);
         console.info(
-          `Runtime restore: ${Math.round(performance.now() - recoveryStarted)} ms recovery; ${incidentAt - snapshotStarted} ms conservative snapshot loss window; one post-snapshot acceptance absent; push dispatch unqualified`,
+          `Runtime restore: ${Math.round(performance.now() - recoveryStarted)} ms recovery; ${incidentAt - snapshotStarted} ms conservative snapshot loss window; one post-snapshot acceptance absent; post-snapshot revocation/erasure reconciled before startup; active TLS Web Push crash/lease recovery passed; first provider request ambiguous; second accepted`,
         );
         await stopProcess(worker);
         worker = undefined;
-        expect((await restored.query('SELECT id FROM app.worker_heartbeats')).rows).toEqual([]);
+        expect(
+          (
+            await restored.query(
+              'SELECT id FROM app.worker_heartbeats WHERE expires_at>clock_timestamp()',
+            )
+          ).rows,
+        ).toEqual([]);
       } finally {
         await stopProcess(worker);
         await stopProcess(api);
+        provider.closeAllConnections();
+        await new Promise<void>((resolve) => {
+          provider.close(() => {
+            resolve();
+          });
+        });
         await restored.end();
         if (databaseCreated) {
           await admin.query(`DROP DATABASE ${databaseName} WITH (FORCE)`);
@@ -489,6 +697,6 @@ describe.skipIf(!testUrl)(
         await fixture.close();
         await rm(directory, { recursive: true, force: true });
       }
-    }, 90_000);
+    }, 150_000);
   },
 );
