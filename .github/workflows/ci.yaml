@@ -43,3 +43,10 @@ jobs:
         env:
           CI_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres
         run: sh ops/check-ci.sh
+
+      - name: Build and verify versioned images
+        env:
+          PIPONG_VERSION: ci-${{ github.sha }}
+        run: |
+          pnpm release:build
+          sh ops/check-images.sh
