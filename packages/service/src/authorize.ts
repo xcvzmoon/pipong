@@ -8,7 +8,7 @@ import {
   scopeExists,
   scopeSuspended,
 } from '@pipong/database/authorization';
-import { setTenantScope } from '@pipong/database/tenancy';
+import { setEventReadBudget, setTenantScope } from '@pipong/database/tenancy';
 import * as v from 'valibot';
 
 /**
@@ -105,7 +105,8 @@ const keyActions: ReadonlySet<DomainAction> = new Set([
  * Checks live authority and runs an operation in the same tenant transaction.
  *
  * The callback runs only after organization, scope, role or key grants, and any
- * required recent MFA checks pass. Callback failures roll back the transaction.
+ * required recent MFA checks pass. Event reads use transaction-local one-second
+ * statement and 250-millisecond lock timeouts. Callback failures roll back the transaction.
  *
  * @param database - API database runtime used for authority checks and the operation.
  * @param principal - Previously authenticated human or service key.
@@ -140,6 +141,10 @@ export function withAuthorizedTransaction<Result>(
         status: 403,
         code: 'AUTH_PERMISSION_DENIED',
       };
+    }
+
+    if (action === 'event:read') {
+      await setEventReadBudget(transaction);
     }
 
     const enabled = await organizationEnabled(
