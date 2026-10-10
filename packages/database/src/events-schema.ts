@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   check,
+  index,
   foreignKey,
   pgPolicy,
   primaryKey,
@@ -82,6 +83,12 @@ export const deliveryEvents = appSchema.table(
       columns: [table.organizationId, table.projectId, table.environmentId],
       foreignColumns: [environments.organizationId, environments.projectId, environments.id],
       name: 'delivery_events_environment_fk',
+    }),
+    index('delivery_events_retention_idx').on(table.createdAt),
+    pgPolicy('delivery_events_retention_discovery', {
+      for: 'select',
+      to: ['pipong_migrator'],
+      using: sql`true`,
     }),
     pgPolicy('delivery_events_scope', {
       for: 'all',

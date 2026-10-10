@@ -42,6 +42,7 @@ function reservation(endpoint: string, keys = vapid): ReservedSend {
   };
   return {
     status: 'send',
+    sendUntil: new Date(Date.now() + 120_000),
     fence: {
       job: { ...scope, notificationId: deliveryId, deliveryId, provider: 'web-push' },
       claim: { id: deliveryId, retryCount: 0 },

@@ -46,6 +46,7 @@ function reservation(
   };
   return {
     status: 'send',
+    sendUntil: new Date(Date.now() + 120_000),
     fence: {
       job: { ...scope, notificationId: deliveryId, deliveryId, provider: 'apns' },
       claim: { id: deliveryId, retryCount: 0 },

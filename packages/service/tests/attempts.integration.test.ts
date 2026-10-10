@@ -128,6 +128,10 @@ describe.skipIf(!testUrl)('fenced delivery attempts in disposable PostgreSQL', (
           claim: v.object({ id: v.string(), retryCount: v.number() }),
           generation: v.number(),
         }),
+        sendUntil: v.pipe(
+          v.string(),
+          v.transform((value) => new Date(value)),
+        ),
         request: v.string(),
         expiresAt: v.pipe(
           v.string(),

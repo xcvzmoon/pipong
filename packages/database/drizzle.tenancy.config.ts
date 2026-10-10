@@ -13,6 +13,7 @@ export default defineConfig({
     './src/submission-schema.ts',
     './src/attempts-schema.ts',
     './src/recovery-schema.ts',
+    './src/erasure-schema.ts',
   ],
   out: './migrations/tenancy',
   migrations: {

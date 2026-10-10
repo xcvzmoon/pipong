@@ -10,6 +10,7 @@ export default defineConfig({
     'src/submission.ts',
     'src/attempts.ts',
     'src/recovery.ts',
+    'src/erasure.ts',
     'src/helpers/index.ts',
     'src/auth/index.ts',
     'src/tenancy/index.ts',

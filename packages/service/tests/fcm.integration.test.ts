@@ -40,6 +40,7 @@ function reservation(kind: 'fid' | 'registration-token'): ReservedSend {
   };
   return {
     status: 'send',
+    sendUntil: new Date(Date.now() + 120_000),
     fence: {
       job: { ...scope, notificationId: deliveryId, deliveryId, provider: 'fcm' },
       claim: { id: deliveryId, retryCount: 0 },

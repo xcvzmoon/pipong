@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  index,
   foreignKey,
   integer,
   pgPolicy,
@@ -59,6 +60,18 @@ export const deliveryAttempts = appSchema.table(
         deliveries.id,
       ],
       name: 'delivery_attempts_delivery_ownership_fk',
+    }),
+    index('delivery_attempts_retention_idx').on(table.finishedAt),
+    pgPolicy('delivery_attempts_retention_discovery', {
+      for: 'select',
+      to: ['pipong_migrator'],
+      using: sql`true`,
+    }),
+    pgPolicy('delivery_attempts_erasure', {
+      for: 'all',
+      to: ['pipong_migrator'],
+      using: attemptPredicate,
+      withCheck: attemptPredicate,
     }),
     pgPolicy('delivery_attempts_scope', {
       for: 'all',

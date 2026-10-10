@@ -66,6 +66,12 @@ export const credentialVersions = appSchema.table(
       to: ['pipong_migrator'],
       using: credentialPredicate,
     }),
+    pgPolicy('credential_versions_erasure', {
+      for: 'all',
+      to: ['pipong_migrator'],
+      using: credentialPredicate,
+      withCheck: credentialPredicate,
+    }),
     pgPolicy('credential_versions_scope', {
       for: 'all',
       to: ['pipong_api', 'pipong_worker'],

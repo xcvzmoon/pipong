@@ -97,14 +97,14 @@ export async function readIdempotencyRecord(
  * const targets = await resolveSubmissionTargets(transaction, scope, 'recipients', ids, 1001);
  * ```
  */
-export function resolveSubmissionTargets(
+export async function resolveSubmissionTargets(
   transaction: TenantTransaction,
   scope: EnvironmentScope,
   kind: 'recipients' | 'endpoints',
   ids: string[],
   limit: number,
 ): Promise<SubmissionTarget[]> {
-  return transaction
+  const rows = await transaction
     .select({
       id: endpoints.id,
       recipientId: endpoints.recipientId,
@@ -140,6 +140,13 @@ export function resolveSubmissionTargets(
     .orderBy(asc(endpoints.id))
     .limit(limit)
     .for('share', { of: recipients });
+  const targets: SubmissionTarget[] = [];
+  for (const row of rows) {
+    if (row.installationId !== null) {
+      targets.push({ ...row, installationId: row.installationId });
+    }
+  }
+  return targets;
 }
 
 /**

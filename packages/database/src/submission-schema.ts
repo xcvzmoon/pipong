@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  index,
   foreignKey,
   integer,
   jsonb,
@@ -46,6 +47,20 @@ export const notifications = appSchema.table(
       columns: [table.organizationId, table.projectId, table.environmentId],
       foreignColumns: [environments.organizationId, environments.projectId, environments.id],
       name: 'notifications_environment_ownership_fk',
+    }),
+    index('notifications_retention_idx')
+      .on(table.acceptedAt)
+      .where(sql`${table.request} <> ''`),
+    pgPolicy('notifications_retention_discovery', {
+      for: 'select',
+      to: ['pipong_migrator'],
+      using: sql`true`,
+    }),
+    pgPolicy('notifications_erasure', {
+      for: 'all',
+      to: ['pipong_migrator'],
+      using: submissionPredicate,
+      withCheck: submissionPredicate,
     }),
     pgPolicy('notifications_scope', {
       for: 'all',
@@ -126,6 +141,11 @@ export const deliveries = appSchema.table(
       ],
       name: 'deliveries_generation_binding_fk',
     }),
+    pgPolicy('deliveries_retention_discovery', {
+      for: 'select',
+      to: ['pipong_migrator'],
+      using: sql`true`,
+    }),
     pgPolicy('deliveries_scope', {
       for: 'all',
       to: ['pipong_api', 'pipong_worker'],
@@ -169,6 +189,12 @@ export const idempotencyRecords = appSchema.table(
         notifications.id,
       ],
       name: 'idempotency_records_notification_ownership_fk',
+    }),
+    index('idempotency_records_retention_idx').on(table.expiresAt),
+    pgPolicy('idempotency_records_retention_discovery', {
+      for: 'select',
+      to: ['pipong_migrator'],
+      using: sql`true`,
     }),
     pgPolicy('idempotency_records_scope', {
       for: 'all',
