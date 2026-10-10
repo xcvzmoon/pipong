@@ -8,6 +8,7 @@ export default defineConfig({
     'src/limits.ts',
     'src/submission.ts',
     'src/attempts.ts',
+    'src/recovery.ts',
     'src/helpers/index.ts',
     'src/auth/index.ts',
     'src/tenancy/index.ts',

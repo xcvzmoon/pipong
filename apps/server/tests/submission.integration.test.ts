@@ -146,14 +146,33 @@ describe.skipIf(!testUrl)('atomic idempotent submission through built HTTP', () 
       ).operationId,
     ).toBe('submitNotification');
     expect(ajv.getSchema('pipong#/components/schemas/NotificationRequest')).toBeTypeOf('function');
+    for (const [resource, identifier, operation, status] of [
+      ['notifications', 'notificationId', 'cancelNotification', '200'],
+    ] as const) {
+      const recoveryPath = `/api/v1/organizations/{organizationId}/projects/{projectId}/environments/{environmentId}/${resource}/{${identifier}}/${status === '200' ? 'cancel' : 'redrive'}`;
+      const recoveryOperation = v.parse(
+        v.object({
+          operationId: v.string(),
+          responses: v.record(
+            v.string(),
+            v.object({ content: v.record(v.string(), v.object({ schema: v.looseObject({}) })) }),
+          ),
+        }),
+        contract.paths[recoveryPath]?.post,
+      );
+      expect(recoveryOperation.operationId).toBe(operation);
+      const schema = recoveryOperation.responses[status]?.content['application/json']?.schema;
+      expect(schema).toBeDefined();
+      ajv.addSchema({ ...schema, $id: operation });
+    }
   }, 60_000);
 
   beforeEach(async () => {
     await fixture.database
-      .query(`DELETE FROM pgboss.job WHERE name LIKE 'delivery-%'; DELETE FROM app.idempotency_records; DELETE FROM app.deliveries; DELETE FROM app.notifications;
+      .query(`DELETE FROM pgboss.job WHERE name LIKE 'delivery-%'; DELETE FROM app.idempotency_records; DELETE FROM app.delivery_redrives; DELETE FROM app.deliveries; DELETE FROM app.notifications;
       DELETE FROM app.admission_reservations; DELETE FROM app.key_budgets; DELETE FROM app.tenant_budgets;
       DELETE FROM app.delivery_events; DELETE FROM app.event_streams; DELETE FROM app.endpoint_generations; DELETE FROM app.endpoints; DELETE FROM app.credential_versions;
-      DELETE FROM app.recipients; DELETE FROM app.environments; DELETE FROM app.projects; DELETE FROM auth.service_key_audits; DELETE FROM auth.service_key_grants; DELETE FROM auth.api_keys; DELETE FROM auth.members; DELETE FROM auth.rate_limits`);
+      DELETE FROM app.recipients; DELETE FROM auth.service_key_audits; DELETE FROM auth.service_key_grants; DELETE FROM auth.api_keys; DELETE FROM app.environments; DELETE FROM app.projects; DELETE FROM auth.members; DELETE FROM auth.rate_limits`);
     await fixture.database.query(
       "INSERT INTO auth.members (id,organization_id,user_id,role) VALUES ($1,$2,$1,'owner')",
       [userId, organizationId],
@@ -430,5 +449,39 @@ describe.skipIf(!testUrl)('atomic idempotent submission through built HTTP', () 
       await api.query('ROLLBACK');
       await api.end();
     }
+  });
+
+  it('cancels queued deliveries through scoped HTTP and permits repeat cancellation', async () => {
+    const original = await accepted(await request());
+    const cancelPath = `${path}/${original.notificationId}/cancel`;
+    await denied(await request('cancel', '{}', cancelPath, ''), 401, 'AUTH_CREDENTIALS_INVALID');
+    await fixture.database.query("UPDATE auth.members SET role='member'");
+    await denied(await request('cancel', '{}', cancelPath), 403, 'AUTH_PERMISSION_DENIED');
+    await fixture.database.query("UPDATE auth.members SET role='owner'");
+    await denied(
+      await request('cancel', '{}', cancelPath.replace(environmentId, siblingId)),
+      404,
+      'NOTIFICATION_NOT_FOUND',
+    );
+    const canceled = await request('cancel', '{}', cancelPath);
+    expect(canceled.status).toBe(200);
+    expect(canceled.headers.get('cache-control')).toBe('no-store');
+    const cancellation = v.parse(
+      v.strictObject({ notificationId: v.string(), canceledCount: v.number() }),
+      await canceled.json(),
+    );
+    expect(cancellation).toEqual({ notificationId: original.notificationId, canceledCount: 1 });
+    expect(ajv.validate('cancelNotification', cancellation), JSON.stringify(ajv.errors)).toBe(true);
+    expect((await fixture.database.query('SELECT state FROM app.deliveries')).rows).toEqual([
+      { state: 'canceled' },
+    ]);
+    const repeated = await request('cancel', '{}', cancelPath);
+    expect(repeated.status).toBe(200);
+    expect(
+      v.parse(v.object({ canceledCount: v.number() }), await repeated.json()).canceledCount,
+    ).toBe(0);
+    expect((await fixture.database.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+      { pending: 0 },
+    ]);
   });
 });

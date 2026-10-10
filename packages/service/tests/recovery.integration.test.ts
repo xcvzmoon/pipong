@@ -14,6 +14,7 @@ import { Client } from 'pg';
 import { v7 } from 'uuid';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reserveDelivery, settleDelivery } from '../src/delivery.ts';
+import { cancelNotification } from '../src/recovery.ts';
 
 const testUrl = process.env.TEST_DELIVERY_DATABASE_URL;
 const runCommand = promisify(execFile);
@@ -171,6 +172,55 @@ describe.skipIf(!testUrl)('delivery recovery in disposable PostgreSQL', () => {
     await admin.query('DROP ROLE IF EXISTS pipong_api, pipong_worker, pipong_migrator');
     await admin.end();
     vi.unstubAllEnvs();
+  });
+
+  it('cancels queued work once and releases admission without a send', async () => {
+    const result = await withTenantTransaction(api, scope, (transaction) =>
+      cancelNotification(transaction, scope, notificationId),
+    );
+    expect(result).toEqual({ ok: true, value: { notificationId, canceledCount: 1 } });
+    expect((await fixture.query('SELECT state FROM app.deliveries')).rows).toEqual([
+      { state: 'canceled' },
+    ]);
+    expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+      { pending: 0 },
+    ]);
+    const reserved = await reserveDelivery(worker, queue, job, await claim());
+    expect(reserved.status).not.toBe('send');
+    expect((await fixture.query('SELECT * FROM app.delivery_attempts')).rows).toHaveLength(0);
+    await withTenantTransaction(api, scope, (transaction) =>
+      cancelNotification(transaction, scope, notificationId),
+    );
+    expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+      { pending: 0 },
+    ]);
+  });
+
+  it('retains committed send-start and cancels a transient result without a successor', async () => {
+    const reserved = await reserveDelivery(worker, queue, job, await claim());
+    if (reserved.status !== 'send') {
+      throw new Error('TEST_RESERVATION_MISSING');
+    }
+    expect(
+      await withTenantTransaction(api, scope, (transaction) =>
+        cancelNotification(transaction, scope, notificationId),
+      ),
+    ).toEqual({ ok: true, value: { notificationId, canceledCount: 0 } });
+    expect((await fixture.query('SELECT state FROM app.deliveries')).rows).toEqual([
+      { state: 'sending' },
+    ]);
+    expect(
+      await settleDelivery(worker, queue, reserved.fence, {
+        kind: 'transient',
+        code: 'TEST_RETRY',
+        retryAt: new Date(Date.now() + 60_000),
+        successorId: v7(),
+      }),
+    ).toBe('canceled');
+    expect((await fixture.query('SELECT id FROM pgboss.job')).rows).toHaveLength(1);
+    expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+      { pending: 0 },
+    ]);
   });
 
   it('counts crash recovery generations toward the eight-send cap', async () => {

@@ -135,3 +135,5 @@ export type {
 
 export { decideDeliveryRetry } from './delivery-policy.ts';
 export type { RetryDecision } from '@pipong/database/attempts';
+export { cancelNotification } from './recovery.ts';
+export type { RecoveryResult } from './recovery.ts';
