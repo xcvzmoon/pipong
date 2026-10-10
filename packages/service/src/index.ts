@@ -163,3 +163,18 @@ export {
   listNotificationDeliveries,
   readDeliveryStatus,
 } from './observation.ts';
+
+export type { AuditEvent } from './audit.ts';
+export type {
+  RuntimeHealth,
+  TelemetryRuntime,
+  TelemetryRoute,
+  TelemetryEvent,
+} from './telemetry.ts';
+export {
+  createTelemetry,
+  writeTelemetry,
+  readRuntimeHealth,
+  loadDiagnosticsToken,
+  diagnosticsAuthorized,
+} from './telemetry.ts';
