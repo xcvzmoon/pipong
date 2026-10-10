@@ -6,6 +6,7 @@ export default defineConfig({
     'src/delivery-queue.ts',
     'src/events.ts',
     'src/limits.ts',
+    'src/observation.ts',
     'src/submission.ts',
     'src/attempts.ts',
     'src/recovery.ts',

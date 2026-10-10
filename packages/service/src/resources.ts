@@ -68,8 +68,9 @@ export const resourcePageSchema = v.strictObject({
 });
 
 type ResourceScope = TenantScope & {
-  collection?: 'recipients' | 'credentials' | 'endpoints';
+  collection?: 'recipients' | 'credentials' | 'endpoints' | 'notifications' | 'deliveries';
   recipientId?: string;
+  parentId?: string;
 };
 
 const cursorSchema = v.variant('kind', [
@@ -89,11 +90,14 @@ const cursorSchema = v.variant('kind', [
   v.strictObject({
     version: v.literal(1),
     kind: v.literal('environment'),
-    collection: v.optional(v.picklist(['recipients', 'credentials', 'endpoints'])),
+    collection: v.optional(
+      v.picklist(['recipients', 'credentials', 'endpoints', 'notifications', 'deliveries']),
+    ),
     organizationId: idSchema,
     projectId: idSchema,
     environmentId: idSchema,
     recipientId: v.optional(idSchema),
+    parentId: v.optional(idSchema),
     afterId: idSchema,
   }),
 ]);
@@ -131,7 +135,7 @@ export type ResourcePage<Record> = { items: Record[]; nextCursor: string | null 
 /**
  * Decodes a canonical base64url cursor and verifies its collection scope.
  *
- * @param scope - Collection whose tenant IDs and optional collection discriminator must match the cursor.
+ * @param scope - Collection whose tenant IDs, discriminator, and optional recipient or notification parent must match the cursor.
  * @param cursor - Cursor returned by resourcePage, or undefined for the first page.
  * @returns The exclusive record ID, undefined when no cursor is supplied, or false when decoding or scope validation fails.
  *
@@ -180,7 +184,8 @@ export function readResourceCursor(
       (parsed.output.kind !== 'environment' ||
         parsed.output.environmentId !== scope.environmentId ||
         parsed.output.collection !== scope.collection ||
-        parsed.output.recipientId !== scope.recipientId)
+        parsed.output.recipientId !== scope.recipientId ||
+        parsed.output.parentId !== scope.parentId)
     ) {
       return false;
     }
@@ -194,7 +199,7 @@ export function readResourceCursor(
 /**
  * Builds a page and encodes the last included ID when more records are available.
  *
- * @param scope - Owning tenant scope and optional collection discriminator to bind into the cursor.
+ * @param scope - Owning tenant scope, collection discriminator, and optional recipient or notification parent to bind into the cursor.
  * @param records - Records in ascending ID order; fetch limit + 1 to detect another page.
  * @param limit - Validated maximum number of items to include.
  * @returns At most limit items and a cursor, or null when no extra record was fetched.
