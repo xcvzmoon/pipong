@@ -101,7 +101,7 @@ export async function readDeliveryEvents(
 /**
  * Prunes a contiguous expired prefix and advances its watermark atomically.
  * Later rows remain when an earlier event is still within retention. Use a
- * worker tenant transaction; callers cannot prune events newer than seven days.
+ * worker tenant transaction; each call removes at most 100 events and cannot prune events newer than seven days.
  * @param transaction - Worker transaction with environment context.
  * @param scope - Environment to prune.
  * @returns Last removed sequence, or zero for a missing stream.
@@ -134,7 +134,19 @@ export async function pruneDeliveryEvents(
     )
     .orderBy(asc(deliveryEvents.sequence))
     .limit(1);
-  const watermark = retained ? retained.sequence - 1n : stream.sequence;
+  const expired = await transaction
+    .select({ sequence: deliveryEvents.sequence })
+    .from(deliveryEvents)
+    .where(
+      and(
+        eq(deliveryEvents.environmentId, scope.environmentId),
+        gt(deliveryEvents.sequence, stream.watermark),
+        lte(deliveryEvents.sequence, retained ? retained.sequence - 1n : stream.sequence),
+      ),
+    )
+    .orderBy(asc(deliveryEvents.sequence))
+    .limit(100);
+  const watermark = expired.at(-1)?.sequence ?? stream.watermark;
   await transaction
     .delete(deliveryEvents)
     .where(

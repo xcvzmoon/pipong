@@ -11,6 +11,7 @@ export default defineConfig({
     'src/attempts.ts',
     'src/recovery.ts',
     'src/erasure.ts',
+    'src/retention.ts',
     'src/helpers/index.ts',
     'src/auth/index.ts',
     'src/tenancy/index.ts',
