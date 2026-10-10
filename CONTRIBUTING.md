@@ -62,9 +62,9 @@ pnpm server preview
 
 Exercise the affected endpoint or behavior against the running service and describe the request, expected result, and observed result in your pull request. The current starter handler is `GET /`; for example, `curl http://localhost:3000/` checks its response.
 
-`pnpm test` runs Vitest. It currently permits an empty test suite, so an exit code of zero with "No test files found" is not evidence of test coverage. Include concrete verification evidence and add regression coverage where appropriate for behavior changes.
+`pnpm test` runs Vitest; empty server test selection fails. Database integration suites require disposable PostgreSQL fixtures. Run `CI_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres sh ops/check-ci.sh` to set every fixture URL and run checks, migration-history validation, builds, and sequential tests. See the [integration gates](README.md#integration-and-release-gates) for image verification and fixture requirements.
 
-CI runs checks, tests, and the build as sequential steps in one job named `CI`, sharing checkout and dependency setup to avoid repeated setup and per-job billing rounding. Unless the workflow is cancelled, later validation steps still run after an earlier failure; any failed step fails the job.
+CI runs the shared integration gate, then builds and verifies all four versioned images in one job named `CI`. Each gate must pass before the next starts. The PostgreSQL service is disposable; test packages and files run sequentially because their fixtures create and remove fixed deployment roles.
 
 ## Commit Messages
 
@@ -89,7 +89,7 @@ docs: update deployment guide
 
 Maintainers run `pnpm release` to generate a changelog, bump the version, create a tag, push the changes, and create a GitHub release through genbumppush. This command changes repository state and requires push access and GitHub authentication; it is not a verification command.
 
-The release workflow runs on `v*` tags. It verifies that the tag matches `package.json`, runs checks and a build, then creates or synchronizes the GitHub release using `GITHUB_TOKEN`. Pipong is a private package and is not published to npm.
+The release workflow runs on `v*` tags. It verifies that the tag matches `package.json`, runs the same integration and image installation gates as CI, publishes the verified images to GHCR, then creates or synchronizes the GitHub release using `GITHUB_TOKEN`. Pipong is a private package and is not published to npm.
 
 ## License
 

@@ -119,3 +119,39 @@ Read the [contribution guidelines](./CONTRIBUTING.md) and [Code of Conduct](./CO
 
 See [OBSERVABILITY.md](OBSERVABILITY.md) for protected health/metrics, redacted
 telemetry, privileged audits, and alert setup.
+
+## Integration and release gates
+
+CI and tagged releases run the same gates after installing the frozen lockfile:
+
+```sh
+CI_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres sh ops/check-ci.sh
+PIPONG_VERSION=ci-local pnpm release:build
+PIPONG_VERSION=ci-local sh ops/check-images.sh
+```
+
+The database URL must point to a disposable PostgreSQL 18 cluster with trust
+authentication and an administrator named `postgres`. Tests create and remove
+fixed deployment roles. The gate sets all four integration fixture URLs and runs
+packages and test files sequentially, so suites cannot race over those roles.
+It checks formatting, lint, types, migration history, both deployable builds,
+and the real PostgreSQL/protocol/HTTP suites. An empty server test run fails.
+The schema tests cover clean installation and upgrading an earlier tenant schema
+while preserving existing data.
+
+Image verification needs Docker Compose v2 with `!override` support, OpenSSL,
+and curl. It installs all four versioned images into an isolated temporary TLS
+stack, repeats migrations, checks non-root application images and operator
+bootstrap, probes API liveness, and verifies worker lease creation and removal
+on shutdown. It removes containers, volumes, and temporary secrets on exit.
+No provider traffic is sent by this smoke test.
+
+Tagged releases verify the package version, pass these gates, publish the four
+verified images to GHCR, then create or sync the GitHub release. Registry writes
+use the workflow token with package write permission. Live provider, load, and
+restore qualification remains part of phase 30.
+
+The tested runtime matrix is Node 24, pnpm 12.6.0, PostgreSQL 18, and Debian
+Bookworm images. Dependency versions come from the committed lockfile; CI uses
+that lockfile rather than resolving new versions. Production qualification and
+framework pinning remain release gates.
