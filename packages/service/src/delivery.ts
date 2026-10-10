@@ -31,14 +31,24 @@ const successorSchema = v.pipe(
   v.uuid(),
   v.check((id) => id[14] === '7'),
 );
+const providerResponseSchema = v.optional(v.pipe(v.string(), v.maxLength(2048)));
 const outcomeSchema = v.variant('kind', [
-  v.strictObject({ kind: v.literal('accepted'), code: codeSchema }),
-  v.strictObject({ kind: v.literal('permanent'), code: codeSchema }),
+  v.strictObject({
+    kind: v.literal('accepted'),
+    code: codeSchema,
+    providerResponse: providerResponseSchema,
+  }),
+  v.strictObject({
+    kind: v.literal('permanent'),
+    code: codeSchema,
+    providerResponse: providerResponseSchema,
+  }),
   v.strictObject({
     kind: v.picklist(['transient', 'ambiguous']),
     code: codeSchema,
     retryAt: v.date(),
     successorId: successorSchema,
+    providerResponse: providerResponseSchema,
   }),
 ]);
 
@@ -91,7 +101,7 @@ export function reserveDelivery(
  * @param database - Worker database runtime.
  * @param queue - Started queue using the same database.
  * @param fence - Unchanged fence from the committed send reservation.
- * @param outcome - Provider classification and redacted stable code; retry outcomes include successor identity and timing.
+ * @param outcome - Provider classification, redacted stable code, and optional receipt up to 2048 characters; retry outcomes include successor identity and timing.
  * @returns Persisted delivery state after atomic result/event/queue settlement.
  * @throws {Error} DELIVERY_INPUT_INVALID for malformed results. Lost-claim/fence and database errors propagate, leaving result writes uncommitted.
  * @example
