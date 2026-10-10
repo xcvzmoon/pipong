@@ -41,7 +41,7 @@ jobs:
 
       - name: Run integration gates
         env:
-          CI_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres
+          CI_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/postgres
         run: sh ops/check-ci.sh
 
       - name: Build and verify versioned images
