@@ -38,6 +38,19 @@ export type ProviderOutcome = (
   | { kind: 'transient' | 'ambiguous'; code: string; retryAt: Date; successorId: string }
 ) & { providerResponse?: string };
 
+/** Maximum committed send reservations in one delivery chain, including crash recovery. */
+export const deliveryAttemptLimit = 8;
+export type RetryDecision =
+  | { state: 'failed' | 'expired' }
+  | { state: 'retry_wait'; retryAt: Date };
+export type RetryPolicy = (
+  provider: DeliveryJob['provider'],
+  attempt: number,
+  requestedAt: Date,
+  expiresAt: Date,
+  now: Date,
+) => RetryDecision;
+
 const terminalStates = ['provider_accepted', 'failed', 'expired', 'canceled'] as const;
 
 async function lockClaim(
@@ -107,7 +120,20 @@ async function databaseTime(transaction: TenantTransaction): Promise<Date> {
   return clock.now;
 }
 
-async function publishState(
+/**
+ * Appends a delivery state event and releases admission for terminal work.
+ * The caller must lock the notification and persist the delivery state first.
+ * @param transaction - Tenant transaction holding lifecycle locks.
+ * @param job - Owning notification and delivery identifiers.
+ * @param state - State already persisted in this transaction.
+ * @returns Resolves after event and admission writes.
+ * @throws {Error} DELIVERY_SETTLEMENT_FAILED if remaining work cannot be counted; database failures propagate.
+ * @example
+ * ```ts
+ * await publishDeliveryState(transaction, job, 'canceled');
+ * ```
+ */
+export async function publishDeliveryState(
   transaction: TenantTransaction,
   job: DeliveryJob,
   state: typeof deliveries.$inferSelect.state,
@@ -229,15 +255,24 @@ export async function reserveDeliveryAttempt(
     endpoint.generation !== delivery.generation
   ) {
     blockedState = 'canceled';
-  } else if (credential?.state !== 'active') {
+  } else if (credential?.state !== 'active' || delivery.attemptGeneration >= deliveryAttemptLimit) {
     blockedState = 'failed';
   }
   if (blockedState) {
     await transaction
+      .update(deliveryAttempts)
+      .set({ finishedAt: now, outcome: 'ambiguous', code: 'DELIVERY_RECOVERY_TERMINAL' })
+      .where(
+        and(
+          eq(deliveryAttempts.deliveryId, delivery.id),
+          sql`${deliveryAttempts.finishedAt} IS NULL`,
+        ),
+      );
+    await transaction
       .update(deliveries)
       .set({ state: blockedState })
       .where(eq(deliveries.id, delivery.id));
-    await publishState(transaction, job, blockedState);
+    await publishDeliveryState(transaction, job, blockedState);
     await completeDeliveryJob(queue, transaction, job.provider, claim);
     return { status: 'completed', state: blockedState };
   }
@@ -254,6 +289,15 @@ export async function reserveDeliveryAttempt(
   if (!snapshot || !credential || !endpoint) {
     throw new Error('DELIVERY_NOT_FOUND: immutable send snapshot is unavailable');
   }
+  await transaction
+    .update(deliveryAttempts)
+    .set({ finishedAt: now, outcome: 'ambiguous', code: 'DELIVERY_CRASH_RECOVERED' })
+    .where(
+      and(
+        eq(deliveryAttempts.deliveryId, delivery.id),
+        sql`${deliveryAttempts.finishedAt} IS NULL`,
+      ),
+    );
   const generation = delivery.attemptGeneration + 1;
   await transaction
     .update(deliveries)
@@ -269,7 +313,7 @@ export async function reserveDeliveryAttempt(
     retryCount: claim.retryCount,
     startedAt: now,
   });
-  await publishState(transaction, job, 'sending');
+  await publishDeliveryState(transaction, job, 'sending');
   return {
     status: 'send',
     fence: { job, claim, generation },
@@ -295,12 +339,13 @@ export async function reserveDeliveryAttempt(
  * @param queue - Queue backed by the same database.
  * @param fence - Reservation fence retained unchanged from send-start.
  * @param outcome - Validated provider classification, redacted code, and optional serialized provider receipt; retries include a fresh UUIDv7 and future time.
+ * @param retryPolicy - Application policy evaluated against locked persisted generation and database time.
  * @returns Committed delivery state after the caller's transaction completes.
  * @throws {Error} DELIVERY_ATTEMPT_FENCE_LOST for replaced attempts; DELIVERY_QUEUE_CLAIM_LOST for reclaimed jobs; DELIVERY_RETRY_INVALID for invalid retry timing. Database/enqueue failures roll back settlement.
  * @example
  * ```ts
  * await withTenantTransaction(database, scope, transaction =>
- *   settleDeliveryAttempt(transaction, queue, fence, { kind: 'accepted', code: 'accepted' }));
+ *   settleDeliveryAttempt(transaction, queue, fence, { kind: 'accepted', code: 'accepted' }, retryPolicy));
  * ```
  */
 export async function settleDeliveryAttempt(
@@ -308,6 +353,7 @@ export async function settleDeliveryAttempt(
   queue: QueueRuntime,
   fence: AttemptFence,
   outcome: ProviderOutcome,
+  retryPolicy: RetryPolicy,
 ): Promise<typeof deliveries.$inferSelect.state> {
   const { job, claim, generation } = fence;
   const notification = await lockNotification(transaction, job);
@@ -321,14 +367,27 @@ export async function settleDeliveryAttempt(
     state = 'provider_accepted';
   } else if (outcome.kind === 'permanent') {
     state = 'failed';
-  } else if (notification.expiresAt <= now || outcome.retryAt >= notification.expiresAt) {
-    state = 'expired';
+  } else if (notification.canceledAt !== null) {
+    state = 'canceled';
   } else {
-    if (outcome.retryAt <= now) {
-      throw new Error('DELIVERY_RETRY_INVALID: successor must start in the future');
+    const decision = retryPolicy(
+      job.provider,
+      generation,
+      outcome.retryAt,
+      notification.expiresAt,
+      now,
+    );
+    state = decision.state;
+    if (decision.state === 'retry_wait') {
+      if (
+        decision.retryAt <= now ||
+        decision.retryAt >= notification.expiresAt ||
+        generation >= deliveryAttemptLimit
+      ) {
+        throw new Error('DELIVERY_RETRY_INVALID: successor violates retry bounds');
+      }
+      await insertDeliveryJob(queue, transaction, outcome.successorId, job, decision.retryAt);
     }
-    state = 'retry_wait';
-    await insertDeliveryJob(queue, transaction, outcome.successorId, job, outcome.retryAt);
   }
   const updated = await transaction
     .update(deliveryAttempts)
@@ -352,7 +411,7 @@ export async function settleDeliveryAttempt(
     throw new Error('DELIVERY_ATTEMPT_FENCE_LOST: attempt result was already settled');
   }
   await transaction.update(deliveries).set({ state }).where(eq(deliveries.id, delivery.id));
-  await publishState(transaction, job, state);
+  await publishDeliveryState(transaction, job, state);
   await completeDeliveryJob(queue, transaction, job.provider, claim);
   return state;
 }

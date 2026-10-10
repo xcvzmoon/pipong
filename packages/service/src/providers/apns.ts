@@ -9,6 +9,7 @@ import { withTenantTransaction } from '@pipong/database/tenancy';
 import { v7 } from 'uuid';
 import * as v from 'valibot';
 import { credentialInputSchema } from '../credentials.ts';
+import { decideDeliveryRetry } from '../delivery-policy.ts';
 import { endpointInputSchema } from '../endpoints.ts';
 import { notificationRequestSchema } from '../notification-contract.ts';
 import { encodeProviderPayload } from '../provider-payloads.ts';
@@ -246,9 +247,15 @@ export function settleApnsDelivery(
         new Date(result.response.invalidatedAt),
       );
     }
-    return settleDeliveryAttempt(transaction, queue, reservation.fence, {
-      ...result.outcome,
-      providerResponse: result.response === null ? undefined : JSON.stringify(result.response),
-    });
+    return settleDeliveryAttempt(
+      transaction,
+      queue,
+      reservation.fence,
+      {
+        ...result.outcome,
+        providerResponse: result.response === null ? undefined : JSON.stringify(result.response),
+      },
+      decideDeliveryRetry,
+    );
   });
 }
