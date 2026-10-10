@@ -18,7 +18,20 @@ jobs:
   ci:
     name: CI
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-bookworm
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -26,14 +39,7 @@ jobs:
       - name: Setup project
         uses: ./.github/actions/setup-project
 
-      - name: Run format, lint, and type checks
-        if: ${{ !cancelled() }}
-        run: pnpm check
-
-      - name: Run tests
-        if: ${{ !cancelled() }}
-        run: pnpm test
-
-      - name: Build workspace packages
-        if: ${{ !cancelled() }}
-        run: pnpm build
+      - name: Run integration gates
+        env:
+          CI_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres
+        run: sh ops/check-ci.sh
