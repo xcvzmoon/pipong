@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 concurrency:
   group: release-${{ github.ref_name }}
@@ -16,7 +17,20 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18-bookworm
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale=C
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -36,10 +50,24 @@ jobs:
             exit 1
           fi
 
-      - name: Check and build
+      - name: Run integration gates
+        env:
+          CI_DATABASE_URL: postgres://postgres@127.0.0.1:${{ job.services.postgres.ports[5432] }}/postgres
+        run: sh ops/check-ci.sh
+
+      - name: Build and verify versioned images
         run: |
-          pnpm run check
-          pnpm build
+          export PIPONG_VERSION="$(node -p "require('./package.json').version")"
+          pnpm release:build
+          sh ops/check-images.sh
+
+      - name: Publish verified images
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "${{ github.actor }}" --password-stdin
+          pnpm exec genbumppush --retry-docker "$RELEASE_TAG" --yes
 
       - name: Create or sync release
         env:
