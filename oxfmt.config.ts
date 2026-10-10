@@ -15,5 +15,5 @@ export default defineConfig({
   },
   sortPackageJson: false,
   singleQuote: true,
-  ignorePatterns: ['.agents/**', 'tools/oxlint/anti-slop/**'],
+  ignorePatterns: ['CHANGELOG.md', '.agents/**', 'tools/oxlint/anti-slop/**'],
 });
