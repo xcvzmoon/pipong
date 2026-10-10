@@ -5,6 +5,5 @@ export default defineConfig({
     isolate: false,
     fileParallelism: false,
     clearMocks: false,
-    passWithNoTests: true,
   },
 });

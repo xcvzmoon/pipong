@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { getTableConfig, pgSchema, text } from 'drizzle-orm/pg-core';
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, mkdir, writeFile, rm, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -171,6 +171,53 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       'verifications',
     ]);
   }, 15000);
+
+  it('upgrades an earlier schema without losing existing tenant data', async () => {
+    const upgradeDatabaseName = `${databaseName}_upgrade`;
+    const upgradeUrl = new URL(migrationUrl);
+    upgradeUrl.pathname = `/${upgradeDatabaseName}`;
+    const directory = await mkdtemp(join(tmpdir(), 'pipong-upgrade-'));
+    const upgrade = new Client({ connectionString: upgradeUrl.href });
+    try {
+      await admin.query(`CREATE DATABASE ${upgradeDatabaseName} OWNER pipong_migrator`);
+      await upgrade.connect();
+      const foundation = join(directory, 'foundation');
+      await cp(migrationsFolder, foundation, { recursive: true });
+      await runMigrations(upgradeUrl.href, foundation);
+      await runMigrations(
+        upgradeUrl.href,
+        fileURLToPath(new URL('../migrations/auth/', import.meta.url)),
+      );
+      const tenancy = fileURLToPath(new URL('../migrations/tenancy/', import.meta.url));
+      const baseline = join(directory, 'tenancy');
+      await mkdir(baseline);
+      await cp(
+        join(tenancy, '20261007094502_overjoyed_nightmare'),
+        join(baseline, '20261007094502_overjoyed_nightmare'),
+        { recursive: true },
+      );
+      await runMigrations(upgradeUrl.href, baseline);
+      await upgrade.query(`INSERT INTO auth.organizations (id, name, slug, created_at)
+        VALUES ('019a0000-0000-7000-8000-000000000999', 'Upgrade tenant', 'upgrade-tenant', now())`);
+      await runMigrations(upgradeUrl.href, tenancy);
+      await runMigrations(upgradeUrl.href, tenancy);
+      const organization = await upgrade.query<{ name: string }>(
+        "SELECT name FROM auth.organizations WHERE slug='upgrade-tenant'",
+      );
+      expect(organization.rows).toEqual([{ name: 'Upgrade tenant' }]);
+      const history = await upgrade.query<{ count: string }>(
+        'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
+      );
+      expect(history.rows[0]?.count).toBe('26');
+    } finally {
+      await upgrade.end();
+      try {
+        await admin.query(`DROP DATABASE IF EXISTS ${upgradeDatabaseName} WITH (FORCE)`);
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    }
+  }, 30_000);
 
   it('rejects incomplete delivery queue provisioning and cleans up startup', async () => {
     await fixture.query(
