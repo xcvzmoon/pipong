@@ -10,6 +10,7 @@ import {
 } from '@pipong/database/authorization';
 import { setEventReadBudget, setTenantScope } from '@pipong/database/tenancy';
 import * as v from 'valibot';
+import { auditPrivilegedOperation } from './audit.ts';
 
 /**
  * Validates the domain permission requested by an authorized operation.
@@ -262,10 +263,11 @@ export function withAuthorizedTransaction<Result>(
       };
     }
 
-    return {
-      ok: true,
-      value: await run(transaction),
-    };
+    const value = await run(transaction);
+    if (principal.kind === 'human' && privilegedActions.has(action)) {
+      await auditPrivilegedOperation(transaction, principal, action, scope);
+    }
+    return { ok: true, value };
   });
 }
 
