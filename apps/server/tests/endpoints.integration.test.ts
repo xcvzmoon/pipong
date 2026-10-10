@@ -264,7 +264,7 @@ describe.skipIf(!testUrl)('endpoint HTTP operations with real PostgreSQL', () =>
       JSON.stringify({ activeKeyId: 'first', keys: { first: '11'.repeat(32) } }),
     );
     await fixture.database.query(
-      'TRUNCATE app.delivery_attempts, app.idempotency_records, app.notifications, app.deliveries, app.endpoints, app.endpoint_generations; DELETE FROM auth.service_key_audits; DELETE FROM auth.service_key_grants; DELETE FROM auth.api_keys; DELETE FROM app.credential_versions; DELETE FROM app.recipients; DELETE FROM app.environments; DELETE FROM app.projects; DELETE FROM auth.members; DELETE FROM auth.mfa_assurances; DELETE FROM auth.rate_limits',
+      'TRUNCATE app.delivery_redrives, app.delivery_attempts, app.idempotency_records, app.notifications, app.deliveries, app.endpoints, app.endpoint_generations; DELETE FROM auth.service_key_audits; DELETE FROM auth.service_key_grants; DELETE FROM auth.api_keys; DELETE FROM app.credential_versions; DELETE FROM app.recipients; DELETE FROM app.environments; DELETE FROM app.projects; DELETE FROM auth.members; DELETE FROM auth.mfa_assurances; DELETE FROM auth.rate_limits',
     );
     await fixture.database.query(
       "INSERT INTO auth.members (id,organization_id,user_id,role) VALUES ($1,$2,$1,'owner'),($3,$4,$1,'owner')",

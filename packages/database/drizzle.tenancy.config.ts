@@ -12,6 +12,7 @@ export default defineConfig({
     './src/limits-schema.ts',
     './src/submission-schema.ts',
     './src/attempts-schema.ts',
+    './src/recovery-schema.ts',
   ],
   out: './migrations/tenancy',
   migrations: {
