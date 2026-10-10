@@ -11,7 +11,7 @@ The collection is `/api/v1/organizations/{organizationId}/projects/{projectId}/e
 | PUT    | Collection                    | Upsert an identity; 200 with its active record | `recipient:write` |
 | GET    | Collection                    | Paginated active recipients                    | `recipient:read`  |
 | GET    | Collection + `/{recipientId}` | One active recipient                           | `recipient:read`  |
-| DELETE | Collection + `/{recipientId}` | Soft-delete one recipient; 204                 | `recipient:write` |
+| DELETE | Collection + `/{recipientId}` | Tombstone and queue erasure; 204               | `recipient:write` |
 
 Use an authenticated owner/admin session or a backend service key with the corresponding environment grant. Members can read recipients. Recipient writes do not require recent MFA. Revoked authority is checked on every request. Suspended projects/environments permit reads and deny writes with `AUTH_SCOPE_SUSPENDED`.
 
@@ -29,9 +29,9 @@ Concurrent upserts of the same scoped identity return the same recipient UUID. R
 
 Collection GET accepts `limit` (1–100, default 50) and `cursor`. Records are ordered by UUID, and the response is `{ "items": [...], "nextCursor": "..." }`; `nextCursor` is null on the final page. Cursors bind to the recipient collection and its organization/project/environment. A cursor from a service-key collection or another environment returns `RESOURCE_CURSOR_INVALID`. Unknown or duplicate query fields are rejected.
 
-Delete changes one record into a tombstone. Deleted recipients disappear from reads and lists. A repeated delete or read returns `RESOURCE_NOT_FOUND`; upserting its external ID returns `RECIPIENT_DELETED` (409). The external identity remains reserved until the retention/erasure capability is implemented. This operation does not physically erase retained data.
+Delete tombstones the recipient and queues bounded identity/endpoint cleanup. Deleted recipients disappear from reads and lists. A repeated delete or read returns `RESOURCE_NOT_FOUND`; upserting the external ID returns `RECIPIENT_DELETED` (409) while that identity remains in the tombstone. Cleanup clears the identity; a later upsert creates a new recipient UUID. Old recipient/endpoint IDs remain deleted. See [erasure and retention](./ERASURE.md) for reserved sends, shared credentials, and retained data.
 
-PostgreSQL composite ownership constraints and forced row-level security enforce tenant isolation. Runtime roles cannot change recipient UUIDs, external IDs, or ownership columns, or physically delete rows.
+PostgreSQL composite ownership constraints and forced row-level security enforce tenant isolation. The API cannot change recipient UUIDs, external IDs, or ownership columns. The worker can clear an erased identity; recipient tombstones remain.
 
 ## Endpoint metadata
 
