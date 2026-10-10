@@ -38,7 +38,7 @@ Disabling MFA requires the password and recent MFA. Regenerating backup codes
 requires the password and recent MFA; it invalidates all previous codes. Replacing an enrolled TOTP
 factor or retrieving its URI also requires recent MFA.
 
-Organization creation, deletion, and membership changes, native API-key operations,
+Native organization creation, deletion, and membership changes, native API-key operations,
 and user deletion remain blocked. Invitation creation and cancellation require a
 verified account, enrolled TOTP, and a successful TOTP or backup-code verification
 within five minutes in the current session. Better Auth checks the inviter's
@@ -223,3 +223,8 @@ queued mail.
 Environment references: [auth package](packages/auth/.env.example),
 [API runtime](apps/server/.env.example), and [worker runtime](apps/worker/.env.example).
 Package examples document settings; package `.env` files are not loaded automatically.
+
+Organization erasure uses the owner-only [domain DELETE operation](./ERASURE.md).
+Native invitation operations hold an organization lifecycle lock and deny disabled
+or deleted organizations. Invitation creation requires an explicit organization ID.
+Organization cleanup preserves human accounts and sessions shared with other tenants.
