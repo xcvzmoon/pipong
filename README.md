@@ -81,8 +81,8 @@ audited redrive, and exhausted-job reconciliation.
 [Notification status](./OBSERVATION.md) describes summary counts, delivery
 outcomes, redacted attempts, and pagination.
 
-[Delivery event replay](./EVENTS.md) describes ordered events, scoped cursors,
-and retention watermarks.
+[Delivery events](./EVENTS.md) describes ordered replay, SSE streams, scoped
+cursors, connection limits, and retention watermarks.
 
 [APNs delivery](./APNS.md) describes the internal HTTP/2 adapter, credential
 binding, receipt settlement, and outstanding device qualification.
