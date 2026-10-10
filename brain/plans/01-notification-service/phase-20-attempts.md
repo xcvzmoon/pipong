@@ -2,6 +2,15 @@
 
 Back to [[plans/01-notification-service/overview]]
 
+## Status
+
+- Implemented on `feat/fenced-delivery-attempts`, 2026-10-10; awaiting PR review and merge.
+- Worker service APIs reserve send-start with lifecycle/claim locks, persist application generations separately from pg-boss claims, and settle attempt/state/event/admission/successor/completion atomically.
+- Tenant-bound organization and credential locking functions preserve worker auth-table isolation and credential write restrictions. Notification cancellation metadata establishes the lock protocol; its public operation remains later work.
+- All 126 workspace tests passed against disposable PostgreSQL 18 UTF-8, including five new scenarios with competing worker processes and a local HTTP transport. Verified stale settlement before replacement reservation, successor and admission rollback, post-acceptance crash duplicates, terminal recovery, and cancellation/disable/suspension ordering.
+- `pnpm install`, `pnpm check`, `pnpm build`, and `pnpm database check` passed. Persistence tests verified clean migrations, repeated history, and failed-migration rollback with the added migration.
+- Next is phase 21 native APNs integration. Provider consumers remain disabled; retry caps/backoff/reconciliation belong to phase 24, and public observation/cancellation remains later work.
+
 ## Goal
 
 Reserve logical send-start under locks shared with cancel/disable/suspend, record one fenced attempt, release before network I/O, and finalize state/event/successor with claim-aware settlement. Track pg-boss id+retryCount separately from application attempt generation; affected count other than one rolls back all writes. A recovered terminal delivery is not resent.
@@ -9,8 +18,10 @@ Reserve logical send-start under locks shared with cancel/disable/suspend, recor
 ## Changes
 
 - packages/service/src/delivery.ts
-- packages/service/src/attempts.ts
-- tests/delivery.integration.test.ts
+- packages/database/src/attempts.ts
+- packages/database/src/attempts-schema.ts
+
+Database schema/migration/export changes follow database ownership. Worker API integration tests live in packages/service/tests/attempts.integration.test.ts. Existing migration-count and endpoint truncation fixtures include the new schema.
 
 - Commit generated SQL/lockfile changes required by this capability; review its documented contract. Do not edit vendored skills or anti-slop tooling.
 - Service capabilities require the HTTP adapter packets in [[plans/01-notification-service/http-packet]]; neither service-only smoke nor this file list excuses missing public operations.

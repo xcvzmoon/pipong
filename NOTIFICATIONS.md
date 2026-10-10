@@ -131,3 +131,11 @@ is reserved for the summary API. A 202 confirms durable queuing, not device deli
 Run the built HTTP/PostgreSQL suite with `TEST_AUTH_DATABASE_URL` and
 `pnpm --filter pipong-server exec vitest run tests/submission.integration.test.ts`.
 Use a disposable PostgreSQL 18 cluster; tests create/drop databases and runtime roles.
+
+Worker execution now reserves logical send-start and records fenced attempts in
+PostgreSQL before network I/O. Result settlement atomically records provider
+classification, delivery events, admission release or a delayed retry job, and
+completion of the original queue claim. Stale workers cannot commit results.
+See [fenced delivery execution](./packages/database/README.md#fenced-delivery-execution)
+for the worker API and cancellation ordering. Provider consumers and public
+inspection/cancellation routes remain later plan work.

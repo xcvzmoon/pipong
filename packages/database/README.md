@@ -443,3 +443,41 @@ Acceptance holds an environment/key advisory lock through commit, validates the
 fingerprint before replay accounting, resolves active generation bindings, and
 reserves quota before inserting application rows, events, and queue jobs.
 See [notification submission](../../NOTIFICATIONS.md) for the public contract.
+
+## Fenced delivery execution
+
+Workers call `reserveDelivery` from `@pipong/service` with the fetched job payload,
+ID, and retry count. Its transaction locks organization/project/environment
+lifecycle rows, recipient, credential, endpoint, notification, delivery, and the
+active queue claim. A committed reservation records `sending` and one attempt
+with an application generation separate from pg-boss's retry count. The returned
+snapshot includes the original endpoint/credential bindings needed for decryption.
+Network I/O begins only after this call resolves.
+
+Cancellation must lock the notification, set `canceled_at`, and change only
+queued or retry-wait deliveries. Endpoint disablement and scope suspension use
+their existing row locks. Operations committed before reservation prevent a send;
+operations after reservation cannot retract that in-flight send. The cancellation
+HTTP operation remains later plan work.
+
+After network I/O, call `settleDelivery` with the unchanged fence and a redacted
+provider outcome code. The attempt result, delivery state, ordered event,
+admission release or delayed successor, and claim-aware queue completion commit
+together. `DELIVERY_QUEUE_CLAIM_LOST` rolls back all writes even when a replacement
+claim has not yet reserved its new application attempt. A replaced generation
+rejects with `DELIVERY_ATTEMPT_FENCE_LOST`.
+
+Transient or ambiguous outcomes take a fresh UUIDv7 successor ID and a future
+retry time supplied by application policy. Successors retain their pending slot
+and unfinished-job retention protection. Expired work gets no successor. Provider
+retry caps, backoff, and exhausted-job reconciliation remain phase 24 work.
+
+Recovered terminal work completes its current claim without another send or
+event. An unfinished attempt remains unfinished after a crash. A crash after
+provider acceptance but before settlement may send twice; attempt fencing protects
+database results and does not promise exactly-once external delivery. Provider
+consumers remain disabled until their integrations are implemented.
+
+Run the worker race/local HTTP fixture suite with `TEST_DELIVERY_DATABASE_URL`
+and `pnpm service test tests/attempts.integration.test.ts`. Use a disposable
+PostgreSQL 18 cluster; the suite creates and drops databases and runtime roles.

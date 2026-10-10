@@ -59,6 +59,7 @@ export async function startDeliveryQueue(
  * @param transaction - Transaction containing the delivery's application writes.
  * @param jobId - Fresh UUIDv7 queue ID, distinct from the delivery ID.
  * @param job - Validated identifiers of the persisted delivery.
+ * @param startAfter - Optional successor time; omitted jobs are immediately runnable.
  * @returns Inserted queue job ID, visible to workers only after commit.
  * @throws {Error} DELIVERY_ENQUEUE_FAILED when insertion is suppressed or retention protection is not applied. Database failures propagate.
  * @example
@@ -71,10 +72,12 @@ export async function insertDeliveryJob(
   transaction: TenantTransaction,
   jobId: string,
   job: DeliveryJob,
+  startAfter?: Date,
 ): Promise<string> {
   const name = `delivery-${job.provider}`;
   const id = await queue.send(name, job, {
     id: jobId,
+    startAfter,
     group: { id: job.organizationId },
     db: fromDrizzle(transaction, sql),
   });

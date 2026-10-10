@@ -30,6 +30,8 @@
     "@types/web-push": "catalog:",
     "tsdown": "catalog:shared",
     "typescript": "catalog:shared",
-    "vitest": "catalog:shared"
+    "vitest": "catalog:shared",
+    "pg": "catalog:database",
+    "@types/pg": "catalog:database"
   }
 }

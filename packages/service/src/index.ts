@@ -110,3 +110,12 @@ export type {
 
 export { submitNotification, idempotencyKeySchema } from './submit-notification.ts';
 export type { SubmissionResult } from './submit-notification.ts';
+
+export { reserveDelivery, settleDelivery } from './delivery.ts';
+export type {
+  AttemptFence,
+  DeliveryAttempt,
+  QueueClaim,
+  SendReservation,
+  ProviderOutcome,
+} from '@pipong/database/attempts';

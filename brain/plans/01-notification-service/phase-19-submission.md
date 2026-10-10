@@ -4,7 +4,7 @@ Back to [[plans/01-notification-service/overview]]
 
 ## Status
 
-- Implemented locally on `feat/atomic-notification-submission`, 2026-10-09; prepared for PR review; not merged.
+- Implemented on `feat/atomic-notification-submission`, 2026-10-09; merged in PR #25.
 - POST acceptance persists immutable requests and generation-bound deliveries, reserves admission, records queued events, and enqueues identifier-only jobs in one authorized transaction.
 - Environment-scoped seven-day idempotency replay returns the original response, including after notification expiry; canonical fingerprints reject changed requests. HTTP 202/Location, 429/Retry-After, and strict streaming body limits are integrated with OpenAPI.
 - Verified against disposable PostgreSQL 18 UTF-8 clusters: all 121 workspace tests passed, including five built HTTP scenarios covering duplicate races, canonical/expired replay, payload/expansion bounds, enqueue rollback, admission, live authority, FORCE RLS, and immutable content.
