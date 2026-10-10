@@ -1,9 +1,9 @@
 import { loadMailConfig, startAuthMailWorker } from '@pipong/auth';
 import { useWorkerDb } from '@pipong/database';
 import { startDeliveryQueue } from '@pipong/database/delivery-queue';
-import { reconcileDeliveryRecovery } from '@pipong/service';
 import { loadWorkerConfig } from '@pipong/shared';
 import { setInterval } from 'node:timers/promises';
+import { runRetention } from './retention.ts';
 
 loadWorkerConfig();
 const mailConfig = loadMailConfig();
@@ -28,9 +28,9 @@ let closeMailTransport: (() => Promise<void>) | undefined;
 
 try {
   closeMailTransport = await startAuthMailWorker(mailQueue, mailConfig);
-  await reconcileDeliveryRecovery(database);
+  await runRetention(database);
   for await (const _ of setInterval(60_000, undefined, { signal: abortController.signal })) {
-    await reconcileDeliveryRecovery(database);
+    await runRetention(database);
   }
 } catch (error) {
   if (!abortController.signal.aborted) {

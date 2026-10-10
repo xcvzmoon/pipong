@@ -1,4 +1,8 @@
 export type { DomainAction, AuthorizationFailure, AuthorizedResult } from './authorize.ts';
+export { eraseScope, processErasures, processRetention } from './erasure.ts';
+export { retentionPolicy } from '@pipong/database/retention';
+export type { RetentionPolicy } from '@pipong/database/retention';
+export type { ErasureReceipt } from './erasure.ts';
 export { domainActionSchema, withAuthorizedTransaction } from './authorize.ts';
 export {
   createProject,

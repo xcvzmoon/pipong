@@ -134,7 +134,20 @@ export default defineHandler(async (event) => {
   const scope = { kind: 'environment', organizationId, projectId, environmentId } as const;
 
   return withAuthorizedRequest(event, 'recipient:write', scope, async (transaction) => {
-    const result = await deleteRecipient(transaction, scope, recipientId);
+    const principal = event.context.principal;
+    if (!principal) {
+      return problemResponse(
+        401,
+        'AUTH_CREDENTIALS_INVALID',
+        event.context.requestId ?? 'unavailable',
+      );
+    }
+    const result = await deleteRecipient(
+      transaction,
+      scope,
+      recipientId,
+      principal.kind === 'human' ? principal.userId : principal.keyId,
+    );
     return result.ok ? new Response(null, { status: 204 }) : resourceResponse(event, result);
   });
 });

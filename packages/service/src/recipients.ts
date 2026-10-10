@@ -1,6 +1,7 @@
 import type { EnvironmentScope, RecipientRecord } from '@pipong/database/recipients';
 import type { TenantTransaction } from '@pipong/database/tenancy';
 import type { ResourcePage, ResourceResult } from './resources.ts';
+import { requestRecipientErasure } from '@pipong/database/erasure';
 import {
   upsertRecipient as persistRecipient,
   listRecipients as selectRecipients,
@@ -98,15 +99,16 @@ export async function readRecipient(
 }
 
 /**
- * Deletes one recipient while reserving its external identity against resurrection.
+ * Tombstones one recipient and requests bounded erasure of its identity and endpoints.
  * @param transaction - Active transaction after recipient:write authorization.
  * @param scope - Owning environment.
  * @param id - Validated recipient UUID.
+ * @param actorId - Authenticated human or service-key identifier retained in the erasure audit.
  * @returns The tombstone, or RESOURCE_NOT_FOUND for a missing, deleted, or out-of-scope ID.
  * @throws {Error} Database failures propagate.
  * @example
  * ```ts
- * const result = await deleteRecipient(transaction, scope, id)
+ * const result = await deleteRecipient(transaction, scope, id, principal.userId)
  * if (!result.ok) console.warn(result.code)
  * ```
  */
@@ -114,8 +116,12 @@ export async function deleteRecipient(
   transaction: TenantTransaction,
   scope: EnvironmentScope,
   id: string,
+  actorId: string,
 ): Promise<ResourceResult<RecipientRecord>> {
   const record = await markRecipientDeleted(transaction, scope, id);
+  if (record) {
+    await requestRecipientErasure(transaction, scope, id, actorId);
+  }
   return record
     ? { ok: true, value: record }
     : { ok: false, status: 404, code: 'RESOURCE_NOT_FOUND' };
