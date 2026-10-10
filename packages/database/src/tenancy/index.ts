@@ -100,3 +100,19 @@ export async function setTenantScope(
     set_config('pipong.project_id', ${projectId}, true),
     set_config('pipong.environment_id', ${environmentId}, true)`);
 }
+
+/**
+ * Bounds event-reader SQL and lock waits within the current transaction.
+ * @param transaction - Active event-read transaction, before authority checks.
+ * @returns Resolves after one-second statement and 250-millisecond lock limits are set.
+ * @throws {Error} Database execution failures propagate.
+ * @example
+ * ```ts
+ * await setEventReadBudget(transaction);
+ * ```
+ */
+export async function setEventReadBudget(transaction: TenantTransaction): Promise<void> {
+  await transaction.execute(sql`SELECT
+    set_config('statement_timeout', '1000', true),
+    set_config('lock_timeout', '250', true)`);
+}

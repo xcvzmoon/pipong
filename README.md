@@ -78,8 +78,11 @@ payload limits, atomic submission, and seven-day idempotent replay.
 [Delivery recovery](./RECOVERY.md) describes retry bounds, pending cancellation,
 audited redrive, and exhausted-job reconciliation.
 
-[Delivery event replay](./EVENTS.md) describes ordered events, scoped cursors,
-and retention watermarks.
+[Notification status](./OBSERVATION.md) describes summary counts, delivery
+outcomes, redacted attempts, and pagination.
+
+[Delivery events](./EVENTS.md) describes ordered replay, SSE streams, scoped
+cursors, connection limits, and retention watermarks.
 
 [APNs delivery](./APNS.md) describes the internal HTTP/2 adapter, credential
 binding, receipt settlement, and outstanding device qualification.

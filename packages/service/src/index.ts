@@ -137,3 +137,25 @@ export { decideDeliveryRetry } from './delivery-policy.ts';
 export type { RetryDecision } from '@pipong/database/attempts';
 export { cancelNotification, redriveDelivery, reconcileDeliveryRecovery } from './recovery.ts';
 export type { RecoveryResult } from './recovery.ts';
+
+export { createEventStreamRuntime } from './event-stream.ts';
+export type {
+  EventStreamRuntime,
+  StreamMessage,
+  StreamSubscription,
+  StreamOpenResult,
+} from './event-stream.ts';
+
+export type {
+  NotificationSummary,
+  ObservationPage,
+  ObservationResult,
+  DeliveryStatus,
+  DeliveryOutcome,
+} from './observation.ts';
+export {
+  listNotificationSummaries,
+  readNotificationSummary,
+  listNotificationDeliveries,
+  readDeliveryStatus,
+} from './observation.ts';

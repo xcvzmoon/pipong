@@ -66,5 +66,10 @@ export const deliveryAttempts = appSchema.table(
       using: attemptPredicate,
       withCheck: attemptPredicate,
     }),
+    pgPolicy('delivery_attempts_api_read', {
+      for: 'select',
+      to: ['pipong_api'],
+      using: attemptPredicate,
+    }),
   ],
 );

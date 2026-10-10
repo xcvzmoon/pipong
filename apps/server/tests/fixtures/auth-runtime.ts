@@ -32,7 +32,9 @@ export async function freePort(): Promise<number> {
 }
 
 export async function stopProcess(child: ChildProcess | undefined): Promise<void> {
-  if (child?.exitCode !== null) return;
+  if (child?.exitCode !== null || child.signalCode !== null) {
+    return;
+  }
   const exited = once(child, 'exit');
   child.kill('SIGTERM');
   const timeout = globalThis.setTimeout(() => child.kill('SIGKILL'), 10_000);
@@ -119,6 +121,8 @@ export async function startAuthFixture(
     const environment = {
       ...process.env,
       NODE_ENV: 'test',
+      CI: '',
+      TEST: '',
       PORT: String(port),
       HOST: '127.0.0.1',
       AUTH_BASE_URL: baseUrl,
