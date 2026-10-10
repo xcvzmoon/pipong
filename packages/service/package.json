@@ -18,10 +18,15 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@opentelemetry/api": "catalog:",
+    "@opentelemetry/exporter-prometheus": "catalog:",
+    "@opentelemetry/exporter-trace-otlp-http": "catalog:",
+    "@opentelemetry/sdk-metrics": "catalog:",
+    "@opentelemetry/sdk-trace-base": "catalog:",
     "@pipong/auth": "workspace:*",
     "@pipong/database": "workspace:*",
-    "google-auth-library": "catalog:",
     "gaxios": "catalog:",
+    "google-auth-library": "catalog:",
     "ipaddr.js": "catalog:",
     "uuid": "catalog:shared",
     "valibot": "catalog:shared",

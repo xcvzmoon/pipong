@@ -14,6 +14,7 @@ export default defineConfig({
     './src/attempts-schema.ts',
     './src/recovery-schema.ts',
     './src/erasure-schema.ts',
+    './src/audit-schema.ts',
   ],
   out: './migrations/tenancy',
   migrations: {

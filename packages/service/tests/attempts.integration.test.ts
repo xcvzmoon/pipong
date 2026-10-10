@@ -147,7 +147,7 @@ describe.skipIf(!testUrl)('fenced delivery attempts in disposable PostgreSQL', (
         credentialId: v.string(),
         publicKey: v.nullable(v.string()),
       }),
-      JSON.parse(result.stdout),
+      JSON.parse(result.stdout.trim().split('\n').at(-1) ?? ''),
     );
   }
 

@@ -150,7 +150,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     const result = await fixture.query<{ count: string }>(
       'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
     );
-    expect(result.rows[0]?.count).toBe('25');
+    expect(result.rows[0]?.count).toBe('26');
     const tables = await fixture.query<{ table_name: string }>(
       "SELECT table_name FROM information_schema.tables WHERE table_schema='auth' ORDER BY table_name",
     );
@@ -503,7 +503,7 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
       const history = await fixture.query<{ count: string }>(
         'SELECT count(*) FROM pipong_migrations.__drizzle_migrations',
       );
-      expect(history.rows[0]?.count).toBe('25');
+      expect(history.rows[0]?.count).toBe('26');
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
@@ -614,9 +614,15 @@ describe.skipIf(!testUrl)('PostgreSQL lifecycle (dedicated disposable cluster)',
     }
   });
 
-  it('logs queries through the selected client flag', async () => {
+  it('logs query activity without SQL or parameter values', async () => {
     vi.stubEnv('API_DATABASE_USE_QUERY_LOGGER', 'true');
-    expect(await runClient('api', 'await runtime.db.execute(sql`SELECT 42`);')).toContain('42');
+    const output = await runClient(
+      'api',
+      'await runtime.db.execute(sql`SELECT ${"secret-query-value"}::text`);',
+    );
+    expect(output).toContain('database_query');
+    expect(output).not.toContain('secret-query-value');
+    expect(output).not.toContain('SELECT');
     vi.stubEnv('API_DATABASE_USE_QUERY_LOGGER', 'false');
     expect(await runClient('api', 'await runtime.db.execute(sql`SELECT 42`);')).toBe('');
   }, 15000);

@@ -11,6 +11,7 @@ import { withTenantTransaction } from '@pipong/database/tenancy';
 import * as v from 'valibot';
 import { decideDeliveryRetry } from './delivery-policy.ts';
 import { deliveryJobSchema } from './queue.ts';
+import { writeTelemetry } from './telemetry.ts';
 
 const claimSchema = v.strictObject({
   id: v.pipe(v.string(), v.uuid()),
@@ -71,7 +72,7 @@ const outcomeSchema = v.variant('kind', [
  * }
  * ```
  */
-export function reserveDelivery(
+export async function reserveDelivery(
   database: DatabaseRuntime,
   queue: QueueRuntime,
   job: DeliveryJob,
@@ -82,7 +83,7 @@ export function reserveDelivery(
   if (!parsedJob.success || !parsedClaim.success) {
     throw new Error('DELIVERY_INPUT_INVALID: invalid delivery claim');
   }
-  return withTenantTransaction(
+  const result = await withTenantTransaction(
     database,
     {
       kind: 'environment',
@@ -93,6 +94,15 @@ export function reserveDelivery(
     (transaction) =>
       reserveDeliveryAttempt(transaction, queue, parsedJob.output, parsedClaim.output),
   );
+  if (result.status === 'send') {
+    writeTelemetry({
+      event: 'delivery_reserved',
+      notificationId: job.notificationId,
+      deliveryId: job.deliveryId,
+      attempt: result.fence.generation,
+    });
+  }
+  return result;
 }
 
 /**
@@ -112,7 +122,7 @@ export function reserveDelivery(
  * }
  * ```
  */
-export function settleDelivery(
+export async function settleDelivery(
   database: DatabaseRuntime,
   queue: QueueRuntime,
   fence: AttemptFence,
@@ -125,7 +135,7 @@ export function settleDelivery(
   if (!parsedFence.success || !parsedOutcome.success) {
     throw new Error('DELIVERY_INPUT_INVALID: invalid delivery settlement');
   }
-  return withTenantTransaction(
+  const result = await withTenantTransaction(
     database,
     {
       kind: 'environment',
@@ -142,4 +152,11 @@ export function settleDelivery(
         decideDeliveryRetry,
       ),
   );
+  writeTelemetry({
+    event: 'delivery_settled',
+    notificationId: fence.job.notificationId,
+    deliveryId: fence.job.deliveryId,
+    attempt: fence.generation,
+  });
+  return result;
 }

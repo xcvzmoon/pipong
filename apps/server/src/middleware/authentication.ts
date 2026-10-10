@@ -16,7 +16,7 @@ export default defineHandler(async (event) => {
     return undefined;
   }
 
-  const requestId = v7();
+  const requestId = event.context.requestId ?? v7();
 
   event.context.requestId = requestId;
   event.res.headers.set('cache-control', 'no-store');

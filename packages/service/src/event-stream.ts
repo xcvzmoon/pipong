@@ -22,6 +22,7 @@ export type EventStreamRuntime = {
     close: () => void,
   ) => Promise<StreamOpenResult>;
   close: () => Promise<void>;
+  pressure: () => { connections: number; slowDisconnects: number };
 };
 
 type Subscriber = {
@@ -59,6 +60,7 @@ type Reader = { scope: EnvironmentScope; subscribers: Set<Subscriber> };
 export function createEventStreamRuntime(database: DatabaseRuntime): EventStreamRuntime {
   const readers = new Map<string, Reader>();
   let connections = 0;
+  let slowDisconnects = 0;
   let stopped = false;
   let polling: Promise<void> | undefined;
 
@@ -92,6 +94,7 @@ export function createEventStreamRuntime(database: DatabaseRuntime): EventStream
           break;
         }
         subscriber.deadline = setTimeout(() => {
+          slowDisconnects++;
           disconnect(reader, subscriber);
         }, 5000);
         await subscriber.send(message);
@@ -111,6 +114,7 @@ export function createEventStreamRuntime(database: DatabaseRuntime): EventStream
       return;
     }
     if (subscriber.queue.length >= 100) {
+      slowDisconnects++;
       disconnect(reader, subscriber);
       return;
     }
@@ -290,7 +294,7 @@ export function createEventStreamRuntime(database: DatabaseRuntime): EventStream
     await polling;
   }
 
-  return { subscribe, close };
+  return { subscribe, close, pressure: () => ({ connections, slowDisconnects }) };
 }
 
 function cursorSequence(cursor: string): bigint {

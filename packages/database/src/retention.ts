@@ -90,5 +90,6 @@ export async function pruneSecurityAudits(database: DatabaseRuntime): Promise<vo
       sql`SELECT set_config('statement_timeout','5000',true), set_config('lock_timeout','1000',true)`,
     );
     await transaction.execute(sql`SELECT app.prune_security_audits()`);
+    await transaction.execute(sql`SELECT app.prune_privileged_audits()`);
   });
 }
