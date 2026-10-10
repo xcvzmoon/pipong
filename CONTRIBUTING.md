@@ -64,7 +64,7 @@ Exercise the affected endpoint or behavior against the running service and descr
 
 `pnpm test` runs Vitest; empty server test selection fails. Database integration suites require disposable PostgreSQL fixtures. Run `CI_DATABASE_URL=postgres://postgres@127.0.0.1:55439/postgres sh ops/check-ci.sh` to set every fixture URL and run checks, migration-history validation, builds, and sequential tests. See the [integration gates](README.md#integration-and-release-gates) for image verification and fixture requirements.
 
-CI runs the shared integration gate, then builds and verifies all four versioned images in one job named `CI`. Each gate must pass before the next starts. The PostgreSQL service is disposable; test packages and files run sequentially because their fixtures create and remove fixed deployment roles.
+CI runs database, service, and server tests in parallel jobs, each with its own disposable PostgreSQL service. Test files within each job remain sequential because their fixtures create and remove fixed deployment roles. A separate job runs formatting, linting, type checks, migration-history checks, the workspace build, auth tests, and all four versioned image installation checks. The final `CI` job requires every job to succeed. Release tags still run the shared sequential integration gate before image verification and publishing.
 
 ## Commit Messages
 
