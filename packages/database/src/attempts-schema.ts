@@ -33,6 +33,7 @@ export const deliveryAttempts = appSchema.table(
     finishedAt: timestamp('finished_at', TIMESTAMP_CONFIG),
     outcome: text('outcome', { enum: ['accepted', 'permanent', 'transient', 'ambiguous'] }),
     code: text('code'),
+    providerResponse: text('provider_response'),
   },
   (table) => [
     unique('delivery_attempts_delivery_generation_unique').on(table.deliveryId, table.generation),

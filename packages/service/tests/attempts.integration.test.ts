@@ -17,6 +17,7 @@ import { v7 } from 'uuid';
 import * as v from 'valibot';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { reserveDelivery, settleDelivery } from '../src/delivery.ts';
+import { settleApnsDelivery } from '../src/providers/apns.ts';
 
 const testUrl = process.env.TEST_DELIVERY_DATABASE_URL;
 const runCommand = promisify(execFile);
@@ -256,6 +257,62 @@ describe.skipIf(!testUrl)('fenced delivery attempts in disposable PostgreSQL', (
     await admin.end();
     vi.unstubAllEnvs();
   });
+
+  it.each(['current', 'old-timestamp', 'refreshed', 'lost-claim'] as const)(
+    'settles APNs invalidation atomically for %s registrations',
+    async (scenario) => {
+      const reserved = await reserveDelivery(worker, queue, job, await claim());
+      if (reserved.status !== 'send') {
+        throw new Error('TEST_RESERVATION_MISSING');
+      }
+      const timestamp = scenario === 'old-timestamp' ? Date.now() - 60_000 : Date.now() + 60_000;
+      if (scenario === 'refreshed') {
+        await fixture.query(
+          "INSERT INTO app.endpoint_generations (endpoint_id,generation,credential_id,encrypted_target,organization_id,project_id,environment_id,registered_at) VALUES ($1,2,$2,'target',$3,$4,$5,now())",
+          [endpointId, credentialId, organizationId, projectId, environmentId],
+        );
+        await fixture.query(
+          'UPDATE app.endpoints SET generation=2,registered_at=clock_timestamp() WHERE id=$1',
+          [endpointId],
+        );
+      }
+      if (scenario === 'lost-claim') {
+        await recover();
+      }
+      const result = {
+        outcome: { kind: 'permanent', code: 'APNS_Unregistered' },
+        response: {
+          status: 410,
+          apnsId: deliveryId,
+          reason: 'Unregistered',
+          invalidatedAt: timestamp,
+          retryAfter: null,
+        },
+      } as const;
+      if (scenario === 'lost-claim') {
+        await expect(settleApnsDelivery(worker, queue, reserved, result)).rejects.toThrow(
+          'DELIVERY_QUEUE_CLAIM_LOST',
+        );
+        expect((await fixture.query('SELECT state FROM app.endpoints')).rows).toEqual([
+          { state: 'active' },
+        ]);
+        expect(
+          (await fixture.query('SELECT provider_response FROM app.delivery_attempts')).rows,
+        ).toEqual([{ provider_response: null }]);
+      } else {
+        expect(await settleApnsDelivery(worker, queue, reserved, result)).toBe('failed');
+        expect((await fixture.query('SELECT state FROM app.endpoints')).rows).toEqual([
+          { state: scenario === 'current' ? 'disabled' : 'active' },
+        ]);
+        expect(
+          (await fixture.query('SELECT provider_response FROM app.delivery_attempts')).rows,
+        ).toEqual([{ provider_response: JSON.stringify(result.response) }]);
+        expect((await fixture.query('SELECT pending FROM app.tenant_budgets')).rows).toEqual([
+          { pending: 0 },
+        ]);
+      }
+    },
+  );
 
   it('reserves one attempt for competing workers and commits before local network I/O', async () => {
     const claims = await Promise.all([

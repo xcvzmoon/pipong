@@ -32,10 +32,11 @@ export type SendReservation =
       publicKey: string | null;
     }
   | { status: 'completed'; state: typeof deliveries.$inferSelect.state };
-export type ProviderOutcome =
+export type ProviderOutcome = (
   | { kind: 'accepted'; code: string }
   | { kind: 'permanent'; code: string }
-  | { kind: 'transient' | 'ambiguous'; code: string; retryAt: Date; successorId: string };
+  | { kind: 'transient' | 'ambiguous'; code: string; retryAt: Date; successorId: string }
+) & { providerResponse?: string };
 
 const terminalStates = ['provider_accepted', 'failed', 'expired', 'canceled'] as const;
 
@@ -293,7 +294,7 @@ export async function reserveDeliveryAttempt(
  * @param transaction - Worker tenant transaction, separate from network I/O.
  * @param queue - Queue backed by the same database.
  * @param fence - Reservation fence retained unchanged from send-start.
- * @param outcome - Validated provider classification and redacted code; retries include a fresh UUIDv7 and future time.
+ * @param outcome - Validated provider classification, redacted code, and optional serialized provider receipt; retries include a fresh UUIDv7 and future time.
  * @returns Committed delivery state after the caller's transaction completes.
  * @throws {Error} DELIVERY_ATTEMPT_FENCE_LOST for replaced attempts; DELIVERY_QUEUE_CLAIM_LOST for reclaimed jobs; DELIVERY_RETRY_INVALID for invalid retry timing. Database/enqueue failures roll back settlement.
  * @example
@@ -331,7 +332,12 @@ export async function settleDeliveryAttempt(
   }
   const updated = await transaction
     .update(deliveryAttempts)
-    .set({ finishedAt: now, outcome: outcome.kind, code: outcome.code })
+    .set({
+      finishedAt: now,
+      outcome: outcome.kind,
+      code: outcome.code,
+      providerResponse: outcome.providerResponse,
+    })
     .where(
       and(
         eq(deliveryAttempts.deliveryId, delivery.id),

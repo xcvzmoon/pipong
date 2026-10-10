@@ -78,6 +78,9 @@ payload limits, atomic submission, and seven-day idempotent replay.
 [Delivery event replay](./EVENTS.md) describes ordered events, scoped cursors,
 and retention watermarks.
 
+[APNs delivery](./APNS.md) describes the internal HTTP/2 adapter, credential
+binding, receipt settlement, and outstanding device qualification.
+
 ## Deploying
 
 See [runtime configuration](./CONFIGURATION.md) for required secrets, pool budgets, auth URL rules, and worker provider settings.
