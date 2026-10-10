@@ -42,7 +42,7 @@ pnpm server preview --port 3100
 
 Arguments after the script name are forwarded to that script. An unknown script fails rather than falling back to an executable.
 
-The independent Node.js worker lives in `apps/worker`. It processes queued authentication email, reconciles exhausted delivery jobs, runs bounded erasure and retention, and supervises the migrated APNs, FCM, and Web Push queues. Push delivery consumers are not enabled yet. See the internal [APNs](./APNS.md), [FCM](./FCM.md), and [Web Push](./WEB-PUSH.md) adapter notes. Run migrations before deploying the worker; see [provider queue operations](./packages/database/README.md#provider-delivery-queues).
+The independent Node.js worker lives in `apps/worker`. It processes queued authentication email, reconciles exhausted delivery jobs, runs bounded erasure and retention, and supervises the migrated APNs, FCM, and Web Push queues. Push delivery defaults to disabled; set `PUSH_DELIVERY_ENABLED=true` and `WEB_PUSH_SUBJECT` to run the consumers for qualification. Live-device and capacity gates remain open. See the internal [APNs](./APNS.md), [FCM](./FCM.md), and [Web Push](./WEB-PUSH.md) adapter notes. Run migrations before deploying the worker; see [provider queue operations](./packages/database/README.md#provider-delivery-queues).
 
 ```bash
 pnpm --filter pipong-worker build

@@ -24,9 +24,12 @@ tokens, and incorrect tokens receive an empty 404. Every response has `no-store`
 Readiness never sends a notification or calls a provider. Workers publish actual
 started consumers every 30 seconds, independently of maintenance scans. Leases
 expire after 90 seconds using PostgreSQL time and are removed on clean shutdown.
-The current worker starts authentication mail only. Delivery consumers remain
-disabled pending release qualification, so full readiness intentionally returns
-503 even when the API and mail worker are running.
+The worker starts authentication mail by default. `PUSH_DELIVERY_ENABLED=true`
+starts APNs, FCM, and Web Push consumers and requires `WEB_PUSH_SUBJECT`. Only
+started consumers are included in its lease. Full readiness returns 503 when any
+required consumer is absent; readiness does not certify live-device delivery or
+capacity. Consumer infrastructure failures emit the redacted
+`delivery_consumer_failed` event.
 
 Liveness applies after startup. Invalid startup configuration or inaccessible
 startup storage prevents the API from listening at all. Treat readiness failure

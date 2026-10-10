@@ -2,10 +2,10 @@
 
 This installation packages the Node 24 API, worker, local enrollment operator,
 and a one-shot Drizzle migration job. PostgreSQL 18 is the only required database.
-Push delivery consumers remain disabled pending release qualification. Submission,
-status, SSE, authentication mail, and maintenance are available; notifications
-will not reach devices in this increment. Full readiness returns 503 for missing
-push consumer leases. See [release gates](brain/plans/01-notification-service/phase-30-release.md).
+Push delivery defaults to disabled pending release qualification. Submission,
+status, SSE, authentication mail, and maintenance are available. To exercise push
+delivery, set `PUSH_DELIVERY_ENABLED=true` and `WEB_PUSH_SUBJECT` in `worker.env`.
+Full readiness returns 503 when required consumer leases are missing. See [release gates](brain/plans/01-notification-service/phase-30-release.md).
 
 ## Prepare secrets
 
@@ -139,7 +139,7 @@ only be reachable through that proxy. Buffering and compression must remain off
 for SSE. Verify events arrive individually over public HTTPS, reconnect with the
 last cursor, and verify revoked credentials close the stream. See [events](EVENTS.md).
 
-The Compose healthcheck uses liveness so the current disabled consumers do not
+The Compose healthcheck uses liveness so disabled push consumers do not
 cause a restart loop. Route production traffic according to protected readiness
 once qualified push consumers are enabled. See [observability](OBSERVABILITY.md).
 

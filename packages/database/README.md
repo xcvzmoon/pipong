@@ -479,7 +479,8 @@ event. Unfinished crash attempts become ambiguous when recovery reserves the
 next send or resolves terminal work. A crash after
 provider acceptance but before settlement may send twice; attempt fencing protects
 database results and does not promise exactly-once external delivery. Provider
-consumers remain disabled pending the remaining integration and qualification gates.
+consumers default to disabled. Explicit worker enablement is documented in
+[runtime configuration](../../CONFIGURATION.md#worker); qualification gates remain open.
 
 Run the worker race/local HTTP fixture suite with `TEST_DELIVERY_DATABASE_URL`
 and `pnpm service test tests/attempts.integration.test.ts`. Use a disposable

@@ -18,15 +18,19 @@ The API and worker budgets are applied independently to node-postgres pools. Con
 
 ## Worker
 
-| Variable                   | Required | Default      | Purpose                                                                                                |
-| -------------------------- | -------- | ------------ | ------------------------------------------------------------------------------------------------------ |
-| `CREDENTIAL_KEYRING_REF`   | Yes      |              | The same absolute keyring file path used by API processes.                                             |
-| `WORKER_DATABASE_MAX_POOL` | No       | `12`         | Worker process database pool budget, from 1 to 100. This budget is independent of the API pool budget. |
-| `APNS_ENVIRONMENT`         | No       | `production` | APNs target environment: `production` or `sandbox`.                                                    |
-| `FCM_PROJECT_ID`           | No       |              | Explicit Firebase target project identifier.                                                           |
-| `WEB_PUSH_SUBJECT`         | No       |              | VAPID contact subject: a `mailto:` email address or an HTTPS URL without credentials or a fragment.    |
+| Variable                     | Required     | Default      | Purpose                                                                                                |
+| ---------------------------- | ------------ | ------------ | ------------------------------------------------------------------------------------------------------ |
+| `CREDENTIAL_KEYRING_REF`     | Yes          |              | The same absolute keyring file path used by API processes.                                             |
+| `WORKER_DATABASE_MAX_POOL`   | No           | `12`         | Worker process database pool budget, from 1 to 100. This budget is independent of the API pool budget. |
+| `APNS_ENVIRONMENT`           | No           | `production` | APNs target environment: `production` or `sandbox`.                                                    |
+| `FCM_PROJECT_ID`             | No           |              | Explicit Firebase target project identifier.                                                           |
+| `PUSH_DELIVERY_ENABLED`      | No           | `false`      | Set to `true` to start all three push consumers for qualification or an exercised deployment.          |
+| `WEB_PUSH_EGRESS_POLICY_REF` | No           |              | Absolute path to the operator-owned Web Push destination policy; omitted uses public HTTPS defaults.   |
+| `WEB_PUSH_SUBJECT`           | When enabled |              | VAPID contact subject: a `mailto:` email address or an HTTPS URL without credentials or a fragment.    |
 
-Provider credentials remain tenant credential records and are not process environment settings. The worker currently validates these settings but does not start provider adapters in this phase.
+Provider credentials remain tenant credential records and are not process environment settings. Push delivery stays disabled unless `PUSH_DELIVERY_ENABLED=true`; enabling it requires `WEB_PUSH_SUBJECT`. APNs environment and Firebase target project come from each immutable tenant credential and endpoint binding.
+
+Each enabled worker runs one send at a time per provider. Claims pass the database-wide provider and tenant budgets; increasing worker count does not bypass them. The worker reloads its encryption keyring before each claim. An unreadable keyring stops new claims; sender exceptions become ambiguous attempts with bounded application retries. Database failures leave claims for queue recovery. Shutdown stops polling and drains current sends before closing provider clients and the database. Live-device and capacity qualification remain open.
 
 For local development, set values in your shell or an ignored `.env` file. Do not put real secrets in `.env.example` or command history. The API and worker require their own configuration even when started from the same checkout.
 
