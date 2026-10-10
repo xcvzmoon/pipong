@@ -61,6 +61,11 @@ export const credentialVersions = appSchema.table(
       foreignColumns: [environments.organizationId, environments.projectId, environments.id],
       name: 'credential_versions_environment_ownership_fk',
     }),
+    pgPolicy('credential_versions_worker_lock', {
+      for: 'select',
+      to: ['pipong_migrator'],
+      using: credentialPredicate,
+    }),
     pgPolicy('credential_versions_scope', {
       for: 'all',
       to: ['pipong_api', 'pipong_worker'],

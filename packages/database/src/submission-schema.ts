@@ -32,6 +32,7 @@ export const notifications = appSchema.table(
     expiresAt: timestamp('expires_at', TIMESTAMP_CONFIG).notNull(),
     acceptedAt: timestamp('accepted_at', TIMESTAMP_CONFIG).notNull().defaultNow(),
     deliveryCount: integer('delivery_count').notNull(),
+    canceledAt: timestamp('canceled_at', TIMESTAMP_CONFIG),
   },
   (table) => [
     unique('notifications_ownership_id_unique').on(
@@ -67,6 +68,7 @@ export const deliveries = appSchema.table(
     generation: integer('generation').notNull(),
     credentialId: uuid('credential_id').notNull(),
     provider: text('provider', { enum: ['apns', 'fcm', 'web-push'] }).notNull(),
+    attemptGeneration: integer('attempt_generation').notNull().default(0),
     state: text('state', {
       enum: [
         'queued',
@@ -89,6 +91,7 @@ export const deliveries = appSchema.table(
       table.id,
     ),
     unique('deliveries_notification_endpoint_unique').on(table.notificationId, table.endpointId),
+    check('deliveries_attempt_generation_valid', sql`${table.attemptGeneration} >= 0`),
     check('deliveries_provider_valid', sql`${table.provider} IN ('apns', 'fcm', 'web-push')`),
     check(
       'deliveries_state_valid',

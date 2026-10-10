@@ -11,6 +11,7 @@ export default defineConfig({
     './src/events-schema.ts',
     './src/limits-schema.ts',
     './src/submission-schema.ts',
+    './src/attempts-schema.ts',
   ],
   out: './migrations/tenancy',
   migrations: {
