@@ -13,7 +13,8 @@
     "@pipong/auth": "workspace:*",
     "@pipong/database": "workspace:*",
     "@pipong/shared": "workspace:*",
-    "valibot": "catalog:shared"
+    "valibot": "catalog:shared",
+    "@pipong/service": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:shared",

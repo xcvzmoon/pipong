@@ -125,8 +125,8 @@ contribute no work. At least one target must remain. Every resolved payload pass
 its provider's final byte bound before any acceptance writes. Deliveries retain
 the original endpoint generation and credential binding.
 
-Apply migrations before deployment. Notification summary/delivery inspection,
-cancellation, and provider consumers remain later plan work; the Location resource
+Apply migrations before deployment. Notification summary/delivery inspection
+and provider consumers remain later plan work; the Location resource
 is reserved for the summary API. A 202 confirms durable queuing, not device delivery.
 
 Run the built HTTP/PostgreSQL suite with `TEST_AUTH_DATABASE_URL` and
@@ -139,4 +139,5 @@ classification, delivery events, admission release or a delayed retry job, and
 completion of the original queue claim. Stale workers cannot commit results.
 See [fenced delivery execution](./packages/database/README.md#fenced-delivery-execution)
 for the worker API and cancellation ordering. Provider consumers and public
-inspection/cancellation routes remain later plan work.
+inspection routes remain later plan work. Pending cancellation and privileged
+redrive are described in [delivery recovery](./RECOVERY.md).

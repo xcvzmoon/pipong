@@ -380,6 +380,9 @@ importers:
       '@pipong/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@pipong/service':
+        specifier: workspace:*
+        version: link:../../packages/service
       '@pipong/shared':
         specifier: workspace:*
         version: link:../../packages/shared

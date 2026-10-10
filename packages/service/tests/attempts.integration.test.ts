@@ -584,10 +584,18 @@ describe.skipIf(!testUrl)('fenced delivery attempts in disposable PostgreSQL', (
       state: 'provider_accepted',
     });
     expect(sends).toBe(2);
-    const attempts = await fixture.query<{ generation: number; finished_at: Date | null }>(
-      'SELECT generation,finished_at FROM app.delivery_attempts ORDER BY generation',
-    );
-    expect(attempts.rows[0]).toEqual({ generation: 1, finished_at: null });
+    const attempts = await fixture.query<{
+      generation: number;
+      finished_at: Date | null;
+      outcome: string | null;
+      code: string | null;
+    }>('SELECT generation,finished_at,outcome,code FROM app.delivery_attempts ORDER BY generation');
+    expect(attempts.rows[0]).toMatchObject({
+      generation: 1,
+      outcome: 'ambiguous',
+      code: 'DELIVERY_CRASH_RECOVERED',
+    });
+    expect(attempts.rows[0]?.finished_at).toBeInstanceOf(Date);
     expect(attempts.rows[1]?.generation).toBe(2);
     expect(attempts.rows[1]?.finished_at).toBeInstanceOf(Date);
     expect(

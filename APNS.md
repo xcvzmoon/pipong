@@ -22,7 +22,7 @@ status, `apns-id`, reason, invalidation timestamp, and `Retry-After`. Transport
 interruptions and malformed responses are ambiguous. The transport sends once;
 application settlement controls any successor attempt.
 
-429 responses retry after at least one minute. 5xx responses retry after at least
+The shared recovery policy schedules both 429 and 5xx retries after at least
 15 minutes. A longer numeric or HTTP-date `Retry-After` extends that delay. A retry
 that cannot fit before notification expiry settles as expired. Other APNs errors
 are permanent for the attempt; authentication and topic failures do not disable

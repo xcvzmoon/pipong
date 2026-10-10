@@ -408,8 +408,9 @@ recovery retries. No provider consumers are enabled yet. Provider requests must
 finish within the heartbeat/lease budget once consumers are implemented.
 
 Automatic deletion is disabled for finished provider jobs, including exhausted
-failures. Unfinished jobs and failed evidence remain until application retention
-and reconciliation are implemented. Operators should monitor queue storage;
+failures. Unfinished jobs retain infinite retention protection. The worker reconciles
+exhausted jobs at startup and every 60 seconds, then applies 28-day failed-job
+retention. Completed-job retention remains a later release concern. Operators should monitor queue storage;
 submission is available, while delivery status APIs remain later plan work.
 The PostgreSQL lifecycle suite exercises transactional insertion/completion,
 suppression, stale claims, crash recovery, retention, and provisioning denial.
@@ -458,7 +459,7 @@ Cancellation must lock the notification, set `canceled_at`, and change only
 queued or retry-wait deliveries. Endpoint disablement and scope suspension use
 their existing row locks. Operations committed before reservation prevent a send;
 operations after reservation cannot retract that in-flight send. The cancellation
-HTTP operation remains later plan work.
+HTTP operation and privileged redrive are documented in [delivery recovery](../../RECOVERY.md).
 
 After network I/O, call `settleDelivery` with the unchanged fence and a redacted
 provider outcome code. The attempt result, delivery state, ordered event,
@@ -470,13 +471,15 @@ rejects with `DELIVERY_ATTEMPT_FENCE_LOST`.
 Transient or ambiguous outcomes take a fresh UUIDv7 successor ID and a future
 retry time supplied by application policy. Successors retain their pending slot
 and unfinished-job retention protection. Expired work gets no successor. Provider
-retry caps, backoff, and exhausted-job reconciliation remain phase 24 work.
+retry caps, backoff, cancellation, and exhausted-job reconciliation use the
+[recovery policy](../../RECOVERY.md).
 
 Recovered terminal work completes its current claim without another send or
-event. An unfinished attempt remains unfinished after a crash. A crash after
+event. Unfinished crash attempts become ambiguous when recovery reserves the
+next send or resolves terminal work. A crash after
 provider acceptance but before settlement may send twice; attempt fencing protects
 database results and does not promise exactly-once external delivery. Provider
-consumers remain disabled until their integrations are implemented.
+consumers remain disabled pending the remaining integration and qualification gates.
 
 Run the worker race/local HTTP fixture suite with `TEST_DELIVERY_DATABASE_URL`
 and `pnpm service test tests/attempts.integration.test.ts`. Use a disposable

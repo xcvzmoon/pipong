@@ -132,3 +132,8 @@ export type {
   WebPushRuntime,
   WebPushOutcome,
 } from './providers/web-push.ts';
+
+export { decideDeliveryRetry } from './delivery-policy.ts';
+export type { RetryDecision } from '@pipong/database/attempts';
+export { cancelNotification, redriveDelivery, reconcileDeliveryRecovery } from './recovery.ts';
+export type { RecoveryResult } from './recovery.ts';

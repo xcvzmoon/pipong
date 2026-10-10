@@ -9,6 +9,7 @@ import type { DeliveryJob, QueueRuntime } from '@pipong/database/delivery-queue'
 import { reserveDeliveryAttempt, settleDeliveryAttempt } from '@pipong/database/attempts';
 import { withTenantTransaction } from '@pipong/database/tenancy';
 import * as v from 'valibot';
+import { decideDeliveryRetry } from './delivery-policy.ts';
 import { deliveryJobSchema } from './queue.ts';
 
 const claimSchema = v.strictObject({
@@ -133,6 +134,12 @@ export function settleDelivery(
       environmentId: parsedFence.output.job.environmentId,
     },
     (transaction) =>
-      settleDeliveryAttempt(transaction, queue, parsedFence.output, parsedOutcome.output),
+      settleDeliveryAttempt(
+        transaction,
+        queue,
+        parsedFence.output,
+        parsedOutcome.output,
+        decideDeliveryRetry,
+      ),
   );
 }
