@@ -46,7 +46,31 @@ TEST_DELIVERY_DATABASE_URL=<disposable trust-authenticated cluster> \
 ```
 
 It creates and drops databases and fixed runtime roles. Use a dedicated cluster
-and run stateful suites sequentially. This is not a full-stack restore drill.
+and run stateful suites sequentially.
+
+The built runtime rehearsal also restores sessions, revoked service keys,
+notification idempotency, queued jobs, exhausted attempt history, and event replay.
+It restarts the real worker between erasure batches and checks that restored
+recipient identities are erased. Build both apps first, then run:
+
+```sh
+TEST_AUTH_DATABASE_URL=<disposable trust-authenticated cluster> \
+  pnpm server test tests/restore.integration.test.ts --no-file-parallelism --silent=false
+```
+
+`ops/check-images.sh` rehearses a separate clean-volume installation restore.
+It backs up the database and secret files, removes only its disposable Compose
+project and volume, restores into a newly provisioned database, repeats migrations,
+and verifies API liveness and worker leases. It prints elapsed recovery time and
+an upper bound on the snapshot loss window, including one second for clock rounding.
+Run it with the four local release images and `PIPONG_VERSION` set as described
+in the installation gate. Both rehearsals deliberately add a post-backup write
+and verify that it is absent after recovery.
+
+These drills cover the current runtime with push consumers disabled. They do not
+qualify provider dispatch, WAL recovery, production RPO/RTO, or reconciliation of
+revocations and erasure requests made after the snapshot. Those incident records
+must be applied before reopening ingress.
 
 ## Compromised credentials
 

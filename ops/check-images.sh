@@ -93,3 +93,36 @@ test "$heartbeat" -gt 0
 compose stop api worker
 heartbeat=$(compose exec -T database psql -U postgres -d pipong -qAt -c 'SELECT count(*) FROM app.worker_heartbeats')
 test "$heartbeat" = 0
+snapshot_started=$(date +%s)
+compose exec -T database pg_dump -U postgres -d pipong --format=custom > "$smoke_directory/database.dump"
+mkdir "$smoke_directory/secret-backup"
+cp "$PIPONG_SECRETS_DIR"/* "$smoke_directory/secret-backup/"
+compose exec -T database psql -U postgres -d pipong -v ON_ERROR_STOP=1 -c "INSERT INTO auth.organizations (id,name,slug) VALUES (uuidv7(),'After backup','after-backup')" > /dev/null
+incident_at=$(date +%s)
+recovery_started=$(date +%s)
+compose down --volumes --remove-orphans
+rm "$PIPONG_SECRETS_DIR"/*
+cp "$smoke_directory/secret-backup"/* "$PIPONG_SECRETS_DIR/"
+compose up -d --wait --wait-timeout 120 --no-build database
+compose exec -T database pg_restore -U postgres -d pipong --exit-on-error < "$smoke_directory/database.dump"
+compose run --rm --no-deps --pull never migrate
+organization=$(compose exec -T database psql -U postgres -d pipong -qAt -c "SELECT count(*) FROM auth.organizations WHERE slug='ci-installation'")
+test "$organization" = 1
+lost=$(compose exec -T database psql -U postgres -d pipong -qAt -c "SELECT count(*) FROM auth.organizations WHERE slug='after-backup'")
+test "$lost" = 0
+compose up -d --wait --wait-timeout 120 --no-build api worker
+address=$(compose port api 3000)
+curl --fail --silent --show-error -H "Authorization: Bearer $(cat "$PIPONG_SECRETS_DIR/diagnostics-token")" "http://$address/health/live"
+for attempt in $(seq 1 30); do
+  heartbeat=$(compose exec -T database psql -U postgres -d pipong -qAt -c 'SELECT count(*) FROM app.worker_heartbeats WHERE expires_at > now()')
+  if [ "$heartbeat" -gt 0 ]; then
+    break
+  fi
+  sleep 1
+done
+test "$heartbeat" -gt 0
+recovery_finished=$(date +%s)
+printf '\nClean-volume image restore: about %s seconds recovery; at most %s seconds snapshot loss window; post-backup organization absent\n' "$((recovery_finished - recovery_started))" "$((incident_at - snapshot_started + 1))"
+compose stop api worker
+heartbeat=$(compose exec -T database psql -U postgres -d pipong -qAt -c 'SELECT count(*) FROM app.worker_heartbeats')
+test "$heartbeat" = 0

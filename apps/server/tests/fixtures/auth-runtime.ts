@@ -51,6 +51,7 @@ export type AuthFixture = {
   environment: NodeJS.ProcessEnv;
   close: () => Promise<void>;
   logs: () => string;
+  stopServer: () => Promise<void>;
 };
 
 export async function startAuthFixture(
@@ -151,8 +152,16 @@ export async function startAuthFixture(
       if (server.exitCode !== null) throw new Error(`TEST_SERVER_STARTUP_FAILED: ${logs}`);
       try {
         const response = await fetch(`${baseUrl}/api/auth/get-session`);
-        if (response.status === 200)
-          return { database, baseUrl, environment, close, logs: () => logs };
+        if (response.status === 200) {
+          return {
+            database,
+            baseUrl,
+            environment,
+            close,
+            logs: () => logs,
+            stopServer: () => stopProcess(server),
+          };
+        }
         if (response.status >= 500) throw new Error('TEST_SERVER_RESPONSE_FAILED');
       } catch {}
       await setTimeout(100);
