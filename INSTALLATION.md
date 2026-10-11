@@ -177,6 +177,11 @@ execution. It runs as UID 1000 and exits after applying the three migration sets
 
 ## Release image tags
 
+See the [tested compatibility record](docs/compatibility.md) and
+[publication prerequisites](docs/publication.md). The v0.0.6 hosted publication
+failed on package write access; the current checkout has no qualified published
+artifact installation. Local image installation evidence is recorded separately.
+
 The tag-triggered release workflow builds and verifies the server, worker,
 migration, and database images, then publishes them to
 `ghcr.io/xcvzmoon/pipong-{server,worker,migrate,database}`. Each receives both the
