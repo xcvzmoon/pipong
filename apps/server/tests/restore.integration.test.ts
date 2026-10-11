@@ -13,8 +13,10 @@ import { Client } from 'pg';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 import { startAuthFixture, startWorker, stopProcess } from './fixtures/auth-runtime.ts';
+import { startWalRecovery } from './fixtures/wal-recovery.ts';
 
 const testUrl = process.env.TEST_AUTH_DATABASE_URL;
+const recoveryMode = process.env.TEST_WAL_RECOVERY === '1' ? 'wal' : 'logical';
 const root = fileURLToPath(new URL('../../../', import.meta.url));
 const runCommand = promisify(execFile);
 const userId = '019a0000-0000-7000-8000-000000000011';
@@ -70,12 +72,17 @@ describe.skipIf(!testUrl)(
   'built API and worker recovery from separate database/key backups',
   () => {
     it('reconciles post-snapshot revocation and erasure before restoring sessions, replay and work', async () => {
+      const mode = recoveryMode;
+      const wal = mode === 'wal' ? await startWalRecovery() : undefined;
       const directory = await mkdtemp(join(tmpdir(), 'pipong-runtime-restore-'));
       const databaseName = `pipong_runtime_restored_${process.pid}`;
-      const fixture = await startAuthFixture(testUrl ?? '').catch(async (error: Error) => {
-        await rm(directory, { recursive: true, force: true });
-        throw error;
-      });
+      const fixture = await startAuthFixture(wal?.sourceUrl ?? testUrl ?? '').catch(
+        async (error: Error) => {
+          await rm(directory, { recursive: true, force: true });
+          await wal?.close();
+          throw error;
+        },
+      );
       const sourceUrl = v.parse(v.string(), fixture.environment.API_DATABASE_URL);
       function databaseUrl(database: string, role: string): string {
         const url = new URL(sourceUrl);
@@ -83,8 +90,13 @@ describe.skipIf(!testUrl)(
         url.username = role;
         return url.href;
       }
-      const admin = new Client({ connectionString: testUrl });
-      const restored = new Client({ connectionString: databaseUrl(databaseName, 'postgres') });
+      const admin = new Client({ connectionString: wal?.sourceUrl ?? testUrl });
+      const restoredUrl = new URL(wal ? sourceUrl : databaseUrl(databaseName, 'postgres'));
+      restoredUrl.username = 'postgres';
+      if (wal) {
+        restoredUrl.port = String(wal.restoredPort);
+      }
+      const restored = new Client({ connectionString: restoredUrl.href });
       let api: ChildProcess | undefined;
       let worker: ChildProcess | undefined;
       let databaseCreated = false;
@@ -337,13 +349,17 @@ describe.skipIf(!testUrl)(
         ).toEqual([{ state: 'active' }]);
         const snapshotStarted = Date.now();
         const dumpPath = join(directory, 'database.dump');
-        await runCommand('pg_dump', [
-          '--dbname',
-          databaseUrl(new URL(sourceUrl).pathname.slice(1), 'postgres'),
-          '--format=custom',
-          '--file',
-          dumpPath,
-        ]);
+        if (wal) {
+          await wal.backup();
+        } else {
+          await runCommand('pg_dump', [
+            '--dbname',
+            databaseUrl(new URL(sourceUrl).pathname.slice(1), 'postgres'),
+            '--format=custom',
+            '--file',
+            dumpPath,
+          ]);
+        }
         const backupKeyPath = join(directory, 'keyring.json');
         await copyFile(keyPath, backupKeyPath);
         expect(
@@ -365,6 +381,7 @@ describe.skipIf(!testUrl)(
           JSON.stringify({ revokedKeyId: issuedKey.metadata.id, erasureId }),
           { mode: 0o600 },
         );
+        const recoveryPoint = wal ? await wal.target() : snapshotStarted;
         const afterSnapshot = await request(
           `${path}/notifications`,
           'POST',
@@ -383,23 +400,34 @@ describe.skipIf(!testUrl)(
         await fixture.stopServer();
         await rm(keyPath);
         const recoveryStarted = performance.now();
-        await admin.query(`CREATE DATABASE ${databaseName}`);
-        databaseCreated = true;
-        await admin.query(`REVOKE CREATE, TEMPORARY ON DATABASE ${databaseName} FROM PUBLIC`);
-        await admin.query(`GRANT CONNECT, CREATE ON DATABASE ${databaseName} TO pipong_migrator`);
-        await admin.query(`GRANT CONNECT ON DATABASE ${databaseName} TO pipong_api, pipong_worker`);
-        await runCommand('pg_restore', [
-          '--dbname',
-          databaseUrl(databaseName, 'postgres'),
-          '--exit-on-error',
-          dumpPath,
-        ]);
+        if (wal) {
+          await wal.restore();
+        } else {
+          await admin.query(`CREATE DATABASE ${databaseName}`);
+          databaseCreated = true;
+          await admin.query(`REVOKE CREATE, TEMPORARY ON DATABASE ${databaseName} FROM PUBLIC`);
+          await admin.query(`GRANT CONNECT, CREATE ON DATABASE ${databaseName} TO pipong_migrator`);
+          await admin.query(
+            `GRANT CONNECT ON DATABASE ${databaseName} TO pipong_api, pipong_worker`,
+          );
+          await runCommand('pg_restore', [
+            '--dbname',
+            databaseUrl(databaseName, 'postgres'),
+            '--exit-on-error',
+            dumpPath,
+          ]);
+        }
+        function restoredDatabaseUrl(role: string): string {
+          const url = new URL(restoredUrl);
+          url.username = role;
+          return url.href;
+        }
         await runCommand('pnpm', ['migrate'], {
           cwd: root,
           env: {
             ...process.env,
             NODE_ENV: 'test',
-            MIGRATION_DATABASE_URL: databaseUrl(databaseName, 'pipong_migrator'),
+            MIGRATION_DATABASE_URL: restoredDatabaseUrl('pipong_migrator'),
           },
         });
         await restored.connect();
@@ -409,35 +437,46 @@ describe.skipIf(!testUrl)(
               issuedKey.metadata.id,
             ])
           ).rows,
-        ).toEqual([{ enabled: true }]);
+        ).toEqual([{ enabled: mode === 'logical' }]);
         expect(
           (
-            await restored.query('SELECT deleted_at FROM app.environments WHERE id=$1', [
-              erasedEnvironmentId,
-            ])
+            await restored.query(
+              'SELECT deleted_at IS NOT NULL AS deleted FROM app.environments WHERE id=$1',
+              [erasedEnvironmentId],
+            )
           ).rows,
-        ).toEqual([{ deleted_at: null }]);
+        ).toEqual([{ deleted: mode === 'wal' }]);
         const incidentLedger = v.parse(
           v.object({ revokedKeyId: v.string(), erasureId: v.string() }),
           JSON.parse(await readFile(incidentLedgerPath, 'utf8')),
         );
-        await restored.query('BEGIN');
-        try {
-          await restored.query('UPDATE auth.api_keys SET enabled=false WHERE id=$1', [
-            incidentLedger.revokedKeyId,
-          ]);
-          await restored.query(
-            'UPDATE app.environments SET suspended_at=clock_timestamp(),deleted_at=clock_timestamp() WHERE id=$1',
-            [erasedEnvironmentId],
-          );
-          await restored.query(
-            "INSERT INTO app.erasure_jobs (id,organization_id,project_id,environment_id,target_id,kind,actor_id,in_flight_until) VALUES ($1,$2,$3,$4,$4,'environment',$5,clock_timestamp()-interval '1 second')",
-            [incidentLedger.erasureId, organizationId, projectId, erasedEnvironmentId, userId],
-          );
-          await restored.query('COMMIT');
-        } catch (error) {
-          await restored.query('ROLLBACK');
-          throw error;
+        if (mode === 'logical') {
+          await restored.query('BEGIN');
+          try {
+            await restored.query('UPDATE auth.api_keys SET enabled=false WHERE id=$1', [
+              incidentLedger.revokedKeyId,
+            ]);
+            await restored.query(
+              'UPDATE app.environments SET suspended_at=clock_timestamp(),deleted_at=clock_timestamp() WHERE id=$1',
+              [erasedEnvironmentId],
+            );
+            await restored.query(
+              "INSERT INTO app.erasure_jobs (id,organization_id,project_id,environment_id,target_id,kind,actor_id,in_flight_until) VALUES ($1,$2,$3,$4,$4,'environment',$5,clock_timestamp()-interval '1 second')",
+              [incidentLedger.erasureId, organizationId, projectId, erasedEnvironmentId, userId],
+            );
+            await restored.query('COMMIT');
+          } catch (error) {
+            await restored.query('ROLLBACK');
+            throw error;
+          }
+        } else {
+          expect(
+            (
+              await restored.query('SELECT id FROM app.erasure_jobs WHERE id=$1', [
+                incidentLedger.erasureId,
+              ])
+            ).rows,
+          ).toEqual([{ id: incidentLedger.erasureId }]);
         }
         await restored.query('DELETE FROM app.worker_heartbeats');
         const credential = await restored.query<{ encrypted_secret: string }>(
@@ -473,8 +512,8 @@ describe.skipIf(!testUrl)(
         ).toEqual([{ state: 'active' }, { state: 'failed' }]);
         const environment = {
           ...pushEnvironment,
-          API_DATABASE_URL: databaseUrl(databaseName, 'pipong_api'),
-          WORKER_DATABASE_URL: databaseUrl(databaseName, 'pipong_worker'),
+          API_DATABASE_URL: restoredDatabaseUrl('pipong_api'),
+          WORKER_DATABASE_URL: restoredDatabaseUrl('pipong_worker'),
           CREDENTIAL_KEYRING_REF: backupKeyPath,
           AUTH_MAIL_FROM: 'auth@example.com',
           SMTP_HOST: '127.0.0.1',
@@ -669,7 +708,7 @@ describe.skipIf(!testUrl)(
           ).rows,
         ).toEqual([{ state: 'completed' }, { state: 'failed' }]);
         console.info(
-          `Runtime restore: ${Math.round(performance.now() - recoveryStarted)} ms recovery; ${incidentAt - snapshotStarted} ms conservative snapshot loss window; one post-snapshot acceptance absent; post-snapshot revocation/erasure reconciled before startup; active TLS Web Push crash/lease recovery passed; first provider request ambiguous; second accepted`,
+          `Runtime ${mode} restore: ${Math.round(performance.now() - recoveryStarted)} ms recovery; ${incidentAt - recoveryPoint} ms conservative recovery-point loss window; one later acceptance absent; post-backup revocation/erasure ${mode === 'wal' ? 'recovered through WAL' : 'reconciled from incident ledger'} before startup; active TLS Web Push crash/lease recovery passed; first provider request ambiguous; second accepted`,
         );
         await stopProcess(worker);
         worker = undefined;
@@ -695,6 +734,7 @@ describe.skipIf(!testUrl)(
         }
         await admin.end();
         await fixture.close();
+        await wal?.close();
         await rm(directory, { recursive: true, force: true });
       }
     }, 150_000);
