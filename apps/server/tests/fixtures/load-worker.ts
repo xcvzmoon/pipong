@@ -1,10 +1,18 @@
+import type * as WorkerRuntime from '../../../worker/src/runtime.ts';
 import { subscribe } from 'node:diagnostics_channel';
 import { lookup } from 'node:dns/promises';
 import { readFile } from 'node:fs/promises';
 import { ClientRequest } from 'node:http';
 import { connect } from 'node:http2';
 import * as v from 'valibot';
-import { runWorker } from '../../../worker/dist/runtime.mjs';
+
+const runtimeUrl = new URL('../../../worker/dist/runtime.mjs', import.meta.url);
+const { runWorker } = v.parse(
+  v.object({
+    runWorker: v.custom<typeof WorkerRuntime.runWorker>((value) => value instanceof Function),
+  }),
+  await import(runtimeUrl.href),
+);
 
 const origin = v.parse(v.pipe(v.string(), v.url()), process.env.QUALIFICATION_PROVIDER_ORIGIN);
 const certificate = await readFile(
