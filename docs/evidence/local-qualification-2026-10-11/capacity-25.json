@@ -1,0 +1,234 @@
+{
+  "durationSeconds": 60,
+  "requestsPerSecond": 25,
+  "offeredDurationMs": 59960,
+  "scheduleLagMs": 26,
+  "offeredRequests": 1500,
+  "statuses": {
+    "202": 1500
+  },
+  "acceptanceP95Ms": 31.43699999999808,
+  "bulk": {
+    "status": 202,
+    "milliseconds": 255.6999160000123,
+    "burstDrainMs": 7563,
+    "unfinished": 0
+  },
+  "providerRequests": 4750,
+  "completedDeliveries": 4750,
+  "resources": {
+    "processes": [
+      {
+        "role": "api",
+        "rssKiB": 208392,
+        "cpuPercent": 12.2
+      },
+      {
+        "role": "api",
+        "rssKiB": 207804,
+        "cpuPercent": 12.1
+      },
+      {
+        "role": "consumer",
+        "rssKiB": 338644,
+        "cpuPercent": 68.5
+      },
+      {
+        "role": "consumer",
+        "rssKiB": 291996,
+        "cpuPercent": 74.1
+      }
+    ],
+    "cpuMetric": "maximum sampled ps lifetime-average percent",
+    "databaseWaitSamples": {
+      "IO:WalSync": 2,
+      "Lock:transactionid": 8,
+      "IO:WalWrite": 1
+    },
+    "samplingFailures": 0,
+    "cgroup": {
+      "cpuMax": "200000 100000",
+      "cpuSet": "0-1",
+      "cpu": {
+        "usage_usec": 99750486,
+        "user_usec": 86449348,
+        "system_usec": 13301138,
+        "nice_usec": 0,
+        "nr_periods": 1191,
+        "nr_throttled": 2,
+        "throttled_usec": 129,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "memoryMaxBytes": 2147483648,
+      "memoryPeakBytes": 1236008960,
+      "swapMaxBytes": 0
+    }
+  },
+  "sse": {
+    "offered": 1000,
+    "holdSeconds": 30,
+    "offeredDurationMs": 29962,
+    "scheduleLagMs": 14,
+    "liveAfterLoad": 1000,
+    "deliveredStreams": 1000,
+    "bytes": 57855000,
+    "concurrentRequests": 750,
+    "acceptanceStatuses": {
+      "202": 750
+    },
+    "acceptanceP95Ms": 29.770292000001064,
+    "environments": 20,
+    "statuses": {
+      "200": 1000,
+      "404": 1
+    },
+    "streamErrors": 0,
+    "revokedInWindow": true,
+    "reconnectStatus": 404
+  },
+  "dispatch": [
+    {
+      "organization_id": "01a12a7f-e036-7519-a46a-adabc7d476bd",
+      "count": 2880,
+      "p95": 989.0499999999998
+    },
+    {
+      "organization_id": "01a12a7f-e047-7314-9665-6d1cd00802a5",
+      "count": 120,
+      "p95": 1003.6999999999991
+    },
+    {
+      "organization_id": "01a12a7f-e04e-704d-bb23-c2f262e3f610",
+      "count": 1000,
+      "p95": 7487.3
+    },
+    {
+      "organization_id": "01a12a81-08e2-7605-af06-8c7ad48421bd",
+      "count": 38,
+      "p95": 960.4
+    },
+    {
+      "organization_id": "01a12a81-08ea-7794-870a-1285ab93829e",
+      "count": 38,
+      "p95": 933.3
+    },
+    {
+      "organization_id": "01a12a81-08ef-760d-afed-2e4811437927",
+      "count": 38,
+      "p95": 928.4999999999999
+    },
+    {
+      "organization_id": "01a12a81-08f5-72fd-98af-5813de695fcf",
+      "count": 38,
+      "p95": 950.9
+    },
+    {
+      "organization_id": "01a12a81-08f9-719d-8ce4-b7150bd0de96",
+      "count": 38,
+      "p95": 963.6999999999999
+    },
+    {
+      "organization_id": "01a12a81-08ff-7235-b356-df2c05b12cd8",
+      "count": 38,
+      "p95": 967.9499999999999
+    },
+    {
+      "organization_id": "01a12a81-0903-7583-877a-18139c4c25e8",
+      "count": 38,
+      "p95": 940.9499999999999
+    },
+    {
+      "organization_id": "01a12a81-0908-73fa-9eea-6cfc07325221",
+      "count": 38,
+      "p95": 914.3499999999999
+    },
+    {
+      "organization_id": "01a12a81-090d-761a-a048-0e469e92bc49",
+      "count": 38,
+      "p95": 930.85
+    },
+    {
+      "organization_id": "01a12a81-0911-7466-8076-10f51a35320e",
+      "count": 38,
+      "p95": 966.1999999999999
+    },
+    {
+      "organization_id": "01a12a81-0916-745d-8ff2-309ab0f1ad92",
+      "count": 37,
+      "p95": 923.5999999999999
+    },
+    {
+      "organization_id": "01a12a81-0924-76b0-9dc0-809ca2f08297",
+      "count": 37,
+      "p95": 942.4
+    },
+    {
+      "organization_id": "01a12a81-0929-7142-81fd-85673a99a8d8",
+      "count": 37,
+      "p95": 943.1999999999999
+    },
+    {
+      "organization_id": "01a12a81-092d-7353-9db5-11c72a297773",
+      "count": 37,
+      "p95": 944.8
+    },
+    {
+      "organization_id": "01a12a81-0931-77ed-b0fc-3998b378ef2a",
+      "count": 37,
+      "p95": 982
+    },
+    {
+      "organization_id": "01a12a81-0935-75df-a494-c2003054f267",
+      "count": 37,
+      "p95": 955.2
+    },
+    {
+      "organization_id": "01a12a81-0939-7387-854b-9d9f806c8520",
+      "count": 37,
+      "p95": 931
+    },
+    {
+      "organization_id": "01a12a81-093d-7369-b5c4-8fe1e4e2ee89",
+      "count": 37,
+      "p95": 919.7999999999998
+    },
+    {
+      "organization_id": "01a12a81-0942-73ba-bca0-905648465f02",
+      "count": 37,
+      "p95": 951.8
+    },
+    {
+      "organization_id": "01a12a81-0946-728d-8262-b2096f95afc4",
+      "count": 37,
+      "p95": 977.4
+    }
+  ],
+  "memory": {
+    "rss": 299188224,
+    "heapTotal": 115916800,
+    "heapUsed": 66723672,
+    "external": 4808329,
+    "arrayBuffers": 608445
+  },
+  "topology": {
+    "backend": {
+      "runtime": "v24.21.0",
+      "platform": "linux",
+      "architecture": "arm64"
+    },
+    "driver": {
+      "runtime": "v24.21.0",
+      "platform": "darwin",
+      "architecture": "arm64"
+    },
+    "cpuLimit": "2",
+    "memoryLimit": "2g",
+    "api": 2,
+    "consumers": 2,
+    "retainedJobs": 150000,
+    "environments": 3,
+    "database": "PostgreSQL 18",
+    "provider": "local TLS HTTP/2 APNs fixture"
+  }
+}

@@ -171,6 +171,297 @@ The exercised versions are Node 24.21.0, pnpm 12.6.0, PostgreSQL 18.6, and the
 exactly pinned Nitro 3.0.260903-beta. The lockfile SHA-256 is
 `3b396c281057740867573a4d75549b992283089dcd9382fd4431212c629d1c79`.
 
+## Current qualification target, 2026-10-11
+
+The user replaced the 2-vCPU/8-GB VPS target with this local Apple M1 device.
+Hardware inspection reports eight CPU cores, 8 GiB RAM, and arm64. The backend
+qualification budget is two Docker CPUs pinned to `0,1`, 2 GiB RAM, and no swap;
+`ops/qualify-load.sh` now uses that memory limit by default. The host driver,
+TLS proxy, and provider fixture remain outside the backend budget.
+
+Docker was stopped when the target changed. Recheck its allocation before the
+next run. Previous local evidence shows this budget completed 8,500 deliveries
+and 1,000-stream delivery/revocation checks, with about 1.18 GiB backend peak
+memory. Dispatch p95 was 2.52 seconds, above the unchanged 2-second gate.
+The 30-minute run, full workers, independent principals, live devices, recovery,
+and published artifacts remain open. Historical VPS results below retain their
+original resource limits; they do not qualify this revised target.
+
+## Local capacity discovery, 2026-10-11
+
+Docker restarted with eight virtual CPUs and 4,106,604,544 bytes of VM memory.
+The Mac was connected to AC power; `caffeinate -i` prevented idle sleep during
+runs. The backend cgroup confirmed `cpu.max=200000 100000`, CPU set `0-1`,
+`memory.max=2147483648`, and `memory.swap.max=0`. The driver used a 256 MiB V8
+heap ceiling outside that budget. Local activity was not isolated; these runs
+are diagnostics rather than production capacity evidence.
+
+The 60-second 50-request/s baseline accepted all 3,000 sustained and 1,500
+stream-load requests and completed all 8,500 deliveries. All 1,000 TLS SSE
+streams received delivery events and passed revocation. Acceptance p95 was
+1,366.19 ms; quiet/noisy dispatch p95 was 6,436.55/6,838.70 ms. Stream-load
+acceptance p95 was 48.37 ms, and the burst drained in 7,043 ms. Backend peak
+memory was 1,258,315,776 bytes, with no quota throttling or sampling failures.
+The acceptance and dispatch latency gates failed. Raw evidence is
+`/tmp/pipong-capacity-baseline.json` and `.log`.
+
+The harness now accepts `QUALIFICATION_REQUESTS_PER_SECOND` (2–50) and
+`QUALIFICATION_STREAMS` (20–1,000), records the workload, and checks exact
+completion and stream counts for that workload. Latency, revocation, scheduling,
+and resource checks remain unchanged. The default 50-request/s, 1,000-stream
+workload is a stress test until qualified.
+
+The 60-second comparison at 25 requests/s retained 1,000 streams and passed all
+existing checks. It accepted all 1,500 sustained and 750 stream-load requests
+and completed all 4,750 deliveries. Sustained acceptance p95 was 31.44 ms;
+quiet/noisy dispatch p95 was 1,003.70/989.05 ms. Stream-load acceptance p95 was
+29.77 ms. All 1,000 streams received events, remained live, and closed on
+revocation; reconnect returned 404. Backend memory peaked at 1,236,008,960 bytes
+(about 1.15 GiB), with no sampling failures. Cgroup quota throttling totaled
+129 microseconds across two periods. Both app builds passed for each run.
+
+The 1,000-endpoint burst drained in 7,563 ms, with burst dispatch p95 7,487.3 ms.
+The existing 2-second dispatch gate applies to the sustained quiet/noisy tenants,
+not this burst. This run does not establish a 2-second burst latency claim.
+Raw comparison evidence is `/tmp/pipong-capacity-25.json` and `.log`.
+
+Use 25 requests/s and 1,000 streams as a candidate for the 30-minute local run,
+not a supported capacity claim. Full worker ancillary tasks, independent
+principals, live providers, recovery, and publication remain separate gates.
+Disposable containers and tagged images were removed after both runs.
+
+## Full local qualification, 2026-10-11
+
+The 30-minute run at 25 requests/s passed all existing qualification checks.
+It offered 45,000 sustained requests over 1,799,964 ms; all returned 202.
+Acceptance p95 was 18.77 ms, with maximum arrival-schedule lag 47 ms.
+Quiet/noisy sustained dispatch p95 was 960.05/959.00 ms. The backend and
+PostgreSQL shared two CPUs pinned to `0,1`, a hard 2 GiB memory limit, and no
+swap. The run retained 150,000 completed queue rows and used two API replicas
+and two APNs consumer fixtures, with the driver/proxy/provider outside the cap.
+
+All 91,750 expected deliveries completed and matched provider request counts:
+90,000 sustained deliveries, a 1,000-endpoint burst, and 750 stream-load
+deliveries. The burst drained in 7,050 ms, with dispatch p95 6,711.15 ms;
+the sustained 2-second gate does not apply to that burst.
+
+After sustained traffic and the burst, the separate 30-second stream-load
+phase held 1,000 TLS SSE streams across 20 environments at 25 requests/s.
+All streams received delivery events and remained live, with zero stream errors.
+All 750 requests returned 202; acceptance p95 was 30.50 ms. Revocation closed
+streams within the test window and reconnect returned 404. This does not prove
+1,000 streams held for the entire 30-minute sustained phase.
+
+Backend cgroup peak memory was 1,839,071,232 bytes (about 1.71 GiB).
+All four Node processes survived, resource sampling had zero failures, and CPU
+quota throttling totaled 276 microseconds across two periods. The cgroup
+confirmed `cpu.max=200000 100000`, CPU set `0-1`,
+`memory.max=2147483648`, and `memory.swap.max=0`. Both app builds passed.
+The test completed in 1,864.05 seconds and exited 0; disposable containers and
+tagged images were removed. Evidence is `/tmp/pipong-local-30m.json` and `.log`.
+
+This closes the 30-minute gate for this local harness at 25 requests/s.
+It does not qualify 50 requests/s, sustained 30-minute SSE capacity, full worker
+ancillary tasks, independent principals, live providers, or another deployment.
+Those checks, deployment recovery, and published artifacts remain open.
+
+## Full worker runtime qualification, 2026-10-11
+
+The harness now imports the built `runWorker` lifecycle used by the production
+entrypoint. Only the APNs HTTP/2 connection is supplied by the local verified TLS
+fixture. Both workers start auth mail, APNs, FCM, and Web Push consumers, refresh
+readiness leases, and run retention, recovery, and erasure scans. FCM, Web Push,
+and auth mail have no channel traffic in this workload; no SMTP service is used.
+The emitted production entrypoint and runtime export import the same built chunk.
+
+New checks require two fresh all-consumer leases throughout resource sampling,
+removal of expired audit probes at startup and on a subsequent retention cycle,
+and clean exit, lease removal, and `worker_stopped` after SIGTERM.
+
+The 60-second full-worker comparison passed at 25 requests/s and 1,000 streams
+within two CPUs/2 GiB/no swap. Acceptance p95 was 22.70 ms and quiet/noisy
+sustained dispatch p95 was 951.40/960.00 ms. All 4,750 deliveries completed.
+All streams passed delivery/revocation; stream-load acceptance p95 was 33.47 ms.
+Worker readiness and resource sampling had zero failures; the periodic audit
+probe was pruned and graceful shutdown checks passed. Backend peak memory was
+1,041,952,768 bytes (about 0.97 GiB), with no CPU quota throttling.
+Evidence is `/tmp/pipong-full-worker-short.json` and `.log`.
+
+The 30-minute full-worker run passed all checks at 25 requests/s within the same
+resource budget. All 45,000 sustained requests returned 202, acceptance p95 was
+18.99 ms, and quiet/noisy sustained dispatch p95 was 966.05/958.00 ms.
+All 91,750 deliveries completed and matched provider request counts. The burst
+drained in 7,050 ms, with burst dispatch p95 6,612.30 ms; the sustained 2-second
+gate does not cover burst latency.
+
+The subsequent 30-second stream phase held all 1,000 TLS streams, delivered
+events to every stream, and passed revocation and denied reconnect checks.
+All 750 concurrent-load requests returned 202; acceptance p95 was 34.09 ms,
+with zero stream errors. Streams were not held throughout the sustained phase.
+
+Both workers kept fresh all-consumer readiness leases with zero readiness or
+resource sampling failures. Startup retention removed 200 expired audit probes,
+then a later retention cycle removed a new probe. Graceful shutdown checks passed:
+both workers exited 0, emitted `worker_stopped`, and removed their leases.
+Backend memory peaked at 1,718,255,616 bytes (about 1.60 GiB), with no CPU quota
+throttling. The cgroup confirmed two CPUs pinned to `0,1`, a hard 2 GiB memory
+limit, and no swap. The test completed in 1,865.03 seconds and exited 0.
+Both app builds passed; disposable containers and tagged images were removed.
+Evidence is `/tmp/pipong-full-worker-30m.json` and `.log`.
+
+This closes the full-worker lifecycle gate for this local APNs fixture workload.
+Auth mail, FCM, and Web Push consumers were running without channel traffic;
+independent principals, sustained 30-minute SSE, mixed-provider load, live
+providers, deployment recovery, and publication remain open.
+
+## Mixed-provider qualification, 2026-10-11
+
+The load harness now rotates endpoint providers across APNs, FCM, and Web Push,
+balancing the noisy traffic across three tenants with different provider pairs.
+It keeps two deliveries per request, the 1,000-endpoint burst, and 1,000 sustained
+SSE streams across forty session/key principals. Each environment has one
+immutable credential version per provider it uses. Completion counts and
+sustained dispatch p95 are checked separately for every provider, alongside
+the existing tenant, stream, maintenance, and shutdown gates.
+
+The worker shares its built lifecycle with production. Its fixture transport
+uses APNs HTTP/2 TLS, Web Push screened HTTPS with a trusted fixture CA, and local
+FCM HTTP v1/OAuth endpoints. FCM uses the production OAuth client to sign real
+RSA assertions, cache tokens, and refresh fifteen-minute tokens during long runs.
+Web Push performs VAPID signing and payload encryption. Fixtures check bearer
+and VAPID headers, message shape, and nonempty encrypted payloads.
+
+The 60-second diagnostic at 25 requests/s failed. All 1,500 sustained requests
+returned 202, with acceptance p95 44.93 ms. APNs/FCM dispatch p95 was 962/964 ms,
+but Web Push dispatch p95 reached 8,036 ms across sustained and subsequent
+traffic. Only 5,414 of 5,502 expected deliveries had completed at final sampling.
+The mixed burst drained in 24,853 ms. Peak memory was 1,217,912,832 bytes (about
+1.13 GiB), with no readiness, continuity, or sampling failures. All 1,000 streams
+remained live throughout sustained traffic; exactly 50 revoked connections
+closed in 422 ms, 950 continued, and replay passed. Fixture protocol errors were
+zero. Evidence is `/tmp/pipong-mixed-provider-25rps-short.json` and `.log`.
+
+An initial diagnostic was stopped after finding a double-slash URL in the FCM
+fixture's OAuth route; URL construction now uses a normalized origin. The 15-request/s comparison completed all 3,702 deliveries, but Web Push
+transport retries still failed latency gates. The original per-provider report
+joined every attempt and counted eight retried Web Push deliveries twice; its
+1,214 count was not the actual delivery count of 1,206. Provider request counts
+sum to 3,702. Evidence is `/tmp/pipong-mixed-provider-15rps-short.json` and `.log`.
+
+The harness now counts only first attempts for initial-dispatch measurements
+and reports all attempt outcomes separately. A diagnostic with sanitized Node
+transport error codes was run at 15 requests/s to investigate the connection
+failures. Two isolated 500-request TLS probes, one against HTTP/2 with HTTP/1
+support and one against HTTPS, had zero failures. This does not establish
+mixed-provider capacity.
+The shared-listener diagnostic timed out before saving a report. A subsequent
+run with separate host listeners still recorded six Web Push connection
+aborts at the 10-second transport deadline; all 3,702 deliveries completed after
+retries, but latency gates failed. Evidence is
+`/tmp/pipong-mixed-provider-separated.json` and `.log`.
+
+Provider fixtures now run in a separate Linux container sharing the backend
+network namespace, with one CPU and 256 MiB outside the backend cgroup. TLS
+verification and production provider adapters remain active. The short Linux
+loopback comparison passed at 15 requests/s: all 900 sustained requests and
+450 subsequent requests returned 202, and all 3,702 deliveries completed without
+retries or transport failures. Acceptance p95 was 44.72 ms; APNs/FCM/Web Push
+initial dispatch p95 was 968/977/960 ms. The burst drained in 8,822 ms. All 1,000
+streams remained live and recently active for 65,169 ms; exactly 50 revoked
+connections closed in 457 ms, 950 unaffected streams continued, and replay
+passed. Peak backend memory was 1,213,566,976 bytes (about 1.13 GiB), with one
+47-microsecond CPU throttle. Maintenance, readiness, resource sampling,
+continuity, and graceful shutdown checks passed. Evidence is
+`/tmp/pipong-mixed-provider-linux-short.json` and `.log`.
+
+The 30-minute Linux-loopback qualification passed at 15 requests/s with two
+API replicas, two full workers, and PostgreSQL sharing two CPU cores and 2 GiB
+RAM with no swap. All 27,000 sustained requests returned 202; acceptance p95
+was 34.56 ms. All 55,902 deliveries completed: 18,109 APNs, 19,796 FCM, and
+17,997 Web Push. Initial dispatch p95 was 963/962/957 ms respectively, and the
+highest non-burst tenant p95 was 979.7 ms. There were no retries, transport
+failures, or provider protocol errors. FCM performed 102 OAuth exchanges,
+including 64 refresh exchanges during sustained traffic after ten minutes.
+
+All 1,000 streams stayed live and recently active for 1,805,159 ms across forty
+session/key principals. There were no unexpected closures, frame errors, or
+sequence gaps. Selective revocation closed exactly 50 connections in 1,024 ms;
+950 unaffected streams continued, denied reconnects returned 404/401, and cursor
+replay passed. Subsequent traffic returned 202 for all 450 requests with an
+acceptance p95 of 62.85 ms. The 1,000-endpoint burst drained in 8,313 ms; its
+299.21 ms acceptance and drain time are outside the sustained latency gates.
+
+Peak backend memory was 1,599,463,424 bytes (about 1.49 GiB). CPU throttling
+occurred in 13 periods, totaling 99,636 microseconds. Readiness, maintenance,
+resource sampling, stream continuity, and graceful worker shutdown checks
+passed. Disposable containers and qualification images were removed. Evidence
+is `/tmp/pipong-mixed-provider-30m.json` and `.log`.
+
+This establishes a local fixture workload, not a measured capacity ceiling.
+The failed host-path comparisons do not establish backend throughput limits.
+Provider fixtures, the load driver, and the TLS proxy remain outside the backend
+budget. Auth mail remains idle. Live provider TLS/OAuth, quotas, failures, device
+receipt, deployment recovery, and published-artifact gates remain open.
+
+## Sustained independent-principal SSE qualification, 2026-10-11
+
+The revised harness opens streams before sustained traffic and keeps them open
+throughout the load and burst. Twenty real human sign-ins and twenty HTTP-issued
+service keys supply forty distinct principals across twenty environments.
+Sign-ins run in batches of three separated by an 11-second idle gap, respecting
+Better Auth's last-request-based limiter. Fixture users reuse the isolated
+account's password hash; API authentication, grants, and live authorization run
+normally. No production rate limits or authorization rules were changed.
+
+One request per second targets the stream environments, with remaining traffic
+split between quiet/noisy tenants. Every request has two endpoints. The harness
+parses stream frames, checks scope binding and contiguous event sequences, and
+samples liveness plus delivery within a rolling 60-second window. During the
+subsequent 30-second load it revokes one membership and a different environment's
+key, checks only affected connections close, denies their reconnects, and resumes
+an unaffected stream from its last cursor after a new notification is submitted.
+That replay probe adds one request and two deliveries to completion accounting.
+
+The 60-second comparison at 25 requests/s passed with all 1,000 streams live,
+delivered, and recently active after 64,980 ms. There were zero sequence gaps,
+frame errors, unexpected closures, continuity failures, readiness failures,
+or sampling failures. Exactly 50 affected streams closed within 1,038 ms;
+950 unaffected streams continued receiving events. Membership/key reconnect
+statuses were 404/401, and cursor replay passed.
+
+All 5,502 deliveries completed. Acceptance p95 was 28.07 ms; quiet/noisy dispatch
+p95 was 939.20/955.00 ms. The subsequent stream-load acceptance p95 was 31.97 ms.
+Backend peak memory was 1,155,805,184 bytes (about 1.08 GiB), with no CPU quota
+throttling, under two CPUs/2 GiB/no swap. Worker maintenance and shutdown checks
+passed. Evidence is `/tmp/pipong-independent-sse-short.json` and `.log`.
+
+The full run additionally checks dispatch p95 for every stream environment and
+inserts its periodic retention probe immediately before sustained traffic.
+The 30-minute run passed at 25 requests/s with two API replicas and two full
+workers sharing two CPU cores and 2 GiB RAM, with swap disabled. All 45,000
+sustained requests returned 202, and all 92,502 deliveries completed. Acceptance
+p95 was 26.13 ms; quiet/noisy dispatch p95 was 970/964 ms. The highest dispatch
+p95 across stream environments was 984 ms. The burst drained in 7,057 ms;
+the sustained 2-second dispatch gate does not cover the burst.
+
+All 1,000 streams stayed live and received ordered events for 1,804,989 ms.
+There were zero sequence gaps, frame errors, unexpected closures, continuity
+failures, worker readiness failures, or sampling failures. Selective revocation
+closed exactly 50 connections within 548 ms, while 950 unaffected streams
+continued receiving events. Revoked membership/key reconnects returned 404/401,
+and cursor replay passed. Subsequent stream-load acceptance p95 was 51.85 ms.
+
+Backend peak memory was 1,775,276,032 bytes (about 1.65 GiB). CPU quota throttling
+occurred once for 1,097 microseconds. Startup and periodic audit pruning, process
+survival, and graceful worker shutdown passed. Disposable containers were removed.
+Evidence is `/tmp/pipong-independent-sse-30m.json` and `.log`.
+
+These forty reader principals do not represent 1,000 distinct users; notification
+submissions still use the administrator session. Local APNs TLS transport, idle other channels,
+fixture credentials, and driver/proxy resources outside the backend cap remain
+qualification boundaries. Mixed-provider/live-device load, deployment recovery,
+and publication remain open.
+
 ## Admission and stream qualification, 2026-10-11
 
 The intended minimum deployment is a VPS with 2 vCPU and 8 GB RAM. This is a
@@ -198,7 +489,7 @@ continue receiving events.
 run outside that limit. The report records backend and driver runtime separately,
 resource peaks, CPU throttling, database waits, offered request timing, process
 survival, stream bytes, delivery counts, and revocation. See
-[minimum VPS qualification](operations.md#minimum-vps-qualification) for the
+[minimum VPS qualification](operations.md#local-device-qualification) for the
 repeatable command and gates. Local Docker uses Linux arm64; its VM has about
 3.82 GiB of physical memory, less than the configured 8-GB container ceiling.
 This environment cannot establish the memory capacity of the intended VPS.
@@ -433,6 +724,10 @@ Final verification of the retained implementation passed `ops/check-ci.sh`:
 256 routine tests, both builds, migration-history checks, and `pnpm check`.
 The opt-in load test was exercised separately in these comparisons. No commits,
 pushes, or image publication were performed.
+
+The [archived local reports](evidence/local-qualification-2026-10-11/README.md)
+preserve all available reports from the local 30-minute qualification sequence
+and mixed-provider diagnostics, including failed comparisons.
 
 ## Required qualification record
 

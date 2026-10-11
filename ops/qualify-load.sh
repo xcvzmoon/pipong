@@ -7,10 +7,14 @@ qualification_container="pipong-qualification-$qualification_tag"
 qualification_report="${QUALIFICATION_REPORT:-/tmp/pipong-qualification-$qualification_tag.json}"
 qualification_cpu="${QUALIFICATION_CPUS:-2}"
 qualification_cpuset="${QUALIFICATION_CPUSET:-0,1}"
-qualification_memory="${QUALIFICATION_MEMORY:-8g}"
+qualification_memory="${QUALIFICATION_MEMORY:-2g}"
 qualification_cpu_quota="$(awk -v cpus="$qualification_cpu" 'BEGIN { if (cpus <= 0) { exit 1 }; printf "%.0f", cpus * 100000 }')"
 qualification_created=false
 cleanup() {
+  qualification_providers="$(docker ps --all --quiet --filter "label=pipong.qualification.backend=$qualification_container" || true)"
+  for qualification_provider in $qualification_providers; do
+    docker rm --force "$qualification_provider" > /dev/null 2>&1 || true
+  done
   if [ -f "$qualification_report" ]; then
     printf 'Qualification report: %s\n' "$qualification_report"
   fi

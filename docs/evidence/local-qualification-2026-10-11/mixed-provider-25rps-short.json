@@ -1,0 +1,303 @@
+{
+  "durationSeconds": 60,
+  "requestsPerSecond": 25,
+  "offeredDurationMs": 59961,
+  "scheduleLagMs": 94,
+  "offeredRequests": 1500,
+  "statuses": {
+    "202": 1500
+  },
+  "acceptanceP95Ms": 44.928166999990935,
+  "bulk": {
+    "status": 202,
+    "milliseconds": 272.41445800001384,
+    "burstDrainMs": 24853,
+    "unfinished": 0
+  },
+  "providerRequests": 5414,
+  "providerCounts": {
+    "apns": 1881,
+    "fcm": 1840,
+    "web-push": 1693
+  },
+  "providerDeliveries": [
+    {
+      "provider": "apns",
+      "count": 1881,
+      "accepted": 1881,
+      "p95": 962.2999999999998
+    },
+    {
+      "provider": "fcm",
+      "count": 1840,
+      "accepted": 1840,
+      "p95": 963.6999999999999
+    },
+    {
+      "provider": "web-push",
+      "count": 1699,
+      "accepted": 1695,
+      "p95": 8036.199999999999
+    }
+  ],
+  "oauthRequests": 34,
+  "sustainedOauthRefreshes": 0,
+  "providerErrors": 0,
+  "completedDeliveries": 5414,
+  "resources": {
+    "processes": [
+      {
+        "role": "api",
+        "rssKiB": 223100,
+        "cpuPercent": 11.1
+      },
+      {
+        "role": "api",
+        "rssKiB": 213816,
+        "cpuPercent": 9.4
+      },
+      {
+        "role": "worker",
+        "rssKiB": 217680,
+        "cpuPercent": 20.8
+      },
+      {
+        "role": "worker",
+        "rssKiB": 222480,
+        "cpuPercent": 24.3
+      }
+    ],
+    "cpuMetric": "maximum sampled ps lifetime-average percent",
+    "databaseWaitSamples": {
+      "Timeout:VacuumDelay": 1,
+      "Client:ClientRead": 9,
+      "IO:WalSync": 9,
+      "Lock:transactionid": 8,
+      "LWLock:WALWrite": 2,
+      "Lock:tuple": 2
+    },
+    "samplingFailures": 0,
+    "workerReadinessFailures": 0,
+    "streamContinuityFailures": 0,
+    "periodicAuditRemaining": 0,
+    "cgroup": {
+      "cpuMax": "200000 100000",
+      "cpuSet": "0-1",
+      "cpu": {
+        "usage_usec": 149840734,
+        "user_usec": 129540246,
+        "system_usec": 20300487,
+        "nice_usec": 0,
+        "nr_periods": 2160,
+        "nr_throttled": 2,
+        "throttled_usec": 969,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "memoryMaxBytes": 2147483648,
+      "memoryPeakBytes": 1217912832,
+      "swapMaxBytes": 0
+    }
+  },
+  "sse": {
+    "offered": 1000,
+    "holdSeconds": 60,
+    "sustainedHoldMs": 64980,
+    "sustained": {
+      "live": 1000,
+      "delivered": 1000,
+      "recentDelivery": 1000,
+      "events": 18000,
+      "bytes": 9281000,
+      "unexpectedClosures": 0,
+      "frameErrors": 0,
+      "sequenceGaps": 0,
+      "humanSessions": 20,
+      "serviceKeys": 20
+    },
+    "final": {
+      "live": 950,
+      "delivered": 1000,
+      "recentDelivery": 950,
+      "events": 225150,
+      "bytes": 116046244,
+      "unexpectedClosures": 0,
+      "frameErrors": 0,
+      "sequenceGaps": 0,
+      "humanSessions": 20,
+      "serviceKeys": 20
+    },
+    "revocation": {
+      "expectedClosed": 50,
+      "revokedInWindow": true,
+      "milliseconds": 422,
+      "humanReconnectStatus": 404,
+      "keyReconnectStatus": 401
+    },
+    "replayPassed": true,
+    "offeredDurationMs": 29961,
+    "scheduleLagMs": 6,
+    "concurrentRequests": 750,
+    "acceptanceStatuses": {
+      "202": 750
+    },
+    "acceptanceP95Ms": 59.25620900001377,
+    "environments": 20
+  },
+  "dispatch": [
+    {
+      "organization_id": "01a12b2c-0418-7450-a4a2-2d8707c96da9",
+      "count": 920,
+      "p95": 963.1999999999998
+    },
+    {
+      "organization_id": "01a12b2c-042b-703b-8142-42c3d03f6fbe",
+      "count": 920,
+      "p95": 949.05
+    },
+    {
+      "organization_id": "01a12b2c-0433-707c-836f-4836c5d46765",
+      "count": 920,
+      "p95": 961.05
+    },
+    {
+      "organization_id": "01a12b2c-043b-7701-bf7c-e24a55dbc5ae",
+      "count": 120,
+      "p95": 970.05
+    },
+    {
+      "organization_id": "01a12b2c-0442-7375-80c6-b3be8557a2f5",
+      "count": 1002,
+      "p95": 15347.85
+    },
+    {
+      "organization_id": "01a12b2c-1209-76c2-a124-d40e808264bf",
+      "count": 82,
+      "p95": 960.6
+    },
+    {
+      "organization_id": "01a12b2c-1212-766c-a6f1-710f19bebc6e",
+      "count": 77,
+      "p95": 8142.799999999999
+    },
+    {
+      "organization_id": "01a12b2c-1219-75c9-a3e8-3e0299f06cc9",
+      "count": 75,
+      "p95": 8160.499999999999
+    },
+    {
+      "organization_id": "01a12b2c-1220-7748-9d65-d8fbadeb23b2",
+      "count": 82,
+      "p95": 982.6999999999999
+    },
+    {
+      "organization_id": "01a12b2c-1228-7654-b627-1db855f008f5",
+      "count": 75,
+      "p95": 8087.0999999999985
+    },
+    {
+      "organization_id": "01a12b2c-122e-714f-833f-bec1f33c4d8e",
+      "count": 75,
+      "p95": 8343
+    },
+    {
+      "organization_id": "01a12b2c-1235-7743-9149-4596ba686047",
+      "count": 82,
+      "p95": 896.65
+    },
+    {
+      "organization_id": "01a12b2c-123b-74c9-b325-2b51f392cb36",
+      "count": 75,
+      "p95": 8282.4
+    },
+    {
+      "organization_id": "01a12b2c-1241-7075-b52d-56822135e107",
+      "count": 75,
+      "p95": 8267.599999999999
+    },
+    {
+      "organization_id": "01a12b2c-1248-7578-a5ca-3482c52ded2a",
+      "count": 82,
+      "p95": 957.6
+    },
+    {
+      "organization_id": "01a12b2c-124e-74e8-855a-68d66fdfbfdb",
+      "count": 74,
+      "p95": 8384.7
+    },
+    {
+      "organization_id": "01a12b2c-1254-77b7-b302-f84cca0223f3",
+      "count": 74,
+      "p95": 8365.8
+    },
+    {
+      "organization_id": "01a12b2c-125a-7137-bb42-e3c5c98f65a7",
+      "count": 80,
+      "p95": 935.7499999999999
+    },
+    {
+      "organization_id": "01a12b2c-1260-7236-82d5-dcc2e42d383e",
+      "count": 74,
+      "p95": 8289.5
+    },
+    {
+      "organization_id": "01a12b2c-1265-74f3-a946-1340b5ef5e4d",
+      "count": 74,
+      "p95": 8274.95
+    },
+    {
+      "organization_id": "01a12b2c-126b-7368-a841-281fc87f8da9",
+      "count": 80,
+      "p95": 928.35
+    },
+    {
+      "organization_id": "01a12b2c-1271-7386-a724-246f8d40249e",
+      "count": 74,
+      "p95": 8215.45
+    },
+    {
+      "organization_id": "01a12b2c-1277-709a-bfb1-2b941a214ac4",
+      "count": 74,
+      "p95": 8322.4
+    },
+    {
+      "organization_id": "01a12b2c-127d-7496-ad96-c1e193c27b6f",
+      "count": 80,
+      "p95": 942.1499999999999
+    },
+    {
+      "organization_id": "01a12b2c-1283-769c-a6a3-7cf3519cd473",
+      "count": 74,
+      "p95": 8268.449999999999
+    }
+  ],
+  "memory": {
+    "rss": 161284096,
+    "heapTotal": 135315456,
+    "heapUsed": 77636184,
+    "external": 13545824,
+    "arrayBuffers": 9355040
+  },
+  "topology": {
+    "backend": {
+      "runtime": "v24.21.0",
+      "platform": "linux",
+      "architecture": "arm64"
+    },
+    "driver": {
+      "runtime": "v24.21.0",
+      "platform": "darwin",
+      "architecture": "arm64"
+    },
+    "cpuLimit": "2",
+    "memoryLimit": "2g",
+    "api": 2,
+    "workers": 2,
+    "workerRuntime": "built production lifecycle with local APNs, FCM/OAuth, and Web Push transports",
+    "workerConsumers": ["auth-email", "apns", "fcm", "web-push"],
+    "retainedJobs": 150000,
+    "environments": 25,
+    "database": "PostgreSQL 18",
+    "provider": "local APNs HTTP/2 TLS, FCM HTTP/OAuth, and Web Push HTTPS fixtures"
+  }
+}

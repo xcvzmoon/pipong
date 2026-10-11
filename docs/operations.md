@@ -126,33 +126,77 @@ On SSE disconnects, reconnect with the last durable cursor. An expired cursor
 requires a fresh status/replay reconciliation. Confirm proxy buffering is off and
 revoked authority closes streams. Do not treat an open stream as delivery proof.
 
-## Minimum VPS qualification
+## Local device qualification
 
-The intended minimum host has 2 vCPU and 8 GB RAM. Run the reference workload
-before accepting that size for production:
+The qualification target is this Apple M1 device with eight CPU cores and
+8 GiB RAM. Allocate two Docker CPUs and 2 GiB RAM to PostgreSQL and the backend,
+leaving room for macOS, Docker, and the host test driver. Run the reference
+workload before claiming supported throughput:
 
 ```sh
-QUALIFICATION_REPORT=/tmp/pipong-vps-qualification.json sh ops/qualify-load.sh
+QUALIFICATION_REPORT=/tmp/pipong-local-qualification.json sh ops/qualify-load.sh
 ```
 
 The script builds the current checkout and places PostgreSQL 18, two API replicas,
-and two delivery consumers in one container limited to 2 CPUs and 8 GB with swap
+and two full workers in one container limited to 2 CPUs and 2 GiB with swap
 disabled. It pins that container to virtual CPUs 0 and 1 and records the effective
 CPU set. BuildKit build steps use the same CPU, memory, and swap limits through
 Docker's `--resource` flags; the installed Docker must support those flags.
 A quota alone on a larger Docker VM produced substantial throttling in
-local comparisons. The load generator, TLS proxy, and deterministic APNs provider run on
-the host outside that budget. Docker and the installed workspace dependencies
+local comparisons. The load generator and TLS proxy run on the host outside that budget.
+Deterministic provider fixtures run in a separate Linux container limited to
+one CPU and 256 MiB on CPU 2, outside the backend cgroup. It shares the backend
+network namespace, so provider sends use Linux loopback rather than the
+Docker-to-Mac gateway. Docker and the installed workspace dependencies
 are required. Database and API ports bind only to host loopback. The script
 removes its container and images on exit and retains the sanitized JSON report.
 It uses an isolated trust-authenticated database and synthetic credentials.
+The worker fixture imports the built lifecycle shared with the production
+entrypoint and supplies local APNs, FCM/OAuth, and Web Push transports. All three
+push consumers receive traffic; endpoints rotate among providers while keeping
+two endpoints per request. Three noisy tenants use different provider pairs
+to balance sustained traffic. APNs uses verified HTTP/2 TLS, Web Push uses screened
+HTTPS with fixture CA trust, and FCM HTTP v1 plus OAuth exchange use local HTTP.
+OAuth signing, token caching/refresh, VAPID signing, and payload encryption run
+normally. Auth mail remains idle. Retention, recovery,
+erasure scans, and readiness heartbeats run normally. Tests check fresh readiness
+leases, startup and periodic audit pruning, and graceful worker shutdown.
 
-Defaults are 30 minutes at 50 requests per second, two endpoints per request,
+The default stress workload is 30 minutes at 50 requests per second, two endpoints per request,
 150,000 completed queue rows, a 1,000-endpoint burst, and 1,000 TLS SSE clients
-across 20 environments during a separate 30-second request load. Acceptance
+across 20 environments. Streams open before sustained traffic and remain open
+throughout it. Twenty independent human sessions and twenty service keys share
+the streams. Login setup is paced to respect the real sign-in rate limit.
+One sustained request per second targets the stream environments; the rest
+exercise quiet/noisy tenants. A subsequent 30-second load phase tests selective
+membership/key revocation and cursor replay while unaffected streams continue. Acceptance
 p95 must stay within 250 ms and initial dispatch p95 within 2 seconds. The test
 also checks exact completion counts, quiet-tenant dispatch, live stream delivery,
 revocation, process survival, resource sampling, and generator scheduling lag.
+
+For capacity discovery, set `QUALIFICATION_REQUESTS_PER_SECOND` (3–50) and
+`QUALIFICATION_STREAMS` (40–1,000). The same request rate applies during the
+subsequent 30-second stream load. Diagnostic durations are 60–1,800 seconds. Reports record both settings, and completion and stream
+checks use the configured counts. The 250 ms acceptance and 2-second dispatch
+gates remain unchanged. The 50-request/s, 1,000-stream defaults are stress tests;
+supported capacity requires a passing 30-minute run at the chosen workload.
+
+The APNs-only full-worker harness passed 30 minutes at 25 requests/s within the
+default two-CPU/2-GiB budget, with 1,000 streams held throughout by twenty human
+sessions and twenty service keys. Selective revocation and cursor replay also
+passed during subsequent traffic. The mixed-provider Linux-loopback harness
+also passed 30 minutes at 15 requests/s with 1,000 sustained streams under the
+same backend budget. These are verified workloads, not measured capacity ceilings.
+Repeat the mixed-provider run with:
+
+```sh
+NODE_OPTIONS=--max-old-space-size=256 QUALIFICATION_REQUESTS_PER_SECOND=15 \
+  QUALIFICATION_STREAMS=1000 QUALIFICATION_REPORT=/tmp/pipong-local-30m.json \
+  sh ops/qualify-load.sh
+```
+
+The dispatch latency gate covers sustained quiet/noisy tenants. The separate
+1,000-endpoint burst has a drain deadline; it does not claim 2-second dispatch.
 
 For a short diagnostic run, set `QUALIFICATION_SECONDS=60`. Override
 `QUALIFICATION_CPUS`, `QUALIFICATION_CPUSET`, `QUALIFICATION_MEMORY`, or
@@ -160,13 +204,14 @@ For a short diagnostic run, set `QUALIFICATION_SECONDS=60`. Override
 only when the report names the resulting topology. Choose a CPU set available
 to Docker that matches the intended CPU count; changing the quota alone leaves
 the default affinity at two CPUs. A short run cannot satisfy
-the 30-minute gate. Run on the intended VPS with competing services and its
-storage characteristics accounted for; local Docker measurements establish
-only their recorded environment. Live provider/device tests and recovery on the
+the 30-minute gate. Run on this device with competing services and its
+storage characteristics recorded; Docker measurements establish only their
+recorded environment. Live provider/device tests and recovery on the
 intended deployment remain separate release gates.
 
-For this local machine, use a 2 GiB backend limit to leave room in Docker's
-3.82 GiB VM for its other processes. The load generator runs on the host:
+The default 2 GiB backend limit fits the previously measured 3.82 GiB Docker
+VM. Recheck Docker's CPU and memory allocation before running; the daemon may
+use a different allocation after restart. The load generator runs on the host:
 
 ```sh
 NODE_OPTIONS=--max-old-space-size=256 QUALIFICATION_MEMORY=2g \

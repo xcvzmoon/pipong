@@ -1,0 +1,326 @@
+{
+  "durationSeconds": 1800,
+  "requestsPerSecond": 15,
+  "offeredDurationMs": 1799940,
+  "scheduleLagMs": 139.333251953125,
+  "offeredRequests": 27000,
+  "statuses": {
+    "202": 27000
+  },
+  "acceptanceP95Ms": 34.560166999930516,
+  "bulk": {
+    "status": 202,
+    "milliseconds": 299.21354200015776,
+    "burstDrainMs": 8313,
+    "unfinished": 0
+  },
+  "providerRequests": 55902,
+  "providerCounts": {
+    "apns": 18109,
+    "fcm": 19796,
+    "web-push": 17997
+  },
+  "providerDeliveries": [
+    {
+      "provider": "apns",
+      "count": 18109,
+      "accepted": 18109,
+      "p95": 963
+    },
+    {
+      "provider": "fcm",
+      "count": 19796,
+      "accepted": 19796,
+      "p95": 962
+    },
+    {
+      "provider": "web-push",
+      "count": 17997,
+      "accepted": 17997,
+      "p95": 957
+    }
+  ],
+  "oauthRequests": 102,
+  "sustainedOauthRefreshes": 64,
+  "providerErrors": 0,
+  "attemptOutcomes": [
+    {
+      "provider": "apns",
+      "outcome": "accepted",
+      "code": "APNS_200",
+      "count": 18109
+    },
+    {
+      "provider": "fcm",
+      "outcome": "accepted",
+      "code": "FCM_ACCEPTED",
+      "count": 19796
+    },
+    {
+      "provider": "web-push",
+      "outcome": "accepted",
+      "code": "WEB_PUSH_ACCEPTED",
+      "count": 17997
+    }
+  ],
+  "transportFailures": [],
+  "completedDeliveries": 55902,
+  "resources": {
+    "processes": [
+      {
+        "role": "api",
+        "rssKiB": 217940,
+        "cpuPercent": 11.9
+      },
+      {
+        "role": "api",
+        "rssKiB": 210860,
+        "cpuPercent": 10.6
+      },
+      {
+        "role": "worker",
+        "rssKiB": 225952,
+        "cpuPercent": 32.5
+      },
+      {
+        "role": "worker",
+        "rssKiB": 223856,
+        "cpuPercent": 25.5
+      }
+    ],
+    "cpuMetric": "maximum sampled ps lifetime-average percent",
+    "databaseWaitSamples": {
+      "IO:WalSync": 73,
+      "LWLock:WALWrite": 12,
+      "Client:ClientRead": 57,
+      "Lock:transactionid": 35,
+      "Lock:tuple": 6,
+      "Lock:advisory": 5,
+      "IO:WalWrite": 6,
+      "Timeout:VacuumDelay": 7
+    },
+    "samplingFailures": 0,
+    "workerReadinessFailures": 0,
+    "streamContinuityFailures": 0,
+    "periodicAuditRemaining": 0,
+    "cgroup": {
+      "cpuMax": "200000 100000",
+      "cpuSet": "0-1",
+      "cpu": {
+        "usage_usec": 1514765051,
+        "user_usec": 1317129825,
+        "system_usec": 197635225,
+        "nice_usec": 0,
+        "nr_periods": 19390,
+        "nr_throttled": 13,
+        "throttled_usec": 99636,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "memoryMaxBytes": 2147483648,
+      "memoryPeakBytes": 1599463424,
+      "swapMaxBytes": 0
+    }
+  },
+  "sse": {
+    "offered": 1000,
+    "holdSeconds": 1800,
+    "sustainedHoldMs": 1805159,
+    "sustained": {
+      "live": 1000,
+      "delivered": 1000,
+      "recentDelivery": 1000,
+      "events": 540000,
+      "bytes": 279935164,
+      "unexpectedClosures": 0,
+      "frameErrors": 0,
+      "sequenceGaps": 0,
+      "humanSessions": 20,
+      "serviceKeys": 20
+    },
+    "final": {
+      "live": 950,
+      "delivered": 1000,
+      "recentDelivery": 950,
+      "events": 669450,
+      "bytes": 346763825,
+      "unexpectedClosures": 0,
+      "frameErrors": 0,
+      "sequenceGaps": 0,
+      "humanSessions": 20,
+      "serviceKeys": 20
+    },
+    "revocation": {
+      "expectedClosed": 50,
+      "revokedInWindow": true,
+      "milliseconds": 1024,
+      "humanReconnectStatus": 404,
+      "keyReconnectStatus": 401
+    },
+    "replayPassed": true,
+    "offeredDurationMs": 29934,
+    "scheduleLagMs": 4,
+    "concurrentRequests": 450,
+    "acceptanceStatuses": {
+      "202": 450
+    },
+    "acceptanceP95Ms": 62.84899999992922,
+    "environments": 20
+  },
+  "dispatch": [
+    {
+      "organization_id": "01a12b4d-b0f1-761e-9189-f6f77bdeb4cc",
+      "count": 14400,
+      "p95": 966
+    },
+    {
+      "organization_id": "01a12b4d-b106-724c-a356-e948dc19537e",
+      "count": 14400,
+      "p95": 959
+    },
+    {
+      "organization_id": "01a12b4d-b10f-723d-85da-97e7b5266f01",
+      "count": 18000,
+      "p95": 960
+    },
+    {
+      "organization_id": "01a12b4d-b116-7210-87dc-8367f45e782b",
+      "count": 3600,
+      "p95": 959
+    },
+    {
+      "organization_id": "01a12b4d-b11d-72ab-8f84-64a1bc2875bc",
+      "count": 1000,
+      "p95": 7997.2
+    },
+    {
+      "organization_id": "01a12b4d-c234-7632-af11-b5acc072bcd3",
+      "count": 226,
+      "p95": 965
+    },
+    {
+      "organization_id": "01a12b4d-c23f-763b-a317-a8b9e9cb40f4",
+      "count": 228,
+      "p95": 970.9
+    },
+    {
+      "organization_id": "01a12b4d-c247-71ef-ae72-98dacadc760a",
+      "count": 226,
+      "p95": 937.75
+    },
+    {
+      "organization_id": "01a12b4d-c24f-71f1-9fc4-1a62ccda0c6d",
+      "count": 226,
+      "p95": 949.4999999999999
+    },
+    {
+      "organization_id": "01a12b4d-c25c-734c-9347-c6df52bb6c6f",
+      "count": 226,
+      "p95": 966.4999999999999
+    },
+    {
+      "organization_id": "01a12b4d-c263-76ad-aae5-ecdddc7b57f9",
+      "count": 226,
+      "p95": 955.5
+    },
+    {
+      "organization_id": "01a12b4d-c269-70dd-a4a5-026cd8b3165b",
+      "count": 226,
+      "p95": 959.75
+    },
+    {
+      "organization_id": "01a12b4d-c272-704c-9250-8c8e7dd2e502",
+      "count": 226,
+      "p95": 935.5
+    },
+    {
+      "organization_id": "01a12b4d-c27d-718c-ada3-82a44ae87a35",
+      "count": 226,
+      "p95": 954.75
+    },
+    {
+      "organization_id": "01a12b4d-c285-719f-9176-d2b5c501e03d",
+      "count": 226,
+      "p95": 942.5
+    },
+    {
+      "organization_id": "01a12b4d-c28d-7132-8c8b-40391605331e",
+      "count": 224,
+      "p95": 956.6999999999999
+    },
+    {
+      "organization_id": "01a12b4d-c295-7743-ac08-780e4081f987",
+      "count": 224,
+      "p95": 944.8
+    },
+    {
+      "organization_id": "01a12b4d-c2a2-7500-a422-7a622c7181d4",
+      "count": 224,
+      "p95": 964.85
+    },
+    {
+      "organization_id": "01a12b4d-c2aa-7462-9540-eee0871bcb22",
+      "count": 224,
+      "p95": 942.85
+    },
+    {
+      "organization_id": "01a12b4d-c2b0-700c-8e6b-d8f0e6abbc91",
+      "count": 224,
+      "p95": 979.6999999999999
+    },
+    {
+      "organization_id": "01a12b4d-c2b7-7150-acfc-61068571a2cd",
+      "count": 224,
+      "p95": 961.85
+    },
+    {
+      "organization_id": "01a12b4d-c2bc-77d5-82b4-319f8b1ce01d",
+      "count": 224,
+      "p95": 952.85
+    },
+    {
+      "organization_id": "01a12b4d-c2c2-7439-926e-c51d84b11a5a",
+      "count": 224,
+      "p95": 972.6499999999999
+    },
+    {
+      "organization_id": "01a12b4d-c2c8-7015-91d3-f71cf2e3fb62",
+      "count": 224,
+      "p95": 963.4
+    },
+    {
+      "organization_id": "01a12b4d-c2ce-73a0-a171-9d9431f36a24",
+      "count": 224,
+      "p95": 963.5999999999998
+    }
+  ],
+  "memory": {
+    "rss": 143261696,
+    "heapTotal": 205275136,
+    "heapUsed": 76551784,
+    "external": 6445046,
+    "arrayBuffers": 2254269
+  },
+  "topology": {
+    "backend": {
+      "runtime": "v24.21.0",
+      "platform": "linux",
+      "architecture": "arm64"
+    },
+    "driver": {
+      "runtime": "v24.21.0",
+      "platform": "darwin",
+      "architecture": "arm64"
+    },
+    "cpuLimit": "2",
+    "memoryLimit": "2g",
+    "api": 2,
+    "workers": 2,
+    "workerRuntime": "built production lifecycle with local APNs, FCM/OAuth, and Web Push transports",
+    "workerConsumers": ["auth-email", "apns", "fcm", "web-push"],
+    "retainedJobs": 150000,
+    "environments": 25,
+    "database": "PostgreSQL 18",
+    "provider": "separate Linux fixture container in backend network namespace, outside backend resource cap"
+  }
+}
