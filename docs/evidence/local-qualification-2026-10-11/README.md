@@ -28,6 +28,12 @@ notification payloads. Raw logs remain local under `/tmp`.
 | [mixed-provider-linux-short](mixed-provider-linux-short.json) | 60 seconds | 15         | Passed mixed-provider Linux-loopback comparison                                 |
 | [mixed-provider-30m](mixed-provider-30m.json)                 | 30 minutes | 15         | Passed mixed-provider Linux-loopback qualification with 1,000 sustained streams |
 
+The follow-up [CI import-fix report](ci-import-fix-short.json) records a passing
+60-second run at 15 requests/s after replacing the static built-worker import
+with dynamic loading. The final Valibot export validation was separately checked
+inside the same built container. Clean-state static checks passed with worker
+output absent, reproducing the hosted gate's pre-build environment.
+
 The shared-listener diagnostic timed out before saving a JSON report. Two
 isolated 500-request TLS probes each had zero failures, but did not reproduce
 the complete workload. See release evidence for these observations and earlier

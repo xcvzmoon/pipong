@@ -117,3 +117,20 @@ Rehearse backup+key restoration, measured load/fairness/SSE envelope, provider d
 - Sustained SSE 30-minute qualification passed, 2026-10-11: two API replicas and two full workers shared two CPU cores/2 GiB/no swap at 25 requests/s. All 45,000 sustained requests returned 202 and all 92,502 deliveries completed; acceptance p95 was 26.13 ms and maximum stream-environment dispatch p95 was 984 ms. All 1,000 streams held by twenty human sessions and twenty service keys remained live and ordered throughout. Exactly 50 revoked connections closed within 548 ms; 950 unaffected streams continued, revoked reconnects were denied, and cursor replay passed. Peak memory was 1.65 GiB; maintenance and graceful shutdown passed. Mixed-provider/live-device load, deployment recovery, and publication remain open. See `docs/release-evidence.md`.
 
 - Mixed-provider 30-minute qualification passed, 2026-10-11: two API replicas, two full workers, and PostgreSQL shared two CPU cores/2 GiB/no swap at 15 requests/s. All 27,000 sustained requests returned 202 and all 55,902 APNs/FCM/Web Push deliveries completed without retries or transport failures. Acceptance p95 was 34.56 ms; provider initial dispatch p95 was 963/962/957 ms. All 1,000 streams stayed live for 30 minutes across forty session/key principals; exactly 50 revoked connections closed in 1,024 ms, 950 continued, and replay passed. FCM refreshed tokens during sustained traffic. Peak backend memory was 1.49 GiB. Maintenance and graceful shutdown passed; disposable resources were removed. Provider fixtures ran outside the backend cap in a separate Linux container. This verifies a workload, not a capacity ceiling; live-provider/device, deployment recovery, and publication gates remain open. See `docs/release-evidence.md`.
+
+## Clean-checkout CI correction, 2026-10-11
+
+PR #41's first hosted static gate failed because `load-worker.ts` imported the
+generated `apps/worker/dist/runtime.mjs` statically. Local build output masked
+that dependency. Removing the worker output reproduced TS2307 and the cascading
+unsafe-call/implicit-any diagnostics. The fixture now obtains types from worker
+source and dynamically loads the built module by URL, validating its callable
+export with Valibot. `pnpm check` passed with worker output still absent; export
+validation passed inside the built Linux container. Static gates must remain
+independent of generated build output.
+
+A 60-second mixed-provider run using the dynamic-import correction passed at
+15 requests/s with 1,000 streams: 3,702 deliveries completed, acceptance p95
+44.31 ms, APNs/FCM/Web Push dispatch p95 953/967.45/947 ms, no transport failures,
+and selective revocation in 673 ms with replay passed. The final Valibot export
+validation was separately exercised inside that built container.
