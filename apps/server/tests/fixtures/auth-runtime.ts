@@ -1,4 +1,5 @@
 import type { ChildProcess } from 'node:child_process';
+import type { FixtureProcess } from './backend-process.ts';
 import { hashPassword } from 'better-auth/crypto';
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -11,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { Client } from 'pg';
 import * as v from 'valibot';
+import { startFixtureProcess } from './backend-process.ts';
 
 const runCommand = promisify(execFile);
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
@@ -47,6 +49,7 @@ export async function stopProcess(child: ChildProcess | undefined): Promise<void
 
 export type AuthFixture = {
   database: Client;
+  processId: number;
   baseUrl: string;
   environment: NodeJS.ProcessEnv;
   close: () => Promise<void>;
@@ -76,12 +79,12 @@ export async function startAuthFixture(
     return url.href;
   }
   const database = new Client({ connectionString: roleUrl('postgres') });
-  let server: ChildProcess | undefined;
+  let server: FixtureProcess | undefined;
   let createdDatabase = false;
   let createdRoles = false;
   async function close(): Promise<void> {
     try {
-      await stopProcess(server);
+      await server?.stop();
     } finally {
       await database.end();
       if (createdDatabase) await admin.query(`DROP DATABASE ${databaseName} WITH (FORCE)`);
@@ -118,8 +121,12 @@ export async function startAuthFixture(
         [password],
       );
     }
-    const port = await freePort();
-    const baseUrl = `http://localhost:${port}`;
+    const qualificationUrl = v.parse(
+      v.optional(v.pipe(v.string(), v.url())),
+      process.env.QUALIFICATION_API_URL_1,
+    );
+    const port = qualificationUrl ? Number(new URL(qualificationUrl).port) : await freePort();
+    const baseUrl = qualificationUrl ?? `http://localhost:${port}`;
     const environment = {
       ...process.env,
       NODE_ENV: 'test',
@@ -135,31 +142,23 @@ export async function startAuthFixture(
       API_DATABASE_MAX_POOL: '2',
       WORKER_DATABASE_MAX_POOL: '2',
     };
-    server = spawn(process.execPath, [serverEntrypoint], {
-      cwd: root,
-      env: environment,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let logs = '';
-    server.stdout?.on('data', (chunk: Buffer) => {
-      logs = (logs + chunk.toString()).slice(-4000);
-    });
-    server.stderr?.on('data', (chunk: Buffer) => {
-      logs = (logs + chunk.toString()).slice(-4000);
-    });
+    server = await startFixtureProcess(serverEntrypoint, environment);
     // oxlint-disable eslint/no-await-in-loop -- Wait between startup probes and stop as soon as the server is ready.
     for (let index = 0; index < 100; index++) {
-      if (server.exitCode !== null) throw new Error(`TEST_SERVER_STARTUP_FAILED: ${logs}`);
+      if (server.child.exitCode !== null) {
+        throw new Error(`TEST_SERVER_STARTUP_FAILED: ${server.logs()}`);
+      }
       try {
         const response = await fetch(`${baseUrl}/api/auth/get-session`);
         if (response.status === 200) {
           return {
             database,
+            processId: server.processId,
             baseUrl,
             environment,
             close,
-            logs: () => logs,
-            stopServer: () => stopProcess(server),
+            logs: server.logs,
+            stopServer: server.stop,
           };
         }
         if (response.status >= 500) throw new Error('TEST_SERVER_RESPONSE_FAILED');
@@ -167,7 +166,7 @@ export async function startAuthFixture(
       await setTimeout(100);
     }
     // oxlint-enable eslint/no-await-in-loop
-    throw new Error(`TEST_SERVER_TIMEOUT: ${logs}`);
+    throw new Error(`TEST_SERVER_TIMEOUT: ${server.logs()}`);
   } catch (error) {
     await close();
     throw error;
