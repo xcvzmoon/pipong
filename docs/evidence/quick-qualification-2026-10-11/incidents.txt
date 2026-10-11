@@ -12,4 +12,3 @@ $ vitest --run tests/credentials.integration.test.ts tests/service-keys.integrat
       Tests  10 passed (10)
    Start at  15:56:56
    Duration  14.71s (tests 99%, import 1%, transform 1%)
-

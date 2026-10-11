@@ -14,4 +14,3 @@ Runtime wal restore: 75074 ms recovery; 18 ms conservative recovery-point loss w
       Tests  1 passed (1)
    Start at  15:55:31
    Duration  84.76s (tests 99%, import 1%, transform 1%)
-
