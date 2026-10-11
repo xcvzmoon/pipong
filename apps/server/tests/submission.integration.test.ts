@@ -8,6 +8,7 @@ import { setTimeout } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { Client } from 'pg';
+import { v7 } from 'uuid';
 import * as v from 'valibot';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startAuthFixture } from './fixtures/auth-runtime.ts';
@@ -236,6 +237,82 @@ describe.skipIf(!testUrl)('atomic idempotent submission through built HTTP', () 
 
   afterAll(async () => {
     await fixture?.close();
+  });
+
+  async function seedApnsEndpoints(count: number): Promise<void> {
+    const apnsCredentialId = v7();
+    await fixture.database.query(
+      "INSERT INTO app.credential_versions (id,organization_id,project_id,environment_id,provider,app_id,encrypted_secret,state) VALUES ($1,$2,$3,$4,'apns','com.pipong.test','fixture-not-read','active')",
+      [apnsCredentialId, organizationId, projectId, environmentId],
+    );
+    await fixture.database.query('BEGIN');
+    try {
+      await fixture.database.query(
+        `INSERT INTO app.endpoints (id,organization_id,project_id,environment_id,recipient_id,installation_id,provider,app_id,generation,credential_id,target_hash)
+        SELECT uuidv7(),$1,$2,$3,$4,'apns-'||index,'apns','com.pipong.test',1,$5,'apns-hash-'||index FROM generate_series(1,$6::integer) AS index`,
+        [organizationId, projectId, environmentId, recipientId, apnsCredentialId, count],
+      );
+      await fixture.database.query(
+        `INSERT INTO app.endpoint_generations (organization_id,project_id,environment_id,endpoint_id,generation,credential_id,encrypted_target,registered_at)
+        SELECT organization_id,project_id,environment_id,id,generation,credential_id,'fixture-not-read',now() FROM app.endpoints WHERE provider='apns'`,
+      );
+      await fixture.database.query('COMMIT');
+    } catch (error) {
+      await fixture.database.query('ROLLBACK');
+      throw error;
+    }
+  }
+
+  it('atomically accepts a thousand mixed-provider endpoints with contiguous events and protected tenant-grouped jobs', async () => {
+    await seedApnsEndpoints(999);
+    const result = await accepted(await request('bulk'));
+    expect(result.deliveryCount).toBe(1000);
+    await cardinality(1, 1000);
+    const events = await fixture.database.query<{ sequence: string; delivery_id: string }>(
+      'SELECT sequence,delivery_id FROM app.delivery_events ORDER BY sequence',
+    );
+    expect(events.rows.map(({ sequence }) => Number(sequence))).toEqual(
+      Array.from({ length: 1000 }, (_, index) => index + 1),
+    );
+    expect(new Set(events.rows.map(({ delivery_id }) => delivery_id)).size).toBe(1000);
+    expect((await fixture.database.query('SELECT sequence FROM app.event_streams')).rows).toEqual([
+      { sequence: '1000' },
+    ]);
+    const jobs = await fixture.database.query<{ name: string; count: number }>(
+      `SELECT name,count(*)::integer AS count FROM pgboss.job WHERE group_id=$1 AND keep_until='infinity'::timestamptz
+        AND retry_limit=5 AND expire_seconds=120 AND deletion_seconds=0 GROUP BY name ORDER BY name`,
+      [organizationId],
+    );
+    expect(jobs.rows).toEqual([
+      { name: 'delivery-apns', count: 999 },
+      { name: 'delivery-fcm', count: 1 },
+    ]);
+    expect(await accepted(await request('bulk'))).toEqual(result);
+    await cardinality(1, 1000);
+  });
+
+  it('rolls back an entire acceptance when a provider batch silently suppresses a job', async () => {
+    await seedApnsEndpoints(1);
+    await fixture.database.query(
+      "CREATE FUNCTION app.test_suppress_enqueue() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.name='delivery-apns' THEN RETURN NULL; END IF; RETURN NEW; END $$; CREATE TRIGGER test_suppress_enqueue BEFORE INSERT ON pgboss.job FOR EACH ROW EXECUTE FUNCTION app.test_suppress_enqueue()",
+    );
+    try {
+      await denied(await request('suppressed'), 503, 'AUTHORIZATION_UNAVAILABLE');
+      await cardinality(0);
+      expect((await fixture.database.query('SELECT * FROM app.idempotency_records')).rows).toEqual(
+        [],
+      );
+      expect(
+        (await fixture.database.query('SELECT * FROM app.admission_reservations')).rows,
+      ).toEqual([]);
+      expect((await fixture.database.query('SELECT * FROM app.event_streams')).rows).toEqual([]);
+    } finally {
+      await fixture.database.query(
+        'DROP TRIGGER test_suppress_enqueue ON pgboss.job; DROP FUNCTION app.test_suppress_enqueue()',
+      );
+    }
+    expect((await accepted(await request('suppressed'))).deliveryCount).toBe(2);
+    await cardinality(1, 2);
   });
 
   it('races duplicates into one immutable acceptance and replays canonical requests after target changes', async () => {

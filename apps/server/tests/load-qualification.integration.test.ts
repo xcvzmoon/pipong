@@ -1,9 +1,8 @@
-import type { ChildProcess } from 'node:child_process';
 import type { IncomingMessage } from 'node:http';
 import type { ServerHttp2Stream } from 'node:http2';
 import type { AuthFixture } from './fixtures/auth-runtime.ts';
+import type { FixtureProcess } from './fixtures/backend-process.ts';
 import { encryptSecret } from '@pipong/service';
-import { spawn } from 'node:child_process';
 import { createSecretKey, generateKeyPairSync } from 'node:crypto';
 import { once } from 'node:events';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -11,11 +10,16 @@ import { request as httpRequest } from 'node:http';
 import { createSecureServer } from 'node:http2';
 import { createServer, request as httpsRequest } from 'node:https';
 import { setTimeout } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
 import { v7 } from 'uuid';
 import * as v from 'valibot';
 import { expect, it } from 'vitest';
-import { freePort, startAuthFixture, stopProcess } from './fixtures/auth-runtime.ts';
+import { freePort, startAuthFixture } from './fixtures/auth-runtime.ts';
+import {
+  readFixtureRuntime,
+  readQualificationCgroupFile,
+  sampleFixtureProcesses,
+  startFixtureProcess,
+} from './fixtures/backend-process.ts';
 
 const enabled = process.env.QUALIFICATION_DATABASE_URL;
 const duration = v.parse(
@@ -26,7 +30,6 @@ const retainedJobs = v.parse(
   v.pipe(v.string(), v.toNumber(), v.integer(), v.minValue(0), v.maxValue(1000000)),
   process.env.QUALIFICATION_RETAINED_JOBS ?? '0',
 );
-const root = fileURLToPath(new URL('../../../', import.meta.url));
 const userId = '019a0000-0000-7000-8000-000000000011';
 
 type Scope = {
@@ -43,8 +46,16 @@ it.skipIf(!enabled)(
   'measures sustained HTTP acceptance and TLS provider dispatch with two replicas',
   async () => {
     let fixture: AuthFixture | undefined;
-    const children: ChildProcess[] = [];
+    const children: FixtureProcess[] = [];
     const streams: IncomingMessage[] = [];
+    let sampling: Promise<void> | undefined;
+    let sampleTimer: ReturnType<typeof setInterval> | undefined;
+    let samplingFailures = 0;
+    const databaseWaitSamples: Record<string, number> = {};
+    const peakResources = new Map<number, { role: string; rssKiB: number; cpuPercent: number }>();
+    let streamBytes = 0;
+    let liveStreams = 0;
+    let deliveredStreams = 0;
     const cert = await readFile(
       new URL('../../../packages/service/tests/fixtures/push-cert.pem', import.meta.url),
     );
@@ -62,7 +73,7 @@ it.skipIf(!enabled)(
         stream.end();
       });
     });
-    provider.listen(0, '127.0.0.1');
+    provider.listen(0, process.env.QUALIFICATION_CONTAINER ? '0.0.0.0' : '127.0.0.1');
     await once(provider, 'listening');
     let replicaIndex = 0;
     const urls: string[] = [];
@@ -83,13 +94,13 @@ it.skipIf(!enabled)(
     try {
       fixture = await startAuthFixture(enabled ?? '');
       urls.push(fixture.baseUrl);
-      const replicaPort = await freePort();
-      urls.push(`http://localhost:${replicaPort}`);
+      const replicaUrl =
+        process.env.QUALIFICATION_API_URL_2 ?? `http://localhost:${await freePort()}`;
+      urls.push(replicaUrl);
       children.push(
-        spawn(process.execPath, ['apps/server/.output/server/index.mjs'], {
-          cwd: root,
-          env: { ...fixture.environment, PORT: String(replicaPort) },
-          stdio: 'ignore',
+        await startFixtureProcess('apps/server/.output/server/index.mjs', {
+          ...fixture.environment,
+          PORT: new URL(replicaUrl).port,
         }),
       );
       await setTimeout(1000);
@@ -253,16 +264,59 @@ it.skipIf(!enabled)(
       const providerPort = v.parse(v.object({ port: v.number() }), provider.address()).port;
       for (let index = 0; index < 2; index++) {
         children.push(
-          spawn(process.execPath, ['apps/server/tests/fixtures/load-consumer.ts'], {
-            cwd: root,
-            env: {
-              ...fixture.environment,
-              QUALIFICATION_PROVIDER_ORIGIN: `https://127.0.0.1:${providerPort}`,
-            },
-            stdio: 'ignore',
+          // eslint-disable-next-line no-await-in-loop -- Track each started consumer before launching the next.
+          await startFixtureProcess('apps/server/tests/fixtures/load-consumer.ts', {
+            ...fixture.environment,
+            QUALIFICATION_PROVIDER_ORIGIN: `https://127.0.0.1:${providerPort}`,
           }),
         );
       }
+      const processes = new Map<number, string>([[fixture.processId, 'api']]);
+      for (const [index, child] of children.entries()) {
+        processes.set(child.processId, index === 0 ? 'api' : 'consumer');
+      }
+      const samplingDatabase = fixture.database;
+      async function sampleResources(): Promise<void> {
+        try {
+          const result = await sampleFixtureProcesses([...processes.keys()]);
+          const sampledPids = new Set<number>();
+          for (const line of result.trim().split('\n')) {
+            const [pid, rssKiB, cpuPercent] = v.parse(
+              v.tuple([
+                v.pipe(v.string(), v.toNumber()),
+                v.pipe(v.string(), v.toNumber()),
+                v.pipe(v.string(), v.toNumber()),
+              ]),
+              line.trim().split(/\s+/),
+            );
+            sampledPids.add(pid);
+            const previous = peakResources.get(pid);
+            peakResources.set(pid, {
+              role: processes.get(pid) ?? 'missing',
+              rssKiB: Math.max(previous?.rssKiB ?? 0, rssKiB),
+              cpuPercent: Math.max(previous?.cpuPercent ?? 0, cpuPercent),
+            });
+          }
+          for (const pid of processes.keys()) {
+            if (!sampledPids.has(pid)) {
+              throw new Error('QUALIFICATION_PROCESS_EXITED');
+            }
+          }
+          const waits = await samplingDatabase.query<{ wait: string; count: number }>(
+            "SELECT wait_event_type || ':' || wait_event AS wait,count(*)::integer AS count FROM pg_stat_activity WHERE datname=current_database() AND state='active' AND wait_event IS NOT NULL GROUP BY wait_event_type,wait_event",
+          );
+          for (const { wait, count } of waits.rows) {
+            databaseWaitSamples[wait] = (databaseWaitSamples[wait] ?? 0) + count;
+          }
+        } catch {
+          samplingFailures++;
+        }
+      }
+      sampleTimer = setInterval(() => {
+        sampling ??= sampleResources().finally(() => {
+          sampling = undefined;
+        });
+      }, 1000);
       proxy.listen(0, '127.0.0.1');
       await once(proxy, 'listening');
       const port = v.parse(v.object({ port: v.number() }), proxy.address()).port;
@@ -311,10 +365,12 @@ it.skipIf(!enabled)(
       const statuses: Record<string, number> = {};
       const pending: Promise<void>[] = [];
       const started = Date.now();
+      let scheduleLagMs = 0;
       // eslint-disable-next-line no-await-in-loop -- Fixed arrival schedule keeps offered load independent of response latency.
       for (let index = 0; index < duration * 50; index++) {
         // eslint-disable-next-line no-await-in-loop -- Maintain 50 requests per second without serializing requests.
         await setTimeout(Math.max(0, started + index * 20 - Date.now()));
+        scheduleLagMs = Math.max(scheduleLagMs, Date.now() - (started + index * 20));
         pending.push(
           submit(index % 50 === 0 ? quiet : noisy).then((result) => {
             statuses[result.status] = (statuses[result.status] ?? 0) + 1;
@@ -324,6 +380,7 @@ it.skipIf(!enabled)(
           }),
         );
       }
+      const offeredDurationMs = Date.now() - started;
       await Promise.all(pending);
       await setTimeout(5000);
       const bulkResult = await submit(bulk);
@@ -345,7 +402,7 @@ it.skipIf(!enabled)(
       const sseScopes: Scope[] = [];
       // oxlint-disable eslint/no-await-in-loop -- Setup each bounded environment before measuring connections.
       for (let index = 0; index < 20; index++) {
-        sseScopes.push(await seed(`sse-${index}`, 0));
+        sseScopes.push(await seed(`sse-${index}`, 1));
       }
       // oxlint-enable eslint/no-await-in-loop
       const streamStatuses: Record<string, number> = {};
@@ -365,6 +422,20 @@ it.skipIf(!enabled)(
               streams.push(response);
               streamStatuses[response.statusCode ?? 0] =
                 (streamStatuses[response.statusCode ?? 0] ?? 0) + 1;
+              if (response.statusCode === 200) {
+                liveStreams++;
+                response.once('close', () => {
+                  liveStreams--;
+                });
+                let receivedDelivery = false;
+                response.on('data', (chunk: Buffer) => {
+                  streamBytes += chunk.length;
+                  if (!receivedDelivery && chunk.toString().includes('event: delivery')) {
+                    receivedDelivery = true;
+                    deliveredStreams++;
+                  }
+                });
+              }
               response.resume();
               resolve(response);
             },
@@ -394,6 +465,32 @@ it.skipIf(!enabled)(
         }
       }
       // oxlint-enable eslint/no-await-in-loop
+      const sseAcceptance: number[] = [];
+      const sseStatuses: Record<string, number> = {};
+      const sseRequests: Promise<void>[] = [];
+      const streamLoadStarted = Date.now();
+      let streamScheduleLagMs = 0;
+      // oxlint-disable eslint/no-await-in-loop -- Hold 1000 streams under fixed-rate acceptance and delivery for 30 seconds.
+      for (let index = 0; index < 1500; index++) {
+        await setTimeout(Math.max(0, streamLoadStarted + index * 20 - Date.now()));
+        streamScheduleLagMs = Math.max(
+          streamScheduleLagMs,
+          Date.now() - (streamLoadStarted + index * 20),
+        );
+        sseRequests.push(
+          submit(sseScopes[index % sseScopes.length] ?? noisy).then((result) => {
+            sseStatuses[result.status] = (sseStatuses[result.status] ?? 0) + 1;
+            if (result.status === 202) {
+              sseAcceptance.push(result.milliseconds);
+            }
+          }),
+        );
+      }
+      // oxlint-enable eslint/no-await-in-loop
+      const streamOfferedDurationMs = Date.now() - streamLoadStarted;
+      await Promise.all(sseRequests);
+      await setTimeout(5000);
+      const liveAfterLoad = liveStreams;
       const revoked: Promise<void>[] = [];
       for (const stream of opened) {
         if (stream.statusCode === 200) {
@@ -422,15 +519,79 @@ it.skipIf(!enabled)(
       }>(
         `SELECT deliveries.organization_id,count(*)::int AS count,percentile_cont(0.95) WITHIN GROUP (ORDER BY extract(epoch FROM delivery_attempts.started_at-notifications.accepted_at)*1000) AS p95 FROM app.delivery_attempts JOIN app.deliveries ON deliveries.id=delivery_attempts.delivery_id JOIN app.notifications ON notifications.id=deliveries.notification_id GROUP BY deliveries.organization_id`,
       );
+      clearInterval(sampleTimer);
+      sampleTimer = undefined;
+      await sampling;
+      const completed = await fixture.database.query<{ count: number }>(
+        "SELECT count(*)::integer AS count FROM app.deliveries WHERE state='provider_accepted'",
+      );
+      let cgroup:
+        | {
+            cpuMax: string;
+            cpuSet: string;
+            cpu: Record<string, number>;
+            memoryMaxBytes: number;
+            memoryPeakBytes: number;
+            swapMaxBytes: number;
+          }
+        | undefined;
+      if (process.env.QUALIFICATION_CPU_LIMIT) {
+        const numberSchema = v.pipe(v.string(), v.toNumber(), v.integer(), v.minValue(0));
+        cgroup = {
+          cpuMax: (await readQualificationCgroupFile('cpu.max')).trim(),
+          cpuSet: (await readQualificationCgroupFile('cpuset.cpus.effective')).trim(),
+          cpu: v.parse(
+            v.record(v.string(), numberSchema),
+            Object.fromEntries(
+              (await readQualificationCgroupFile('cpu.stat'))
+                .trim()
+                .split('\n')
+                .map((line) => line.split(/\s+/)),
+            ),
+          ),
+          memoryMaxBytes: v.parse(
+            numberSchema,
+            (await readQualificationCgroupFile('memory.max')).trim(),
+          ),
+          memoryPeakBytes: v.parse(
+            numberSchema,
+            (await readQualificationCgroupFile('memory.peak')).trim(),
+          ),
+          swapMaxBytes: v.parse(
+            numberSchema,
+            (await readQualificationCgroupFile('memory.swap.max')).trim(),
+          ),
+        };
+      }
+      const backendRuntime = await readFixtureRuntime();
       const report = {
         durationSeconds: duration,
+        offeredDurationMs,
+        scheduleLagMs,
         offeredRequests: duration * 50,
         statuses,
         acceptanceP95Ms: percentile(acceptance, 0.95),
         bulk: { ...bulkResult, burstDrainMs, unfinished },
         providerRequests,
+        completedDeliveries: completed.rows[0]?.count,
+        resources: {
+          processes: [...peakResources.values()],
+          cpuMetric: 'maximum sampled ps lifetime-average percent',
+          databaseWaitSamples,
+          samplingFailures,
+          cgroup,
+        },
         sse: {
           offered: 1000,
+          holdSeconds: 30,
+          offeredDurationMs: streamOfferedDurationMs,
+          scheduleLagMs: streamScheduleLagMs,
+          liveAfterLoad,
+          deliveredStreams,
+          bytes: streamBytes,
+          concurrentRequests: 1500,
+          acceptanceStatuses: sseStatuses,
+          acceptanceP95Ms: percentile(sseAcceptance, 0.95),
           environments: 20,
           statuses: streamStatuses,
           streamErrors,
@@ -440,6 +601,14 @@ it.skipIf(!enabled)(
         dispatch: dispatch.rows,
         memory: process.memoryUsage(),
         topology: {
+          backend: backendRuntime,
+          driver: {
+            runtime: process.version,
+            platform: process.platform,
+            architecture: process.arch,
+          },
+          cpuLimit: process.env.QUALIFICATION_CPU_LIMIT ?? 'unconstrained',
+          memoryLimit: process.env.QUALIFICATION_MEMORY_LIMIT ?? 'unconstrained',
           api: 2,
           consumers: 2,
           retainedJobs,
@@ -452,6 +621,25 @@ it.skipIf(!enabled)(
       if (process.env.QUALIFICATION_REPORT) {
         await writeFile(process.env.QUALIFICATION_REPORT, JSON.stringify(report, null, 2));
       }
+      for (const child of children) {
+        expect.soft(child.child.exitCode).toBeNull();
+        expect.soft(child.child.signalCode).toBeNull();
+      }
+      if (cgroup) {
+        expect.soft(cgroup.swapMaxBytes).toBe(0);
+      }
+      expect.soft(scheduleLagMs).toBeLessThanOrEqual(500);
+      expect.soft(offeredDurationMs).toBeLessThanOrEqual(duration * 1000 + 500);
+      expect.soft(streamScheduleLagMs).toBeLessThanOrEqual(500);
+      expect.soft(streamOfferedDurationMs).toBeLessThanOrEqual(30500);
+      expect.soft(samplingFailures).toBe(0);
+      expect.soft(peakResources.size).toBe(4);
+      expect.soft(completed.rows[0]?.count).toBe(duration * 100 + 1000 + 1500);
+      expect.soft(providerRequests).toBe(duration * 100 + 1000 + 1500);
+      expect.soft(liveAfterLoad).toBe(1000);
+      expect.soft(deliveredStreams).toBe(1000);
+      expect.soft(sseAcceptance.length).toBe(1500);
+      expect.soft(percentile(sseAcceptance, 0.95)).toBeLessThanOrEqual(250);
       expect.soft(acceptance.length).toBe(duration * 50);
       expect.soft(percentile(acceptance, 0.95)).toBeLessThanOrEqual(250);
       expect.soft(bulkResult.status).toBe(202);
@@ -467,10 +655,12 @@ it.skipIf(!enabled)(
       expect.soft(revokedInWindow).toBe(true);
       expect.soft(reconnect.statusCode).toBe(404);
     } finally {
+      clearInterval(sampleTimer);
+      await sampling;
       for (const stream of streams) {
         stream.destroy();
       }
-      await Promise.all(children.map((child) => stopProcess(child)));
+      await Promise.all(children.map((child) => child.stop()));
       proxy.closeAllConnections();
       proxy.close();
       provider.close();

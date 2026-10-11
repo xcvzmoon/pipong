@@ -141,6 +141,33 @@ describe.skipIf(!testUrl)('distributed admission in disposable PostgreSQL', () =
     ).toEqual({ status: 'accepted', replay: false });
   });
 
+  it('initializes a new tenant budget once across concurrent API requests', async () => {
+    const newOrganizationId = v7();
+    await fixture.query(
+      "INSERT INTO auth.organizations (id,name,slug) VALUES ($1,'Concurrent default',$2)",
+      [newOrganizationId, newOrganizationId],
+    );
+    const newScope = { kind: 'organization', organizationId: newOrganizationId } as const;
+    const results = await Promise.all(
+      Array.from({ length: 12 }, (_, index) =>
+        withTenantTransaction(index % 2 === 0 ? api : secondApi, newScope, (transaction) =>
+          reserveAdmission(transaction, newOrganizationId, null, v7(), 1),
+        ),
+      ),
+    );
+    expect(results).toEqual(
+      Array.from({ length: 12 }, () => ({ status: 'accepted', replay: false })),
+    );
+    expect(
+      (
+        await fixture.query(
+          'SELECT requests,fanout,pending FROM app.tenant_budgets WHERE organization_id=$1',
+          [newOrganizationId],
+        )
+      ).rows,
+    ).toEqual([{ requests: 12, fanout: 12, pending: 12 }]);
+  });
+
   it('charges replay requests without duplicating work and rolls back admission with failed enqueue', async () => {
     const id = v7();
     const decisions = await Promise.all(
@@ -272,6 +299,58 @@ describe.skipIf(!testUrl)('distributed admission in disposable PostgreSQL', () =
         )
       ).rows[0],
     ).toEqual({ requests: 2, fanout: 2, pending: 2 });
+  });
+
+  it('reads committed reservation and key usage after waiting for the tenant budget', async () => {
+    const id = v7();
+    await fixture.query('BEGIN');
+    let pending: Promise<Awaited<ReturnType<typeof reserveAdmission>>> | undefined;
+    try {
+      await fixture.query(
+        'SELECT organization_id FROM app.tenant_budgets WHERE organization_id=$1 FOR UPDATE',
+        [organizationId],
+      );
+      pending = withTenantTransaction(api, scope, (transaction) =>
+        reserveAdmission(transaction, organizationId, keyId, id, 2),
+      );
+      await vi.waitFor(async () => {
+        const result = await fixture.query<{ count: number }>(
+          "SELECT count(*)::integer FROM pg_stat_activity WHERE datname=$1 AND usename='pipong_api' AND wait_event_type='Lock'",
+          [databaseName],
+        );
+        expect(result.rows[0]?.count).toBeGreaterThan(0);
+      });
+      await fixture.query(
+        'UPDATE app.tenant_budgets SET requests=1,fanout=2,pending=2 WHERE organization_id=$1',
+        [organizationId],
+      );
+      await fixture.query(
+        'INSERT INTO app.admission_reservations (organization_id,id,endpoints,remaining) VALUES ($1,$2,2,2)',
+        [organizationId, id],
+      );
+      await fixture.query(
+        'INSERT INTO app.key_budgets (organization_id,key_id,window_start,requests) SELECT organization_id,$2,window_start,1 FROM app.tenant_budgets WHERE organization_id=$1',
+        [organizationId, keyId],
+      );
+      await fixture.query('COMMIT');
+      expect(await pending).toEqual({ status: 'accepted', replay: true });
+    } finally {
+      await fixture.query('ROLLBACK');
+      await pending;
+    }
+    expect(
+      (
+        await fixture.query<{ requests: number; fanout: number; pending: number }>(
+          'SELECT requests,fanout,pending FROM app.tenant_budgets WHERE organization_id=$1',
+          [organizationId],
+        )
+      ).rows[0],
+    ).toEqual({ requests: 2, fanout: 2, pending: 2 });
+    expect(
+      await withTenantTransaction(secondApi, scope, (transaction) =>
+        reserveAdmission(transaction, organizationId, keyId, id, 2),
+      ),
+    ).toMatchObject({ status: 'rejected', code: 'ADMISSION_KEY_LIMIT' });
   });
 
   it('caps active provider claims across worker processes and bypasses a saturated noisy tenant', async () => {

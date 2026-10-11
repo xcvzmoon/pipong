@@ -39,14 +39,21 @@ export async function reserveAdmission(
   reservationId: string,
   endpoints: number,
 ): Promise<AdmissionDecision> {
-  await transaction.execute(
-    sql`INSERT INTO app.tenant_budgets (organization_id) VALUES (${organizationId}::uuid) ON CONFLICT DO NOTHING`,
-  );
-  const [budget] = await transaction
+  let [budget] = await transaction
     .select()
     .from(tenantBudgets)
     .where(eq(tenantBudgets.organizationId, organizationId))
     .for('update');
+  if (!budget) {
+    await transaction.execute(
+      sql`INSERT INTO app.tenant_budgets (organization_id) VALUES (${organizationId}::uuid) ON CONFLICT DO NOTHING`,
+    );
+    [budget] = await transaction
+      .select()
+      .from(tenantBudgets)
+      .where(eq(tenantBudgets.organizationId, organizationId))
+      .for('update');
+  }
   if (!budget) {
     throw new Error('ADMISSION_UNAVAILABLE: tenant budget is unavailable');
   }
@@ -93,12 +100,22 @@ export async function reserveAdmission(
       return { status: 'rejected', code: 'ADMISSION_KEY_LIMIT', retryAfter };
     }
   }
+  let decision: AdmissionDecision = { status: 'accepted', replay: reservation !== undefined };
+  if (!reservation) {
+    if (endpoints > budget.fanoutLimit - fanout) {
+      decision = { status: 'rejected', code: 'ADMISSION_FANOUT_LIMIT', retryAfter };
+    } else if (endpoints > budget.pendingLimit - budget.pending) {
+      decision = { status: 'rejected', code: 'ADMISSION_PENDING_LIMIT', retryAfter: 1 };
+    }
+  }
+  const reservedEndpoints = decision.status === 'accepted' && !decision.replay ? endpoints : 0;
   await transaction
     .update(tenantBudgets)
     .set({
       windowStart,
       requests: requests + 1,
-      fanout,
+      fanout: fanout + reservedEndpoints,
+      pending: budget.pending + reservedEndpoints,
     })
     .where(eq(tenantBudgets.organizationId, organizationId));
   if (keyId !== null) {
@@ -110,23 +127,12 @@ export async function reserveAdmission(
         set: { windowStart, requests: keyRequests + 1 },
       });
   }
-  if (reservation) {
-    return { status: 'accepted', replay: true };
+  if (decision.status === 'accepted' && !decision.replay) {
+    await transaction
+      .insert(admissionReservations)
+      .values({ organizationId, id: reservationId, endpoints, remaining: endpoints });
   }
-  if (endpoints > budget.fanoutLimit - fanout) {
-    return { status: 'rejected', code: 'ADMISSION_FANOUT_LIMIT', retryAfter };
-  }
-  if (endpoints > budget.pendingLimit - budget.pending) {
-    return { status: 'rejected', code: 'ADMISSION_PENDING_LIMIT', retryAfter: 1 };
-  }
-  await transaction
-    .update(tenantBudgets)
-    .set({ fanout: fanout + endpoints, pending: budget.pending + endpoints })
-    .where(eq(tenantBudgets.organizationId, organizationId));
-  await transaction
-    .insert(admissionReservations)
-    .values({ organizationId, id: reservationId, endpoints, remaining: endpoints });
-  return { status: 'accepted', replay: false };
+  return decision;
 }
 
 /**
@@ -151,22 +157,24 @@ export async function settleAdmission(
   reservationId: string,
   remaining: number,
 ): Promise<void> {
-  const [budget] = await transaction
-    .select()
-    .from(tenantBudgets)
-    .where(eq(tenantBudgets.organizationId, organizationId))
-    .for('update');
-  const predicate = and(
-    eq(admissionReservations.organizationId, organizationId),
-    eq(admissionReservations.id, reservationId),
-  );
-  const [reservation] = await transaction.select().from(admissionReservations).where(predicate);
-  if (!budget || !reservation || remaining > reservation.remaining) {
+  const result = await transaction.execute(sql`
+    WITH locked_reservation AS MATERIALIZED (
+      SELECT organization_id,id,remaining FROM app.admission_reservations
+      WHERE organization_id=${organizationId}::uuid AND id=${reservationId}::uuid
+      FOR UPDATE
+    ), updated_reservation AS (
+      UPDATE app.admission_reservations reservation SET remaining=${remaining}
+      FROM locked_reservation locked
+      WHERE reservation.organization_id=locked.organization_id AND reservation.id=locked.id
+        AND ${remaining} >= 0 AND ${remaining} <= locked.remaining
+      RETURNING reservation.organization_id,locked.remaining-${remaining} AS released
+    )
+    UPDATE app.tenant_budgets budget SET pending=budget.pending-reservation.released
+    FROM updated_reservation reservation
+    WHERE budget.organization_id=reservation.organization_id
+    RETURNING budget.organization_id
+  `);
+  if (result.rows.length !== 1) {
     throw new Error('ADMISSION_RESERVATION_INVALID: invalid remaining work');
   }
-  await transaction
-    .update(tenantBudgets)
-    .set({ pending: budget.pending - (reservation.remaining - remaining) })
-    .where(eq(tenantBudgets.organizationId, organizationId));
-  await transaction.update(admissionReservations).set({ remaining }).where(predicate);
 }

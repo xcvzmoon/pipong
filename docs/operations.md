@@ -125,3 +125,55 @@ reserved sends can remain in flight. Redrive only after the cause is fixed.
 On SSE disconnects, reconnect with the last durable cursor. An expired cursor
 requires a fresh status/replay reconciliation. Confirm proxy buffering is off and
 revoked authority closes streams. Do not treat an open stream as delivery proof.
+
+## Minimum VPS qualification
+
+The intended minimum host has 2 vCPU and 8 GB RAM. Run the reference workload
+before accepting that size for production:
+
+```sh
+QUALIFICATION_REPORT=/tmp/pipong-vps-qualification.json sh ops/qualify-load.sh
+```
+
+The script builds the current checkout and places PostgreSQL 18, two API replicas,
+and two delivery consumers in one container limited to 2 CPUs and 8 GB with swap
+disabled. It pins that container to virtual CPUs 0 and 1 and records the effective
+CPU set. BuildKit build steps use the same CPU, memory, and swap limits through
+Docker's `--resource` flags; the installed Docker must support those flags.
+A quota alone on a larger Docker VM produced substantial throttling in
+local comparisons. The load generator, TLS proxy, and deterministic APNs provider run on
+the host outside that budget. Docker and the installed workspace dependencies
+are required. Database and API ports bind only to host loopback. The script
+removes its container and images on exit and retains the sanitized JSON report.
+It uses an isolated trust-authenticated database and synthetic credentials.
+
+Defaults are 30 minutes at 50 requests per second, two endpoints per request,
+150,000 completed queue rows, a 1,000-endpoint burst, and 1,000 TLS SSE clients
+across 20 environments during a separate 30-second request load. Acceptance
+p95 must stay within 250 ms and initial dispatch p95 within 2 seconds. The test
+also checks exact completion counts, quiet-tenant dispatch, live stream delivery,
+revocation, process survival, resource sampling, and generator scheduling lag.
+
+For a short diagnostic run, set `QUALIFICATION_SECONDS=60`. Override
+`QUALIFICATION_CPUS`, `QUALIFICATION_CPUSET`, `QUALIFICATION_MEMORY`, or
+`QUALIFICATION_RETAINED_JOBS`
+only when the report names the resulting topology. Choose a CPU set available
+to Docker that matches the intended CPU count; changing the quota alone leaves
+the default affinity at two CPUs. A short run cannot satisfy
+the 30-minute gate. Run on the intended VPS with competing services and its
+storage characteristics accounted for; local Docker measurements establish
+only their recorded environment. Live provider/device tests and recovery on the
+intended deployment remain separate release gates.
+
+For this local machine, use a 2 GiB backend limit to leave room in Docker's
+3.82 GiB VM for its other processes. The load generator runs on the host:
+
+```sh
+NODE_OPTIONS=--max-old-space-size=256 QUALIFICATION_MEMORY=2g \
+  QUALIFICATION_SECONDS=60 QUALIFICATION_REPORT=/tmp/pipong-local-qualification.json \
+  sh ops/qualify-load.sh
+```
+
+The Node option limits the driver's V8 heap, not its total process memory.
+The backend container has a hard 2 GiB limit. Recheck available resources before
+running this on another machine; this command is a short local check.

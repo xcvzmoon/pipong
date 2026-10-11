@@ -41,10 +41,10 @@ type Reader = { scope: EnvironmentScope; subscribers: Set<Subscriber> };
 
 /**
  * Creates one polling reader per active environment, backed by the durable event ledger.
- * Each poll checks every subscriber's live authority in a short transaction before
+ * Each poll checks each distinct principal's live authority in a short transaction before
  * reading a shared page for each distinct subscriber cursor. No transaction or database connection waits on network writes.
  * @param database - API runtime owned by the application.
- * @returns Subscription manager with a 256-connection process cap, 64 per environment,
+ * @returns Subscription manager with a 1,024-connection process cap, 64 per environment,
  * 100 queued messages per connection, one-second polling intervals, 15-second heartbeats,
  * and five-second write deadlines. Transport close callbacks must cancel pending sends.
  * Close the manager before closing the database. Subscription database failures
@@ -125,28 +125,47 @@ export function createEventStreamRuntime(database: DatabaseRuntime): EventStream
   async function pollReader(reader: Reader): Promise<void> {
     try {
       const participants = [...reader.subscribers];
+      const identities = new Map<string, Subscriber[]>();
       const groups = new Map<string, Subscriber[]>();
-      // oxlint-disable eslint/no-await-in-loop -- Authorization transactions are short and bounded by the connection cap.
       for (const subscriber of participants) {
         if (subscriber.disconnected) {
           continue;
         }
+        const identity = principalIdentity(subscriber.principal);
+        const subscribers = identities.get(identity);
+        if (subscribers) {
+          subscribers.push(subscriber);
+        } else {
+          identities.set(identity, [subscriber]);
+        }
+      }
+      // oxlint-disable eslint/no-await-in-loop -- Authorization transactions are short and bounded by the connection cap.
+      for (const subscribers of identities.values()) {
+        const representative = subscribers[0];
+        if (!representative || stopped) {
+          return;
+        }
         const authority = await withAuthorizedTransaction(
           database,
-          subscriber.principal,
+          representative.principal,
           'event:read',
           reader.scope,
           () => Promise.resolve(true),
         );
-        if (!authority.ok) {
-          disconnect(reader, subscriber);
-          continue;
-        }
-        const group = groups.get(subscriber.cursor);
-        if (group) {
-          group.push(subscriber);
-        } else {
-          groups.set(subscriber.cursor, [subscriber]);
+        for (const subscriber of subscribers) {
+          if (!authority.ok) {
+            disconnect(reader, subscriber);
+            continue;
+          }
+          if (subscriber.disconnected) {
+            continue;
+          }
+          const group = groups.get(subscriber.cursor);
+          if (group) {
+            group.push(subscriber);
+          } else {
+            groups.set(subscriber.cursor, [subscriber]);
+          }
         }
       }
       for (const group of groups.values()) {
@@ -246,7 +265,7 @@ export function createEventStreamRuntime(database: DatabaseRuntime): EventStream
     }
     let reader = readers.get(scope.environmentId);
     if (
-      connections >= 256 ||
+      connections >= 1024 ||
       (reader?.subscribers.size ?? 0) >= 64 ||
       (!reader && readers.size >= 64)
     ) {
@@ -303,4 +322,19 @@ function cursorSequence(cursor: string): bigint {
     throw new Error('EVENT_CURSOR_INVALID: validated cursor has no sequence');
   }
   return BigInt(sequence);
+}
+
+function principalIdentity(principal: Principal): string {
+  switch (principal.kind) {
+    case 'human':
+      return JSON.stringify([principal.kind, principal.userId, principal.sessionId]);
+    case 'service-key':
+      return JSON.stringify([principal.kind, principal.keyId, principal.organizationId]);
+    default: {
+      const unreachable: never = principal;
+      throw new Error('EVENT_STREAM_PRINCIPAL_INVALID: unsupported principal', {
+        cause: unreachable,
+      });
+    }
+  }
 }
