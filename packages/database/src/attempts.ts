@@ -276,8 +276,8 @@ export async function reserveDeliveryAttempt(
       .update(deliveries)
       .set({ state: blockedState })
       .where(eq(deliveries.id, delivery.id));
-    await publishDeliveryState(transaction, job, blockedState);
     await completeDeliveryJob(queue, transaction, job.provider, claim);
+    await publishDeliveryState(transaction, job, blockedState);
     return { status: 'completed', state: blockedState };
   }
   const [snapshot] = await transaction
@@ -433,7 +433,7 @@ export async function settleDeliveryAttempt(
     throw new Error('DELIVERY_ATTEMPT_FENCE_LOST: attempt result was already settled');
   }
   await transaction.update(deliveries).set({ state }).where(eq(deliveries.id, delivery.id));
-  await publishDeliveryState(transaction, job, state);
   await completeDeliveryJob(queue, transaction, job.provider, claim);
+  await publishDeliveryState(transaction, job, state);
   return state;
 }
