@@ -1,0 +1,12 @@
+RunUTC=2026-10-11T15:30:32Z
+SourceCommit=b02aa05640cf088fd990640375ff2161d5c7afad
+LockfileSHA256=3b396c281057740867573a4d75549b992283089dcd9382fd4431212c629d1c79
+?? ops/qualify-recovery.sh
+DockerCPUs=8 DockerMemory=4106604544 Architecture=aarch64
+Image=sha256:bb79c1876109ffa4af7446b4a07b865b173ef8c414522d06167d43ad05aeadac Platform=linux/arm64
+v24.21.0
+12.6.0
+postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2)
+3.0.260903-beta
+OOMKilled=false Memory=2147483648 MemorySwap=2147483648 NanoCpus=2000000000 CpusetCpus=0,1
+ExitStatus=0

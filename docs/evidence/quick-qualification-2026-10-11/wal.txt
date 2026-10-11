@@ -1,0 +1,1 @@
+WAL reference fixture: PostgreSQL postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2); recovery 251 ms; conservative target loss window 39 ms; 3 recovered markers; 1 later marker excluded; backup manifest verified
