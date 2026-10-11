@@ -157,22 +157,24 @@ export async function settleAdmission(
   reservationId: string,
   remaining: number,
 ): Promise<void> {
-  const [budget] = await transaction
-    .select()
-    .from(tenantBudgets)
-    .where(eq(tenantBudgets.organizationId, organizationId))
-    .for('update');
-  const predicate = and(
-    eq(admissionReservations.organizationId, organizationId),
-    eq(admissionReservations.id, reservationId),
-  );
-  const [reservation] = await transaction.select().from(admissionReservations).where(predicate);
-  if (!budget || !reservation || remaining > reservation.remaining) {
+  const result = await transaction.execute(sql`
+    WITH locked_reservation AS MATERIALIZED (
+      SELECT organization_id,id,remaining FROM app.admission_reservations
+      WHERE organization_id=${organizationId}::uuid AND id=${reservationId}::uuid
+      FOR UPDATE
+    ), updated_reservation AS (
+      UPDATE app.admission_reservations reservation SET remaining=${remaining}
+      FROM locked_reservation locked
+      WHERE reservation.organization_id=locked.organization_id AND reservation.id=locked.id
+        AND ${remaining} >= 0 AND ${remaining} <= locked.remaining
+      RETURNING reservation.organization_id,locked.remaining-${remaining} AS released
+    )
+    UPDATE app.tenant_budgets budget SET pending=budget.pending-reservation.released
+    FROM updated_reservation reservation
+    WHERE budget.organization_id=reservation.organization_id
+    RETURNING budget.organization_id
+  `);
+  if (result.rows.length !== 1) {
     throw new Error('ADMISSION_RESERVATION_INVALID: invalid remaining work');
   }
-  await transaction
-    .update(tenantBudgets)
-    .set({ pending: budget.pending - (reservation.remaining - remaining) })
-    .where(eq(tenantBudgets.organizationId, organizationId));
-  await transaction.update(admissionReservations).set({ remaining }).where(predicate);
 }
