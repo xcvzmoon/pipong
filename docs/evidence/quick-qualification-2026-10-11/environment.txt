@@ -1,0 +1,22 @@
+RunUTC=2026-10-11T15:52:49Z
+SourceCommit=b02aa05640cf088fd990640375ff2161d5c7afad
+LockfileSHA256=3b396c281057740867573a4d75549b992283089dcd9382fd4431212c629d1c79
+ M apps/server/tests/restore.integration.test.ts
+ M brain/plans/01-notification-service/overview.md
+ M brain/plans/01-notification-service/phase-30-release.md
+ M docs/operations.md
+ M docs/release-evidence.md
+?? apps/server/tests/fixtures/wal-recovery.ts
+?? docs/backup-preparation.md
+?? docs/compatibility.md
+?? docs/evidence/deployment-recovery-2026-10-11/
+?? docs/publication.md
+?? ops/qualify-recovery.sh
+DockerCPUs=8 DockerMemory=4106604544 Architecture=aarch64
+Image=sha256:3c7e2a1960ddd4d80d83836b4ad8025609378d6118a01c2f0eb410b1be67be08 Platform=linux/arm64
+v24.21.0
+12.6.0
+postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2)
+3.0.260903-beta
+OOMKilled=false Memory=2147483648 MemorySwap=2147483648 NanoCpus=2000000000 CpusetCpus=0,1
+ExitStatus=0
