@@ -9,7 +9,7 @@ import * as v from 'valibot';
 const runtimeUrl = new URL('../../../worker/dist/runtime.mjs', import.meta.url);
 const { runWorker } = v.parse(
   v.object({
-    runWorker: v.custom<typeof WorkerRuntime.runWorker>((value) => value instanceof Function),
+    runWorker: v.custom<typeof WorkerRuntime.runWorker>((value) => v.is(v.function(), value)),
   }),
   await import(runtimeUrl.href),
 );
