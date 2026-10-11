@@ -1,18 +1,73 @@
 # Release qualification evidence
 
-Status on 2026-10-11: internal integration only. Production qualification is open.
+Status on 2026-10-12: internal integration only. Production qualification is open.
 Push consumers default to disabled; full readiness requires their fresh leases. No measured capacity,
 availability SLA, provider display guarantee, or production RPO/RTO is published.
 
+## Current remaining gates
+
+- Representative-dataset and sustained-traffic recovery on the local target.
+- Off-host backups and host-loss rehearsal; no off-host destination is configured.
+- Remaining operational incidents, including authentication-secret compromise
+  and actual provider-account revocation.
+- The original 50-request/s performance envelope. The passing local workloads
+  establish lower measured rates, not that original gate.
+- Live-provider/device qualification, deferred at the user's request.
+- Verify registry publication after the owner-reported package Actions grants,
+  then install the intended revision from published artifacts without a source checkout.
+- Final review of the evidence and supported claims before release sign-off.
+
+The owner reported correcting Actions access for all four packages on 2026-10-12;
+publication has not yet been retried. Hosted baseline CI is green. The [compatibility record](compatibility.md),
+[publication checklist](publication.md), and [backup preparation](backup-preparation.md)
+describe current prerequisites and limits. Dated failures below remain historical
+evidence; later packets supersede their specific unqualified local behaviors.
+
+## Application WAL recovery and focused incidents, 2026-10-11
+
+Small-dataset application physical recovery passed within two CPUs/2 GiB/no
+swap on Linux arm64. The base-backup manifest was verified; post-backup service-key
+revocation and environment erasure survived archived WAL replay to a named target,
+while a later accepted notification was excluded. Built API/worker sessions,
+idempotency, status/SSE replay, erasure, and active-send lease recovery passed.
+Application recovery took 75,074 ms; peak memory was about 1.25 GiB with no OOM,
+memory-limit, or CPU-throttling events. Ten credential/service-key integration
+cases passed, covering revocation, encryption rotation, removed-key failure,
+credential retirement, and permission/lifecycle boundaries.
+
+See the [complete qualification packet](evidence/quick-qualification-2026-10-11/README.md)
+for commands, source/image identities, tool versions, raw results, and limits.
+This closes application WAL mechanics with a small dataset; representative
+datasets, sustained-traffic and off-host recovery remain open.
+
+## Constrained local deployment recovery, 2026-10-11
+
+The built API/worker recovery and separate physical WAL drills passed on the
+current M1's Linux arm64 Docker target within two CPUs/2 GiB/no swap, with
+external networking disabled. Application recovery took 74,926 ms, including
+active-send queue lease recovery; post-snapshot revocation and erasure were
+reconciled before startup. The separate WAL marker fixture recovered in 1,159 ms.
+Peak memory was about 794 MiB with no memory-limit, OOM, or CPU-throttling events.
+The separate clean-volume production-image drill passed in about 23 seconds,
+including separate secret restoration, migrations, API liveness, worker leases,
+and graceful shutdown. That Compose drill had no aggregate resource cap and
+used disabled push consumers.
+
+See the [deployment recovery packet](evidence/deployment-recovery-2026-10-11/README.md)
+for source/image identities, commands, versions, raw results, and scope limits.
+The subsequent application WAL packet above closes the small-dataset physical
+recovery gap. Sustained-traffic and off-host backup/host-loss rehearsal remain open. These timings do not establish
+production RPO/RTO.
+
 ## Exercised boundaries
 
-| Gate                 | Evidence                                                                                                                                                                                                                                                                                                                                   | Limit                                                                                                                                                                 |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Database/key restore | `packages/service/tests/release-smoke.integration.test.ts`: actual PostgreSQL 18 dump/restore, repeat migrations, credential decryption, absent-key denial, changed-tenant authentication failure, runtime RLS and DDL denial                                                                                                              | Small synthetic fixture; no full API/worker recovery, historical erasure reconciliation, WAL recovery, or production RPO/RTO                                          |
-| Runtime restore      | `apps/server/tests/restore.integration.test.ts`: built API/worker against an empty restored database, separate key backup, sessions, revoked keys, idempotency, pending jobs, ambiguous exhausted attempts, SSE replay, and resumable recipient erasure; `ops/check-images.sh`: clean-volume image restore and recovered API/worker leases | Small synthetic fixtures with disabled push consumers; post-snapshot incident reconciliation, active provider sends, WAL recovery, and production RPO/RTO remain open |
-| Provider protocols   | APNs, FCM, Web Push integration suites                                                                                                                                                                                                                                                                                                     | Controlled protocol fixtures; no physical device/browser qualification                                                                                                |
-| HTTP/SSE             | Built HTTP observation and TLS stream suites                                                                                                                                                                                                                                                                                               | Functional 1,024-stream process-cap and revocation coverage; deployment capacity remains open                                                                         |
-| Installation and CI  | Phase 28/29 local four-image TLS installation and 238-test evidence                                                                                                                                                                                                                                                                        | Hosted gates and image checks passed for v0.0.6; registry write permission and installation from published artifacts remain open                                      |
+| Gate                 | Evidence                                                                                                                                                                                                                                                                                                                                   | Limit                                                                                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Database/key restore | `packages/service/tests/release-smoke.integration.test.ts`: actual PostgreSQL 18 dump/restore, repeat migrations, credential decryption, absent-key denial, changed-tenant authentication failure, runtime RLS and DDL denial                                                                                                              | Small credential fixture; application recovery evidence is recorded separately; production RPO/RTO remains open                                                               |
+| Runtime restore      | `apps/server/tests/restore.integration.test.ts`: built API/worker against an empty restored database, separate key backup, sessions, revoked keys, idempotency, pending jobs, ambiguous exhausted attempts, SSE replay, and resumable recipient erasure; `ops/check-images.sh`: clean-volume image restore and recovered API/worker leases | Small application fixtures with controlled TLS Web Push; representative dataset, sustained-traffic and host-loss recovery remain open                                         |
+| Provider protocols   | APNs, FCM, Web Push integration suites                                                                                                                                                                                                                                                                                                     | Controlled protocol fixtures; no physical device/browser qualification                                                                                                        |
+| HTTP/SSE             | Built HTTP observation and TLS stream suites                                                                                                                                                                                                                                                                                               | 1,000 sustained TLS streams passed on the local target; original 50-request/s envelope and live-provider qualification remain open                                            |
+| Installation and CI  | Phase 28/29 local four-image TLS installation and 238-test evidence                                                                                                                                                                                                                                                                        | Hosted CI passed for b02aa056; v0.0.6 registry publication failed; owner reports Actions grants corrected; registry publication and current-artifact installation remain open |
 
 Run `ops/check-ci.sh` against a dedicated disposable PostgreSQL 18 cluster.
 The restore test additionally requires PostgreSQL 18 client binaries on PATH.
@@ -737,17 +792,17 @@ and failure observations. Keep raw secrets, device tokens, and payloads out of
 public evidence. Link client receipt/display observations to persisted attempt
 and provider receipt IDs without publishing identifying values.
 
-| Open gate           | Required observations                                                                                                                                                                                                   |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| APNs                | Apple account, scoped key, signed push-enabled app; physical device versions; sandbox and production/TestFlight; alert/background, re-registration, receipt correlation                                                 |
-| FCM                 | Project/API/IAM identity, instrumented Android app/device, permission and channel state; registration refresh and project mismatch; receipt correlation                                                                 |
-| Web Push            | HTTPS service worker; Chromium, Firefox, Safari, iOS Home Screen versions; permissions, VAPID re-subscription, offline TTL, receipt/display correlation                                                                 |
-| Full restore        | Qualify active provider sends and queue leases after recovery; reconcile revocations and erasure requests recorded after the snapshot; rehearse WAL recovery and measure RPO/RTO on the intended deployment and dataset |
-| Sustained load      | Two API replicas/two workers/PostgreSQL 18 reference topology; 50 accepted requests/s, two endpoints/request for 30 minutes; acceptance p95 <=250 ms, dispatch p95 <=2 s excluding required retry waits                 |
-| Burst and fairness  | Backlog drain, 1,000-endpoint submission, noisy tenant alongside quiet tenant; per-tenant admission/dispatch latency and throughput                                                                                     |
-| SSE capacity        | 1,000 concurrent TLS clients; environment count, bytes, memory, CPU, DB waits, disconnect/replay and revocation under load                                                                                              |
-| Incident rehearsal  | Service/provider/encryption/authentication key compromise, DB outage, backlog and stream recovery using operations runbooks                                                                                             |
-| Published artifacts | Successful hosted workflows, registry digests, clean installation without source checkout, pinned compatibility matrix                                                                                                  |
+| Open gate           | Required observations                                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| APNs                | Apple account, scoped key, signed push-enabled app; physical device versions; sandbox and production/TestFlight; alert/background, re-registration, receipt correlation                                 |
+| FCM                 | Project/API/IAM identity, instrumented Android app/device, permission and channel state; registration refresh and project mismatch; receipt correlation                                                 |
+| Web Push            | HTTPS service worker; Chromium, Firefox, Safari, iOS Home Screen versions; permissions, VAPID re-subscription, offline TTL, receipt/display correlation                                                 |
+| Full restore        | Representative-dataset physical/WAL recovery under sustained traffic, off-host backup retrieval and host-loss rehearsal, and measured deployment RPO/RTO                                                |
+| Sustained load      | Two API replicas/two workers/PostgreSQL 18 reference topology; 50 accepted requests/s, two endpoints/request for 30 minutes; acceptance p95 <=250 ms, dispatch p95 <=2 s excluding required retry waits |
+| Burst and fairness  | Backlog drain, 1,000-endpoint submission, noisy tenant alongside quiet tenant; per-tenant admission/dispatch latency and throughput                                                                     |
+| SSE capacity        | 1,000 concurrent TLS clients; environment count, bytes, memory, CPU, DB waits, disconnect/replay and revocation under load                                                                              |
+| Incident rehearsal  | Service/provider/encryption/authentication key compromise, DB outage, backlog and stream recovery using operations runbooks                                                                             |
+| Published artifacts | Successful hosted workflows, registry digests, clean installation without source checkout, pinned compatibility matrix                                                                                  |
 
 These are proposed acceptance gates from the plan, not supported performance
 claims. Delivery load cannot be qualified with disabled provider consumers.

@@ -89,6 +89,32 @@ excluded. It creates and removes its own trust-authenticated local cluster.
 These local drills do not establish production RPO/RTO or live-device delivery.
 Apply post-snapshot incident records before reopening ingress.
 
+Run the built-runtime and separate WAL drills on the local Linux deployment
+target with:
+
+```sh
+RECOVERY_REPORT_DIR=/tmp/pipong-recovery-evidence sh ops/qualify-recovery.sh
+```
+
+The report directory must not already exist. The runner builds the current
+checkout and runs PostgreSQL, the built API/worker, test driver, and controlled
+TLS provider in one Linux container capped at two CPUs and 2 GiB with no swap.
+Its network is isolated; no real provider can receive a test notification.
+It records source and image identities, tool versions, test output, peak memory,
+and cgroup events, then removes its container and temporary image tags. Failed
+runs retain their evidence and return a nonzero exit status.
+
+The runner restores the small application fixture from both a logical backup
+and a physical base backup plus archived WAL. The physical path proves that
+post-backup revocation and erasure survive replay to a named target while a
+later notification is excluded. Both paths check sessions, idempotency, replay,
+and active-send lease recovery. Focused credential/service-key tests also check
+revocation, encryption rotation, and missing-key failure. The separate WAL marker
+drill remains a reference check. These fixtures do not measure a production-sized
+dataset or recovery under sustained traffic. Run the clean-volume image drill
+separately to verify mounted secrets, role provisioning, database TLS, and
+production image startup.
+
 ## Compromised credentials
 
 For an organization service key, revoke the key through the authorized service-key
