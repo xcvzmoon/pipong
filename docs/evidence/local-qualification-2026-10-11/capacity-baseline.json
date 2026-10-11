@@ -1,0 +1,236 @@
+{
+  "durationSeconds": 60,
+  "offeredDurationMs": 59981,
+  "scheduleLagMs": 197,
+  "offeredRequests": 3000,
+  "statuses": {
+    "202": 3000
+  },
+  "acceptanceP95Ms": 1366.1929999999993,
+  "bulk": {
+    "status": 202,
+    "milliseconds": 261.4602920000034,
+    "burstDrainMs": 7043,
+    "unfinished": 0
+  },
+  "providerRequests": 8500,
+  "completedDeliveries": 8500,
+  "resources": {
+    "processes": [
+      {
+        "role": "api",
+        "rssKiB": 215596,
+        "cpuPercent": 19.1
+      },
+      {
+        "role": "api",
+        "rssKiB": 219200,
+        "cpuPercent": 19
+      },
+      {
+        "role": "consumer",
+        "rssKiB": 271836,
+        "cpuPercent": 70
+      },
+      {
+        "role": "consumer",
+        "rssKiB": 306352,
+        "cpuPercent": 57.5
+      }
+    ],
+    "cpuMetric": "maximum sampled ps lifetime-average percent",
+    "databaseWaitSamples": {
+      "Lock:transactionid": 29,
+      "Client:ClientRead": 3,
+      "IO:WalSync": 6,
+      "Lock:tuple": 7,
+      "IO:WalInitSync": 1,
+      "LWLock:WALWrite": 2
+    },
+    "samplingFailures": 0,
+    "cgroup": {
+      "cpuMax": "200000 100000",
+      "cpuSet": "0-1",
+      "cpu": {
+        "usage_usec": 156632302,
+        "user_usec": 137868321,
+        "system_usec": 18763981,
+        "nice_usec": 0,
+        "nr_periods": 1183,
+        "nr_throttled": 0,
+        "throttled_usec": 0,
+        "nr_bursts": 0,
+        "burst_usec": 0
+      },
+      "memoryMaxBytes": 2147483648,
+      "memoryPeakBytes": 1258315776,
+      "swapMaxBytes": 0
+    }
+  },
+  "sse": {
+    "offered": 1000,
+    "holdSeconds": 30,
+    "offeredDurationMs": 29981,
+    "scheduleLagMs": 22,
+    "liveAfterLoad": 1000,
+    "deliveredStreams": 1000,
+    "bytes": 115905000,
+    "concurrentRequests": 1500,
+    "acceptanceStatuses": {
+      "202": 1500
+    },
+    "acceptanceP95Ms": 48.37112500000512,
+    "environments": 20,
+    "statuses": {
+      "200": 1000,
+      "404": 1
+    },
+    "streamErrors": 0,
+    "revokedInWindow": true,
+    "reconnectStatus": 404
+  },
+  "dispatch": [
+    {
+      "organization_id": "01a12a7c-7aaf-70b2-a428-b588ff3c3cd3",
+      "count": 5880,
+      "p95": 6838.699999999996
+    },
+    {
+      "organization_id": "01a12a7c-7abf-769d-b0b9-d48cd399828d",
+      "count": 120,
+      "p95": 6436.549999999994
+    },
+    {
+      "organization_id": "01a12a7c-7ac6-7366-bd67-492a7291f984",
+      "count": 1000,
+      "p95": 6816.4
+    },
+    {
+      "organization_id": "01a12a7d-a129-75f3-afa2-1839d2a733de",
+      "count": 75,
+      "p95": 842.5
+    },
+    {
+      "organization_id": "01a12a7d-a136-75a7-a027-f6619effa3f4",
+      "count": 75,
+      "p95": 961.8
+    },
+    {
+      "organization_id": "01a12a7d-a13f-70d4-ae2c-cbe4099e5cd3",
+      "count": 75,
+      "p95": 990.3
+    },
+    {
+      "organization_id": "01a12a7d-a148-7662-b6e6-0714d7d08397",
+      "count": 75,
+      "p95": 980.1999999999999
+    },
+    {
+      "organization_id": "01a12a7d-a150-7183-87aa-3ee976e1e730",
+      "count": 75,
+      "p95": 972.9
+    },
+    {
+      "organization_id": "01a12a7d-a158-7396-abcf-bfb0d3a411d1",
+      "count": 75,
+      "p95": 961.3
+    },
+    {
+      "organization_id": "01a12a7d-a15f-736f-8f23-0e3a874f811a",
+      "count": 75,
+      "p95": 962.5999999999999
+    },
+    {
+      "organization_id": "01a12a7d-a166-7307-ae3f-adc56ec7253b",
+      "count": 75,
+      "p95": 966
+    },
+    {
+      "organization_id": "01a12a7d-a16b-70e1-8ff2-1426382e2f6e",
+      "count": 75,
+      "p95": 949.1999999999999
+    },
+    {
+      "organization_id": "01a12a7d-a170-7685-a3c0-95ae1216d505",
+      "count": 75,
+      "p95": 942
+    },
+    {
+      "organization_id": "01a12a7d-a175-7774-a677-3931737f6006",
+      "count": 75,
+      "p95": 933.6
+    },
+    {
+      "organization_id": "01a12a7d-a17a-75a0-907d-cae252d13b42",
+      "count": 75,
+      "p95": 926.3
+    },
+    {
+      "organization_id": "01a12a7d-a17f-7006-9855-b1e80d984e0b",
+      "count": 75,
+      "p95": 918.1999999999999
+    },
+    {
+      "organization_id": "01a12a7d-a183-714f-9417-3ebf0e606456",
+      "count": 75,
+      "p95": 909
+    },
+    {
+      "organization_id": "01a12a7d-a188-7104-846f-1de8f40f7c65",
+      "count": 75,
+      "p95": 899.3
+    },
+    {
+      "organization_id": "01a12a7d-a18d-73f5-9fb6-633ed236ec17",
+      "count": 75,
+      "p95": 889
+    },
+    {
+      "organization_id": "01a12a7d-a191-772c-bfd7-4d0d077a566a",
+      "count": 75,
+      "p95": 876.9
+    },
+    {
+      "organization_id": "01a12a7d-a197-7629-a6f2-77807896bab6",
+      "count": 75,
+      "p95": 868.1999999999999
+    },
+    {
+      "organization_id": "01a12a7d-a19c-71dc-8dee-62cdd30a9453",
+      "count": 75,
+      "p95": 860.9999999999999
+    },
+    {
+      "organization_id": "01a12a7d-a1a1-74da-ad47-b25505c489a1",
+      "count": 75,
+      "p95": 857.9
+    }
+  ],
+  "memory": {
+    "rss": 354828288,
+    "heapTotal": 199802880,
+    "heapUsed": 79367904,
+    "external": 4739643,
+    "arrayBuffers": 548859
+  },
+  "topology": {
+    "backend": {
+      "runtime": "v24.21.0",
+      "platform": "linux",
+      "architecture": "arm64"
+    },
+    "driver": {
+      "runtime": "v24.21.0",
+      "platform": "darwin",
+      "architecture": "arm64"
+    },
+    "cpuLimit": "2",
+    "memoryLimit": "2g",
+    "api": 2,
+    "consumers": 2,
+    "retainedJobs": 150000,
+    "environments": 3,
+    "database": "PostgreSQL 18",
+    "provider": "local TLS HTTP/2 APNs fixture"
+  }
+}
