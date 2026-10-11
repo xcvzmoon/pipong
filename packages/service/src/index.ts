@@ -126,6 +126,7 @@ export type {
 
 export { createApnsRuntime, settleApnsDelivery } from './providers/apns.ts';
 export type { ApnsRuntime, ApnsOutcome } from './providers/apns.ts';
+export { createFcmAuth } from './providers/fcm-auth.ts';
 export { createFcmRuntime, settleFcmDelivery } from './providers/fcm.ts';
 export type { FcmBinding, FcmRuntime, FcmOutcome, FcmResponse } from './providers/fcm.ts';
 

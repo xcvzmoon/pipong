@@ -4,7 +4,7 @@ export default defineConfig({
   loader: {
     '.hbs': 'text',
   },
-  entry: ['src/index.ts', 'src/operator.ts'],
+  entry: ['src/index.ts', 'src/operator.ts', 'src/runtime.ts'],
   deps: {
     alwaysBundle: [
       '@pipong/auth',

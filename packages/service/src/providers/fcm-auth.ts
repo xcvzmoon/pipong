@@ -52,6 +52,7 @@ export class FcmAuthError extends Error {
  * Creates an FCM-scoped OAuth client for one immutable credential version. Active callers share one refresh; each caller can leave independently, and the last departing caller or client shutdown cancels the exchange.
  * @param clientEmail - Service account email from the encrypted credential.
  * @param privateKey - RSA private key from the encrypted credential.
+ * @param tokenFetch - OAuth exchange transport; defaults to direct HTTPS fetch.
  * @returns A client that caches its short-lived OAuth token and owns refresh cancellation.
  * @throws {Error} FCM_AUTH_ABORTED is thrown when the caller or client closes; OAuth failures are reported as FcmAuthError.
  * @example
