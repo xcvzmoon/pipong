@@ -181,18 +181,19 @@ export function fetchDeliveryJobs(
       sql`SELECT pg_advisory_xact_lock(hashtextextended(${'pipong.delivery.' + provider}, 0))`,
     );
     const [budget] = await transaction
-      .select()
+      .select({
+        globalConcurrency: providerBudgets.globalConcurrency,
+        tenantConcurrency: providerBudgets.tenantConcurrency,
+        active: sql<number>`(SELECT count(*)::integer FROM pgboss.job WHERE name = ${'delivery-' + provider} AND state = 'active')`,
+      })
       .from(providerBudgets)
       .where(eq(providerBudgets.provider, provider));
     if (!budget) {
       throw new Error('DELIVERY_PROVIDER_BUDGET_UNAVAILABLE: provider budget is unavailable');
     }
-    const result = await transaction.execute(
-      sql`SELECT count(*)::integer AS active FROM pgboss.job WHERE name = ${'delivery-' + provider} AND state = 'active'`,
-    );
     const active = v.parse(
       v.object({ active: v.pipe(v.number(), v.integer(), v.minValue(0)) }),
-      result.rows[0],
+      budget,
     ).active;
     if (active >= budget.globalConcurrency) {
       return [];
