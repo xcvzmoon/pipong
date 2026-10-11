@@ -104,6 +104,55 @@ export async function insertDeliveryJob(
 }
 
 /**
+ * Inserts a bounded batch through pg-boss using the acceptance transaction.
+ * Each provider batch must insert every requested ID; suppression aborts acceptance.
+ * Jobs retain tenant concurrency groups and unfinished-job retention protection.
+ * @param queue - Started queue backed by the same database.
+ * @param transaction - Transaction containing persisted deliveries and admission.
+ * @param jobs - Validated identifier-only jobs with fresh UUIDv7 IDs.
+ * @returns Resolves after every job is inserted and protected until completion.
+ * @throws {Error} DELIVERY_ENQUEUE_FAILED if any insertion or retention update is suppressed. Database errors propagate and must abort acceptance.
+ * @example
+ * ```ts
+ * await insertDeliveryJobs(queue, transaction, [{ id: jobId, data: deliveryJob }]);
+ * ```
+ */
+export async function insertDeliveryJobs(
+  queue: QueueRuntime,
+  transaction: TenantTransaction,
+  jobs: { id: string; data: DeliveryJob }[],
+): Promise<void> {
+  const groups = new Map<DeliveryJob['provider'], { id: string; data: DeliveryJob }[]>();
+  for (const job of jobs) {
+    const group = groups.get(job.data.provider);
+    if (group) {
+      group.push(job);
+    } else {
+      groups.set(job.data.provider, [job]);
+    }
+  }
+  // oxlint-disable eslint/no-await-in-loop -- At most three provider batches share the acceptance transaction.
+  for (const [provider, group] of groups) {
+    const name = `delivery-${provider}`;
+    const ids = await queue.insert(
+      name,
+      group.map(({ id, data }) => ({ id, data, group: { id: data.organizationId } })),
+      { db: fromDrizzle(transaction, sql), returnId: true },
+    );
+    if (ids?.length !== group.length) {
+      throw new Error('DELIVERY_ENQUEUE_FAILED: batch insertion was suppressed');
+    }
+    const result = await transaction.execute(sql`UPDATE pgboss.job
+      SET keep_until = 'infinity'::timestamptz
+      WHERE name = ${name} AND id = ANY(${sql.param(ids)}::uuid[]) RETURNING id`);
+    if (result.rows.length !== group.length) {
+      throw new Error('DELIVERY_ENQUEUE_FAILED: unfinished batch retention was not protected');
+    }
+  }
+  // oxlint-enable eslint/no-await-in-loop
+}
+
+/**
  * Claims provider work within database-wide and per-tenant concurrency limits.
  * All delivery consumers must use this boundary. It serializes claim selection per
  * provider, counts active pg-boss claims, and commits before network I/O. A tenant's

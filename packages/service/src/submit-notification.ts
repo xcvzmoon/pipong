@@ -10,6 +10,8 @@ import type { AdmissionDecision } from './limits.ts';
 import type { ApiProblem, NotificationRequest } from './notification-contract.ts';
 import type { PayloadDestination } from './provider-payloads.ts';
 import type { SecretKeyring } from './secrets.ts';
+import { insertDeliveryJobs } from '@pipong/database/delivery-queue';
+import { appendDeliveryEvents } from '@pipong/database/events';
 import {
   lockSubmission,
   persistSubmission,
@@ -20,7 +22,6 @@ import { createHash } from 'node:crypto';
 import { v7 } from 'uuid';
 import * as v from 'valibot';
 import { endpointInputSchema } from './endpoints.ts';
-import { recordDeliveryEvent } from './events.ts';
 import { admitNotification } from './limits.ts';
 import {
   boundNotificationTargets,
@@ -28,7 +29,6 @@ import {
   notificationLimits,
 } from './notification-contract.ts';
 import { encodeProviderPayload } from './provider-payloads.ts';
-import { enqueueDelivery } from './queue.ts';
 import { decryptSecret } from './secrets.ts';
 
 export const idempotencyKeySchema = v.pipe(v.string(), v.regex(/^[A-Za-z0-9._:-]{1,200}$/));
@@ -110,7 +110,7 @@ export async function submitNotification(
     return bounded;
   }
   const notificationId = v7();
-  const snapshots: DeliveryInsert[] = [];
+  const snapshots: (DeliveryInsert & { id: string })[] = [];
   for (const target of targets) {
     const deliveryId = v7();
     const payload = encodeProviderPayload(
@@ -164,26 +164,30 @@ export async function submitNotification(
       expiresAt: new Date(now.getTime() + 7 * 86400000),
     },
   );
-  // oxlint-disable eslint/no-await-in-loop -- Events and queue writes share the acceptance transaction and deterministic delivery order.
-  for (const snapshot of snapshots) {
-    if (!snapshot.id) {
-      throw new Error('SUBMISSION_DELIVERY_INVALID: missing delivery identity');
-    }
-    await recordDeliveryEvent(transaction, scope, {
-      notificationId,
-      deliveryId: snapshot.id,
-      state: 'queued',
-    });
-    await enqueueDelivery(queue, transaction, v7(), {
-      organizationId: scope.organizationId,
-      projectId: scope.projectId,
-      environmentId: scope.environmentId,
-      notificationId,
-      deliveryId: snapshot.id,
-      provider: snapshot.provider,
-    });
-  }
-  // oxlint-enable eslint/no-await-in-loop
+  await appendDeliveryEvents(
+    transaction,
+    scope,
+    snapshots.map((snapshot) => {
+      return { notificationId, deliveryId: snapshot.id, state: 'queued' };
+    }),
+  );
+  await insertDeliveryJobs(
+    queue,
+    transaction,
+    snapshots.map((snapshot) => {
+      return {
+        id: v7(),
+        data: {
+          organizationId: scope.organizationId,
+          projectId: scope.projectId,
+          environmentId: scope.environmentId,
+          notificationId,
+          deliveryId: snapshot.id,
+          provider: snapshot.provider,
+        },
+      };
+    }),
+  );
   return { ok: true, value: response };
 }
 
