@@ -7,6 +7,8 @@ until the gates in [release evidence](release-evidence.md) pass.
 ## Backup and restore
 
 Back up the entire database, including auth, app, queue, and migration schemas.
+See [backup preparation](backup-preparation.md) for the storage, secret, and
+recovery-record prerequisites. No off-host destination is currently configured.
 Use PostgreSQL 18 tools and an authorized backup identity. A custom-format
 `pg_dump` is a consistent snapshot; record its start time and successful finish.
 For continuous recovery, configure and rehearse PostgreSQL base backups and WAL
