@@ -38,6 +38,14 @@ const remoteVariables = [
   'API_DATABASE_MAX_POOL',
   'WORKER_DATABASE_MAX_POOL',
   'QUALIFICATION_PROVIDER_ORIGIN',
+  'QUALIFICATION_WEB_PUSH_ORIGIN',
+  'QUALIFICATION_FCM_ORIGIN',
+  'PUSH_DELIVERY_ENABLED',
+  'WEB_PUSH_SUBJECT',
+  'AUTH_MAIL_FROM',
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_SECURITY',
 ];
 const bootstrap = `
   import { writeFile } from 'node:fs/promises';
@@ -86,12 +94,6 @@ export async function startFixtureProcess(
     remoteEnvironment.HOST = '0.0.0.0';
     const firstPort = new URL(v.parse(v.string(), process.env.QUALIFICATION_API_URL_1)).port;
     remoteEnvironment.PORT = environment.PORT === firstPort ? '3000' : '3001';
-    const providerOrigin = remoteEnvironment.QUALIFICATION_PROVIDER_ORIGIN;
-    if (providerOrigin) {
-      const url = new URL(providerOrigin);
-      url.hostname = 'host.docker.internal';
-      remoteEnvironment.QUALIFICATION_PROVIDER_ORIGIN = url.href;
-    }
     const keyring = v.parse(v.string(), environment.CREDENTIAL_KEYRING_REF);
     const remoteKeyring = `/tmp/pipong-keyring-${randomUUID()}.json`;
     await runCommand('docker', ['cp', keyring, `${container}:${remoteKeyring}`]);
