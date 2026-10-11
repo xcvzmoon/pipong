@@ -1,0 +1,17 @@
+$ pnpm --filter pipong-server --fail-if-no-match run test tests/restore.integration.test.ts --no-file-parallelism --silent=false
+$ vitest --run tests/restore.integration.test.ts --no-file-parallelism --silent=false
+
+ RUN  v5.0.3 /workspace/apps/server
+
+stdout | tests/restore.integration.test.ts > built API and worker recovery from separate database/key backups > reconciles post-snapshot revocation and erasure before restoring sessions, replay and work
+Runtime restore: 74926 ms recovery; 98 ms conservative snapshot loss window; one post-snapshot acceptance absent; post-snapshot revocation/erasure reconciled before startup; active TLS Web Push crash/lease recovery passed; first provider request ambiguous; second accepted
+
+ ✓ tests/restore.integration.test.ts (1 test) 81444ms
+   ✓ built API and worker recovery from separate database/key backups (1)
+     ✓ reconciles post-snapshot revocation and erasure before restoring sessions, replay and work 81442ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  15:31:44
+   Duration  82.79s (tests 98%, import 1%, transform 1%)
+

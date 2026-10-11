@@ -1,0 +1,135 @@
+ Network pipong-ci-69359_default Creating 
+ Volume pipong-ci-69359_database Creating 
+ Volume pipong-ci-69359_database Creating 
+ Network pipong-ci-69359_default Creating 
+ Volume pipong-ci-69359_database Created 
+ Volume pipong-ci-69359_database Created 
+ Network pipong-ci-69359_default Created 
+ Network pipong-ci-69359_default Created 
+ Container pipong-ci-69359-database-1 Creating 
+ Container pipong-ci-69359-database-1 Created 
+ Container pipong-ci-69359-database-1 Starting 
+ Container pipong-ci-69359-database-1 Started 
+ Container pipong-ci-69359-database-1 Waiting 
+ Container pipong-ci-69359-database-1 Healthy 
+ Container pipong-ci-69359-migrate-run-43ac16b3fc6a Creating 
+ Container pipong-ci-69359-migrate-run-43ac16b3fc6a Created 
+Reading config file '/workspace/packages/database/drizzle.migrate.config.ts'
+Using 'pg' driver for database querying
+[⣷] applying migrations...[✓] migrations applied successfully!Reading config file '/workspace/packages/database/drizzle.auth.migrate.config.ts'
+Using 'pg' driver for database querying
+[⣷] applying migrations...[⣯] applying migrations...[✓] migrations applied successfully!Reading config file '/workspace/packages/database/drizzle.tenancy.migrate.config.ts'
+Using 'pg' driver for database querying
+[⣷] applying migrations...[✓] migrations applied successfully! Container pipong-ci-69359-migrate-run-5a58fb3107d6 Creating 
+ Container pipong-ci-69359-migrate-run-5a58fb3107d6 Created 
+Reading config file '/workspace/packages/database/drizzle.migrate.config.ts'
+Using 'pg' driver for database querying
+[⣷] applying migrations...[✓] migrations applied successfully!Reading config file '/workspace/packages/database/drizzle.auth.migrate.config.ts'
+Using 'pg' driver for database querying
+[⣷] applying migrations...[✓] migrations applied successfully!Reading config file '/workspace/packages/database/drizzle.tenancy.migrate.config.ts'
+Using 'pg' driver for database querying
+[⣷] applying migrations...[✓] migrations applied successfully! Container pipong-ci-69359-operator-run-ae2909544ad7 Creating 
+ Container pipong-ci-69359-operator-run-ae2909544ad7 Created 
+{"organizationId":"01a12b98-f4a7-771f-880b-e241478e88d7","userId":"01a12b98-f496-7345-8c27-e9f4d5a20d7e"}
+ Container pipong-ci-69359-database-1 Running 
+ Container pipong-ci-69359-worker-1 Creating 
+ Container pipong-ci-69359-api-1 Creating 
+ Container pipong-ci-69359-worker-1 Created 
+ Container pipong-ci-69359-api-1 Created 
+ Container pipong-ci-69359-database-1 Waiting 
+ Container pipong-ci-69359-database-1 Waiting 
+ Container pipong-ci-69359-database-1 Healthy 
+ Container pipong-ci-69359-api-1 Starting 
+ Container pipong-ci-69359-database-1 Healthy 
+ Container pipong-ci-69359-worker-1 Starting 
+ Container pipong-ci-69359-api-1 Started 
+ Container pipong-ci-69359-worker-1 Started 
+ Container pipong-ci-69359-api-1 Waiting 
+ Container pipong-ci-69359-worker-1 Waiting 
+ Container pipong-ci-69359-database-1 Waiting 
+ Container pipong-ci-69359-worker-1 Healthy 
+ Container pipong-ci-69359-database-1 Healthy 
+ Container pipong-ci-69359-api-1 Healthy 
+{"status":"alive"} Container pipong-ci-69359-worker-1 Stopping 
+ Container pipong-ci-69359-api-1 Stopping 
+ Container pipong-ci-69359-worker-1 Stopped 
+ Container pipong-ci-69359-api-1 Stopped 
+ Container pipong-ci-69359-worker-1 Stopping 
+ Container pipong-ci-69359-api-1 Stopping 
+ Container pipong-ci-69359-worker-1 Stopped 
+ Container pipong-ci-69359-worker-1 Removing 
+ Container pipong-ci-69359-api-1 Stopped 
+ Container pipong-ci-69359-api-1 Removing 
+ Container pipong-ci-69359-worker-1 Removed 
+ Container pipong-ci-69359-api-1 Removed 
+ Container pipong-ci-69359-database-1 Stopping 
+ Container pipong-ci-69359-database-1 Stopped 
+ Container pipong-ci-69359-database-1 Removing 
+ Container pipong-ci-69359-database-1 Removed 
+ Volume pipong-ci-69359_database Removing 
+ Network pipong-ci-69359_default Removing 
+ Volume pipong-ci-69359_database Removed 
+ Network pipong-ci-69359_default Removed 
+ Network pipong-ci-69359_default Creating 
+ Network pipong-ci-69359_default Creating 
+ Volume pipong-ci-69359_database Creating 
+ Volume pipong-ci-69359_database Creating 
+ Volume pipong-ci-69359_database Created 
+ Volume pipong-ci-69359_database Created 
+ Network pipong-ci-69359_default Created 
+ Network pipong-ci-69359_default Created 
+ Container pipong-ci-69359-database-1 Creating 
+ Container pipong-ci-69359-database-1 Created 
+ Container pipong-ci-69359-database-1 Starting 
+ Container pipong-ci-69359-database-1 Started 
+ Container pipong-ci-69359-database-1 Waiting 
+ Container pipong-ci-69359-database-1 Healthy 
+ Container pipong-ci-69359-migrate-run-7610e5323f20 Creating 
+ Container pipong-ci-69359-migrate-run-7610e5323f20 Created 
+Reading config file '/workspace/packages/database/drizzle.migrate.config.ts'
+Using 'pg' driver for database querying
+[⣷] applying migrations...[✓] migrations applied successfully!Reading config file '/workspace/packages/database/drizzle.auth.migrate.config.ts'
+Using 'pg' driver for database querying
+[⣷] applying migrations...[✓] migrations applied successfully!Reading config file '/workspace/packages/database/drizzle.tenancy.migrate.config.ts'
+Using 'pg' driver for database querying
+[⣷] applying migrations...[✓] migrations applied successfully! Container pipong-ci-69359-database-1 Running 
+ Container pipong-ci-69359-worker-1 Creating 
+ Container pipong-ci-69359-api-1 Creating 
+ Container pipong-ci-69359-api-1 Created 
+ Container pipong-ci-69359-worker-1 Created 
+ Container pipong-ci-69359-database-1 Waiting 
+ Container pipong-ci-69359-database-1 Waiting 
+ Container pipong-ci-69359-database-1 Healthy 
+ Container pipong-ci-69359-api-1 Starting 
+ Container pipong-ci-69359-database-1 Healthy 
+ Container pipong-ci-69359-worker-1 Starting 
+ Container pipong-ci-69359-api-1 Started 
+ Container pipong-ci-69359-worker-1 Started 
+ Container pipong-ci-69359-database-1 Waiting 
+ Container pipong-ci-69359-api-1 Waiting 
+ Container pipong-ci-69359-worker-1 Waiting 
+ Container pipong-ci-69359-worker-1 Healthy 
+ Container pipong-ci-69359-database-1 Healthy 
+ Container pipong-ci-69359-api-1 Healthy 
+{"status":"alive"}
+Clean-volume image restore: about 23 seconds recovery; at most 1 seconds snapshot loss window; post-backup organization absent
+ Container pipong-ci-69359-api-1 Stopping 
+ Container pipong-ci-69359-worker-1 Stopping 
+ Container pipong-ci-69359-worker-1 Stopped 
+ Container pipong-ci-69359-api-1 Stopped 
+ Container pipong-ci-69359-worker-1 Stopping 
+ Container pipong-ci-69359-api-1 Stopping 
+ Container pipong-ci-69359-worker-1 Stopped 
+ Container pipong-ci-69359-worker-1 Removing 
+ Container pipong-ci-69359-api-1 Stopped 
+ Container pipong-ci-69359-api-1 Removing 
+ Container pipong-ci-69359-worker-1 Removed 
+ Container pipong-ci-69359-api-1 Removed 
+ Container pipong-ci-69359-database-1 Stopping 
+ Container pipong-ci-69359-database-1 Stopped 
+ Container pipong-ci-69359-database-1 Removing 
+ Container pipong-ci-69359-database-1 Removed 
+ Network pipong-ci-69359_default Removing 
+ Volume pipong-ci-69359_database Removing 
+ Volume pipong-ci-69359_database Removed 
+ Network pipong-ci-69359_default Removed 
