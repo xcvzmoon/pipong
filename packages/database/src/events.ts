@@ -29,22 +29,14 @@ export async function appendDeliveryEvent(
   scope: EnvironmentScope,
   input: DeliveryEventInput,
 ): Promise<DeliveryEventRecord> {
-  await transaction.insert(eventStreams).values(scope).onConflictDoNothing();
-  const [stream] = await transaction
-    .update(eventStreams)
-    .set({ sequence: sql`${eventStreams.sequence} + 1` })
-    .where(streamScope(scope))
-    .returning();
-  if (!stream) {
-    throw new Error('EVENT_STREAM_UNAVAILABLE: environment stream is unavailable');
-  }
+  const sequence = await reserveEventSequences(transaction, scope, 1);
   const [event] = await transaction
     .insert(deliveryEvents)
     .values({
       organizationId: scope.organizationId,
       projectId: scope.projectId,
       environmentId: scope.environmentId,
-      sequence: stream.sequence,
+      sequence,
       ...input,
     })
     .returning();
@@ -52,6 +44,58 @@ export async function appendDeliveryEvent(
     throw new Error('EVENT_STREAM_UNAVAILABLE: event insertion failed');
   }
   return event;
+}
+
+/**
+ * Appends an ordered batch with one stream update in the caller's transaction.
+ * The stream lock preserves commit order. Callers must authorize the scope and
+ * persist the corresponding state changes in this transaction.
+ * @param transaction - Authorized transaction containing state writes.
+ * @param scope - Owning environment.
+ * @param inputs - Events in delivery order; an empty batch performs no writes.
+ * @returns Resolves after every event is inserted atomically.
+ * @throws {Error} EVENT_STREAM_UNAVAILABLE if the stream is missing; database errors roll back the batch.
+ * @example
+ * ```ts
+ * await appendDeliveryEvents(transaction, scope, queuedEvents);
+ * ```
+ */
+export async function appendDeliveryEvents(
+  transaction: TenantTransaction,
+  scope: EnvironmentScope,
+  inputs: DeliveryEventInput[],
+): Promise<void> {
+  if (inputs.length === 0) {
+    return;
+  }
+  const sequence = await reserveEventSequences(transaction, scope, inputs.length);
+  const firstSequence = sequence - BigInt(inputs.length) + 1n;
+  await transaction.insert(deliveryEvents).values(
+    inputs.map((input, index) => ({
+      organizationId: scope.organizationId,
+      projectId: scope.projectId,
+      environmentId: scope.environmentId,
+      sequence: firstSequence + BigInt(index),
+      ...input,
+    })),
+  );
+}
+
+async function reserveEventSequences(
+  transaction: TenantTransaction,
+  scope: EnvironmentScope,
+  count: number,
+): Promise<bigint> {
+  await transaction.insert(eventStreams).values(scope).onConflictDoNothing();
+  const [stream] = await transaction
+    .update(eventStreams)
+    .set({ sequence: sql`${eventStreams.sequence} + ${count}` })
+    .where(streamScope(scope))
+    .returning({ sequence: eventStreams.sequence });
+  if (!stream) {
+    throw new Error('EVENT_STREAM_UNAVAILABLE: environment stream is unavailable');
+  }
+  return stream.sequence;
 }
 
 /**

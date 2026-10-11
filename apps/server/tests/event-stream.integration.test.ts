@@ -239,6 +239,45 @@ describe.skipIf(!testUrl)('durable SSE through TLS and two built API replicas', 
     await fixture?.close();
   }, 30_000);
 
+  it('initializes concurrent event batches once and rolls back reserved sequences', async () => {
+    const script = `
+      import assert from 'node:assert/strict';
+      const { useWorkerDb } = await import(${JSON.stringify(new URL('../../../packages/database/src/index.ts', import.meta.url).href)});
+      const { withTenantTransaction } = await import(${JSON.stringify(new URL('../../../packages/database/src/tenancy/index.ts', import.meta.url).href)});
+      const { appendDeliveryEvent, appendDeliveryEvents } = await import(${JSON.stringify(new URL('../../../packages/database/src/events.ts', import.meta.url).href)});
+      const runtime = await useWorkerDb();
+      const scope = ${JSON.stringify({ kind: 'environment', organizationId, projectId, environmentId })};
+      const input = ${JSON.stringify({ notificationId: projectId, deliveryId: environmentId, state: 'queued' })};
+      try {
+        await assert.rejects(withTenantTransaction(runtime, scope, async transaction => {
+          await appendDeliveryEvents(transaction, scope, [input, input]);
+          throw new Error('TEST_ROLLBACK');
+        }), /TEST_ROLLBACK/);
+        await Promise.all(Array.from({ length: 12 }, () => withTenantTransaction(runtime, scope,
+          transaction => appendDeliveryEvents(transaction, scope, [input, input]))));
+        await assert.rejects(withTenantTransaction(runtime, scope, async transaction => {
+          await appendDeliveryEvent(transaction, scope, input);
+          throw new Error('TEST_ROLLBACK');
+        }), /TEST_ROLLBACK/);
+        await withTenantTransaction(runtime, scope, transaction => appendDeliveryEvent(transaction, scope, input));
+      } finally { await runtime.close(); }
+    `;
+    await runCommand(process.execPath, ['--input-type=module', '-e', script], {
+      cwd: root,
+      env: fixture.environment,
+    });
+    expect(
+      (
+        await fixture.database.query(
+          'SELECT sequence::integer FROM app.delivery_events ORDER BY sequence',
+        )
+      ).rows,
+    ).toEqual(Array.from({ length: 25 }, (_, index) => ({ sequence: index + 1 })));
+    expect(
+      (await fixture.database.query('SELECT sequence::integer FROM app.event_streams')).rows,
+    ).toEqual([{ sequence: 25 }]);
+  });
+
   it('receives worker events on both replicas and resumes on the other replica without gaps', async () => {
     const first = await stream(1, eventId(0));
     const second = await stream(2, eventId(0));
