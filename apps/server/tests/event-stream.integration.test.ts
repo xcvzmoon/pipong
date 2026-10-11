@@ -395,14 +395,33 @@ describe.skipIf(!testUrl)('durable SSE through TLS and two built API replicas', 
     expect(keyed.statusCode).toBe(200);
     keyed.resume();
     const keyEnded = once(keyed, 'end');
-    await fixture.database.query('UPDATE auth.api_keys SET enabled=false');
+    const otherIssued = await fetch(
+      `${fixture.baseUrl}${eventsPath.replace('/events', '/service-keys')}`,
+      {
+        method: 'POST',
+        headers: { cookie, origin: fixture.baseUrl, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Other stream', actions: ['event:read'], expiresIn: 3600 }),
+      },
+    );
+    expect(otherIssued.status).toBe(201);
+    const otherKey = v.parse(v.object({ key: v.string() }), await otherIssued.json()).key;
+    const survivingKey = await stream(1, undefined, `${eventsPath}/stream`, otherKey);
+    expect(survivingKey.statusCode).toBe(200);
+    const surviving = await stream();
+    expect(surviving.statusCode).toBe(200);
+    await fixture.database.query("UPDATE auth.api_keys SET enabled=false WHERE name='Stream'");
     await Promise.race([
       keyEnded,
       setTimeout(5000).then(() => {
         throw new Error('TEST_KEY_REVOCATION_TIMEOUT');
       }),
     ]);
-  });
+    const survivingEvent = nextDelivery(surviving);
+    const survivingKeyEvent = nextDelivery(survivingKey);
+    await workerEvent('queued');
+    expect((await survivingEvent).state).toBe('queued');
+    expect((await survivingKeyEvent).state).toBe('queued');
+  }, 20_000);
 
   it('disconnects slow sinks, enforces connection limits, and reuses disconnected slots', async () => {
     const session = await fixture.database.query<{ id: string }>(
@@ -460,6 +479,82 @@ describe.skipIf(!testUrl)('durable SSE through TLS and two built API replicas', 
     await setTimeout(1200);
     expect((await stream()).statusCode).toBe(200);
   }, 20_000);
+
+  it('admits 1024 streams, enforces process capacity, and revokes only the matching session', async () => {
+    const session = await fixture.database.query<{ id: string }>(
+      'SELECT id FROM auth.sessions WHERE user_id=$1',
+      [userId],
+    );
+    const secondSessionId = '019a0000-0000-7000-8000-000000000031';
+    await fixture.database.query(
+      "INSERT INTO auth.sessions (id,user_id,token,expires_at,created_at,updated_at) VALUES ($1,$2,'capacity-session',now()+interval '1 hour',now(),now())",
+      [secondSessionId, userId],
+    );
+    const environmentIds = Array.from(
+      { length: 16 },
+      (_, index) => `019a0000-0000-7000-8000-${String(200 + index).padStart(12, '0')}`,
+    );
+    for (const id of environmentIds) {
+      // oxlint-disable-next-line eslint/no-await-in-loop -- Create independent tenant scopes for the process capacity boundary.
+      await fixture.database.query(
+        'INSERT INTO app.environments (id,organization_id,project_id,name) VALUES ($1,$2,$3,$4)',
+        [id, organizationId, projectId, id],
+      );
+    }
+    const script = `
+      import assert from 'node:assert/strict';
+      import pg from ${JSON.stringify(new URL('../node_modules/pg/lib/index.js', import.meta.url).href)};
+      const { useApiDb, useWorkerDb } = await import(${JSON.stringify(new URL('../../../packages/database/src/index.ts', import.meta.url).href)});
+      const { withTenantTransaction } = await import(${JSON.stringify(new URL('../../../packages/database/src/tenancy/index.ts', import.meta.url).href)});
+      const { recordDeliveryEvent } = await import(${JSON.stringify(new URL('../../../packages/service/src/events.ts', import.meta.url).href)});
+      const { createEventStreamRuntime } = await import(${JSON.stringify(new URL('../../../packages/service/src/event-stream.ts', import.meta.url).href)});
+      const api = await useApiDb();
+      const worker = await useWorkerDb();
+      const adminUrl = new URL(process.env.API_DATABASE_URL);
+      adminUrl.username = 'postgres';
+      const admin = new pg.Client({ connectionString: adminUrl.href });
+      const streams = createEventStreamRuntime(api);
+      const principal = ${JSON.stringify({ kind: 'human', userId, sessionId: session.rows[0]?.id })};
+      const revoked = { ...principal, sessionId: '${secondSessionId}' };
+      const scopes = ${JSON.stringify(environmentIds)}.map(environmentId => ({ kind: 'environment', organizationId: '${organizationId}', projectId: '${projectId}', environmentId }));
+      let revokedClosed = 0;
+      let authorizedClosed = 0;
+      let received = 0;
+      try {
+        await admin.connect();
+        for (const scope of scopes) {
+          for (let index = 0; index < 64; index++) {
+            const result = await streams.subscribe(index === 0 ? revoked : principal, scope, undefined, async message => {
+              if (message.kind === 'delivery') { received++; }
+            }, () => { if (index === 0) { revokedClosed++; } else { authorizedClosed++; } });
+            assert.equal(result.ok, true);
+          }
+        }
+        assert.equal(streams.pressure().connections, 1024);
+        const overflow = await streams.subscribe(principal, ${JSON.stringify({ kind: 'environment', organizationId, projectId, environmentId })}, undefined, async () => {}, () => {});
+        assert.deepEqual(overflow, { ok: false, status: 429, code: 'EVENT_STREAM_CAPACITY' });
+        await admin.query('DELETE FROM auth.sessions WHERE id=$1', ['${secondSessionId}']);
+        const deadline = Date.now() + 5000;
+        while (revokedClosed < 16 && Date.now() < deadline) { await new Promise(resolve => setTimeout(resolve, 20)); }
+        assert.equal(revokedClosed, 16);
+        assert.equal(authorizedClosed, 0);
+        assert.equal(streams.pressure().connections, 1008);
+        await withTenantTransaction(worker, scopes[0], transaction => recordDeliveryEvent(transaction, scopes[0], ${JSON.stringify({ notificationId: projectId, deliveryId: environmentId, state: 'queued' })}));
+        const deliveryDeadline = Date.now() + 5000;
+        while (received < 63 && Date.now() < deliveryDeadline) { await new Promise(resolve => setTimeout(resolve, 20)); }
+        assert.equal(received, 63);
+        const reused = await streams.subscribe(principal, scopes[0], undefined, async () => {}, () => {});
+        assert.equal(reused.ok, true);
+        await streams.close();
+        assert.equal(streams.pressure().connections, 0);
+      } finally { await streams.close(); await admin.end(); await api.close(); await worker.close(); }
+    `;
+    await runCommand(process.execPath, ['--input-type=module', '-e', script], {
+      cwd: root,
+      env: fixture.environment,
+      timeout: 45_000,
+    });
+  }, 50_000);
 
   it('bounds held database locks while other environments continue and shutdown completes', async () => {
     const session = await fixture.database.query<{ id: string }>(
