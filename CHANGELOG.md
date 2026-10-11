@@ -1,5 +1,78 @@
 # Changelog
 
+## v0.0.7
+
+[compare changes](https://github.com/xcvzmoon/pipong/compare/v0.0.6...v0.0.7)
+
+### 🚀 Enhancements
+
+- **worker:** Run explicitly enabled push consumers ([ec8d6f2](https://github.com/xcvzmoon/pipong/commit/ec8d6f2))
+
+### 🔥 Performance
+
+- **events:** Reserve contiguous sequences for event batches ([e4fa3e8](https://github.com/xcvzmoon/pipong/commit/e4fa3e8))
+- **submissions:** Batch initial delivery jobs atomically ([ecd2c17](https://github.com/xcvzmoon/pipong/commit/ecd2c17))
+- **admission:** Initialize tenant budgets only when missing ([59bbc2a](https://github.com/xcvzmoon/pipong/commit/59bbc2a))
+- **admission:** Update quota counters once per request ([f4840cc](https://github.com/xcvzmoon/pipong/commit/f4840cc))
+- **admission:** Release pending quota with one locked statement ([64f9c4d](https://github.com/xcvzmoon/pipong/commit/64f9c4d))
+- **delivery:** Complete fenced claims before quota publication ([3ef120a](https://github.com/xcvzmoon/pipong/commit/3ef120a))
+- **delivery:** Read claim capacity in one database statement ([ae128e2](https://github.com/xcvzmoon/pipong/commit/ae128e2))
+- **sse:** Share live authorization across identical principals ([aeda4b2](https://github.com/xcvzmoon/pipong/commit/aeda4b2))
+
+### 🩹 Fixes
+
+- **release:** Publish verified artifacts from tag CI ([d35acc5](https://github.com/xcvzmoon/pipong/commit/d35acc5))
+- **images:** Label artifacts with their source repository ([18fdd77](https://github.com/xcvzmoon/pipong/commit/18fdd77))
+- **queue:** Bound provider claim SQL and lock waits ([f7ea72b](https://github.com/xcvzmoon/pipong/commit/f7ea72b))
+- **queue:** Index active claims without scanning retained jobs ([12ef9a8](https://github.com/xcvzmoon/pipong/commit/12ef9a8))
+- **qualification:** Type the built worker import from source ([6396bd1](https://github.com/xcvzmoon/pipong/commit/6396bd1))
+- **qualification:** Validate worker exports with Valibot ([4392bb7](https://github.com/xcvzmoon/pipong/commit/4392bb7))
+
+### 💅 Refactors
+
+- **worker:** Share the built lifecycle with qualification fixtures ([ab5c405](https://github.com/xcvzmoon/pipong/commit/ab5c405))
+
+### 📖 Documentation
+
+- **worker:** Describe opt-in push delivery operation ([9062665](https://github.com/xcvzmoon/pipong/commit/9062665))
+- **recovery:** Document active-send and WAL restore drills ([162b444](https://github.com/xcvzmoon/pipong/commit/162b444))
+- **release:** Record qualification results and remaining gates ([c8e9fcd](https://github.com/xcvzmoon/pipong/commit/c8e9fcd))
+- **operations:** Document constrained Docker qualification ([42b315f](https://github.com/xcvzmoon/pipong/commit/42b315f))
+- **qualification:** Record local resource and latency evidence ([9a4f383](https://github.com/xcvzmoon/pipong/commit/9a4f383))
+- **operations:** Describe the verified local qualification workload ([7f156cc](https://github.com/xcvzmoon/pipong/commit/7f156cc))
+- **qualification:** Archive passing runs and failed diagnostics ([a55f7cf](https://github.com/xcvzmoon/pipong/commit/a55f7cf))
+- **plan:** Record completed local qualification gates ([8f81d47](https://github.com/xcvzmoon/pipong/commit/8f81d47))
+- **qualification:** Record clean-checkout CI correction evidence ([09235a1](https://github.com/xcvzmoon/pipong/commit/09235a1))
+- **backup:** Document remote storage prerequisites ([498c805](https://github.com/xcvzmoon/pipong/commit/498c805))
+- **release:** Document container publication prerequisites ([82485ba](https://github.com/xcvzmoon/pipong/commit/82485ba))
+- **release:** Record tested runtime compatibility ([af87651](https://github.com/xcvzmoon/pipong/commit/af87651))
+- **recovery:** Preserve initial deployment rehearsal evidence ([2420948](https://github.com/xcvzmoon/pipong/commit/2420948))
+- **recovery:** Preserve application WAL and incident evidence ([5465562](https://github.com/xcvzmoon/pipong/commit/5465562))
+- **recovery:** Reconcile release qualification status ([3bafee1](https://github.com/xcvzmoon/pipong/commit/3bafee1))
+- **evidence:** Normalize captured log whitespace ([353de45](https://github.com/xcvzmoon/pipong/commit/353de45))
+
+### 📦 Build
+
+- **server:** Pin the qualified Nitro beta ([e7ebc42](https://github.com/xcvzmoon/pipong/commit/e7ebc42))
+
+### 🏡 Chore
+
+- **qualification:** Cap the local backend at 2 GiB ([3471306](https://github.com/xcvzmoon/pipong/commit/3471306))
+- **ops:** Add constrained recovery qualification runner ([219f34d](https://github.com/xcvzmoon/pipong/commit/219f34d))
+
+### ✅ Tests
+
+- **recovery:** Restore interrupted sends and post-snapshot incidents ([6a1af1d](https://github.com/xcvzmoon/pipong/commit/6a1af1d))
+- **recovery:** Rehearse physical WAL point-in-time restore ([30d9881](https://github.com/xcvzmoon/pipong/commit/30d9881))
+- **load:** Measure TLS dispatch and stream capacity ([64232f1](https://github.com/xcvzmoon/pipong/commit/64232f1))
+- **qualification:** Run backend load under Docker resource caps ([f1c28a2](https://github.com/xcvzmoon/pipong/commit/f1c28a2))
+- **qualification:** Exercise mixed providers with sustained authenticated streams ([b5705ae](https://github.com/xcvzmoon/pipong/commit/b5705ae))
+- **recovery:** Qualify application WAL restoration ([a294805](https://github.com/xcvzmoon/pipong/commit/a294805))
+
+### ❤️ Contributors
+
+- Mon Albert Gamil ([@xcvzmoon](https://github.com/xcvzmoon))
+
 ## v0.0.6
 
 [compare changes](https://github.com/xcvzmoon/pipong/compare/v0.0.5...v0.0.6)
