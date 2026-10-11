@@ -39,14 +39,21 @@ export async function reserveAdmission(
   reservationId: string,
   endpoints: number,
 ): Promise<AdmissionDecision> {
-  await transaction.execute(
-    sql`INSERT INTO app.tenant_budgets (organization_id) VALUES (${organizationId}::uuid) ON CONFLICT DO NOTHING`,
-  );
-  const [budget] = await transaction
+  let [budget] = await transaction
     .select()
     .from(tenantBudgets)
     .where(eq(tenantBudgets.organizationId, organizationId))
     .for('update');
+  if (!budget) {
+    await transaction.execute(
+      sql`INSERT INTO app.tenant_budgets (organization_id) VALUES (${organizationId}::uuid) ON CONFLICT DO NOTHING`,
+    );
+    [budget] = await transaction
+      .select()
+      .from(tenantBudgets)
+      .where(eq(tenantBudgets.organizationId, organizationId))
+      .for('update');
+  }
   if (!budget) {
     throw new Error('ADMISSION_UNAVAILABLE: tenant budget is unavailable');
   }
