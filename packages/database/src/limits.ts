@@ -100,12 +100,22 @@ export async function reserveAdmission(
       return { status: 'rejected', code: 'ADMISSION_KEY_LIMIT', retryAfter };
     }
   }
+  let decision: AdmissionDecision = { status: 'accepted', replay: reservation !== undefined };
+  if (!reservation) {
+    if (endpoints > budget.fanoutLimit - fanout) {
+      decision = { status: 'rejected', code: 'ADMISSION_FANOUT_LIMIT', retryAfter };
+    } else if (endpoints > budget.pendingLimit - budget.pending) {
+      decision = { status: 'rejected', code: 'ADMISSION_PENDING_LIMIT', retryAfter: 1 };
+    }
+  }
+  const reservedEndpoints = decision.status === 'accepted' && !decision.replay ? endpoints : 0;
   await transaction
     .update(tenantBudgets)
     .set({
       windowStart,
       requests: requests + 1,
-      fanout,
+      fanout: fanout + reservedEndpoints,
+      pending: budget.pending + reservedEndpoints,
     })
     .where(eq(tenantBudgets.organizationId, organizationId));
   if (keyId !== null) {
@@ -117,23 +127,12 @@ export async function reserveAdmission(
         set: { windowStart, requests: keyRequests + 1 },
       });
   }
-  if (reservation) {
-    return { status: 'accepted', replay: true };
+  if (decision.status === 'accepted' && !decision.replay) {
+    await transaction
+      .insert(admissionReservations)
+      .values({ organizationId, id: reservationId, endpoints, remaining: endpoints });
   }
-  if (endpoints > budget.fanoutLimit - fanout) {
-    return { status: 'rejected', code: 'ADMISSION_FANOUT_LIMIT', retryAfter };
-  }
-  if (endpoints > budget.pendingLimit - budget.pending) {
-    return { status: 'rejected', code: 'ADMISSION_PENDING_LIMIT', retryAfter: 1 };
-  }
-  await transaction
-    .update(tenantBudgets)
-    .set({ fanout: fanout + endpoints, pending: budget.pending + endpoints })
-    .where(eq(tenantBudgets.organizationId, organizationId));
-  await transaction
-    .insert(admissionReservations)
-    .values({ organizationId, id: reservationId, endpoints, remaining: endpoints });
-  return { status: 'accepted', replay: false };
+  return decision;
 }
 
 /**
